@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Résonance — ta musique, ta plateforme</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1E1A2E">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<nav class="top">
+  <div class="wordmark">Résonance</div>
+  <div class="nav-right">
+    <div class="lang-switch">
+      <button data-lang="fr" class="lang-btn active">FR</button>
+      <button data-lang="en" class="lang-btn">EN</button>
+    </div>
+    <a href="#decouvrir" data-i18n="nav.discover" class="nav-link">Découvrir</a>
+    <a href="#espace" data-i18n="nav.dashboard" class="nav-link" id="nav-dashboard" hidden>Mon espace</a>
+  <a href="#espace" data-i18n="nav.admin" class="nav-link" id="nav-admin" hidden>Administration</a>
+    <a href="#espace" data-i18n="nav.login" class="nav-link" id="nav-login">Se connecter</a>
+    <button data-i18n="nav.logout" class="nav-link btn-link" id="nav-logout" hidden>Se déconnecter</button>
+  </div>
+</nav>
+
+<section class="hero main-view">
+  <div class="wrap hero-grid">
+    <div>
+      <h1 data-i18n="hero.title">Ta musique, ta plateforme, tes règles.</h1>
+      <p class="lede" data-i18n="hero.lede">Résonance héberge tes morceaux, te relie à tes plateformes de streaming et permet à ton public de te soutenir directement.</p>
+      <div class="cta-row">
+        <a href="#espace" class="btn btn-primary" data-i18n="hero.cta.signup">Créer mon espace artiste</a>
+        <a href="#decouvrir" class="btn btn-ghost" data-i18n="hero.cta.discover">Découvrir des artistes</a>
+      </div>
+    </div>
+    <svg class="waveform" viewBox="0 0 240 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <g id="bars"></g>
+    </svg>
+  </div>
+</section>
+
+<section class="on-paper main-view">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 data-i18n="how.title">Comment ça marche</h2>
+      <p data-i18n="how.lede">Trois étapes entre ton morceau et ton public.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="num">Un</div>
+        <h3 data-i18n="how.step1.title">Héberge et diffuse</h3>
+        <p data-i18n="how.step1.body">Dépose ton fichier audio…</p>
+      </div>
+      <div class="step">
+        <div class="num">Deux</div>
+        <h3 data-i18n="how.step2.title">Fais-toi soutenir</h3>
+        <p data-i18n="how.step2.body">Un lien de don…</p>
+      </div>
+      <div class="step">
+        <div class="num">Trois</div>
+        <h3 data-i18n="how.step3.title">Relie tes plateformes</h3>
+        <p data-i18n="how.step3.body">Ajoute tes liens…</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="espace" class="main-view">
+  <div class="wrap">
+
+    <!-- AUTH (visible si déconnecté) -->
+    <div id="auth-block">
+      <div class="section-head">
+        <h2 data-i18n="auth.title">Espace artiste</h2>
+      </div>
+      <div class="panel auth-panel">
+        <div id="login-form-wrap">
+          <h3 data-i18n="auth.login.title">Se connecter</h3>
+          <form id="login-form">
+            <label data-i18n="auth.email">Adresse e-mail</label>
+            <input type="email" id="login-email" required>
+            <label data-i18n="auth.password">Mot de passe</label>
+            <input type="password" id="login-password" required>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-i18n="auth.submitLogin">Se connecter</button>
+              <span class="form-note" id="login-status"></span>
+            </div>
+          </form>
+          <p class="switch-link"><a href="#" id="show-signup" data-i18n="auth.switchToSignup">Pas encore de compte ?</a></p>
+        </div>
+        <div id="signup-form-wrap" hidden>
+          <h3 data-i18n="auth.signup.title">Créer mon compte</h3>
+          <form id="signup-form">
+            <label data-i18n="auth.artistName">Nom d'artiste</label>
+            <input type="text" id="signup-artistName" required>
+            <label data-i18n="auth.email">Adresse e-mail</label>
+            <input type="email" id="signup-email" required>
+            <label data-i18n="auth.password">Mot de passe (8 caractères minimum)</label>
+            <input type="password" id="signup-password" required minlength="8">
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-i18n="auth.submitSignup">Créer mon compte</button>
+              <span class="form-note" id="signup-status"></span>
+            </div>
+          </form>
+          <p class="switch-link"><a href="#" id="show-login" data-i18n="auth.switchToLogin">Déjà un compte ?</a></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD (visible si connecté) -->
+    <div id="dashboard-block" hidden>
+      <div class="section-head">
+        <h2 data-i18n="dashboard.title">Mon espace</h2>
+      </div>
+
+      <div class="panel">
+        <h3 data-i18n="dashboard.profile.title">Mon profil</h3>
+        <form id="profile-form">
+          <label data-i18n="auth.artistName">Nom d'artiste</label>
+          <input type="text" id="profile-artistName">
+          <label data-i18n="dashboard.profile.bio">Bio courte</label>
+          <textarea id="profile-bio"></textarea>
+          <label data-i18n="dashboard.profile.donation">Lien de soutien / don</label>
+          <input type="url" id="profile-donationLink" placeholder="https://ko-fi.com/…">
+          <div class="field-row">
+            <div>
+              <label data-i18n="dashboard.profile.spotify">Lien Spotify</label>
+              <input type="url" id="profile-spotifyUrl">
+            </div>
+            <div>
+              <label data-i18n="dashboard.profile.apple">Lien Apple Music</label>
+              <input type="url" id="profile-appleUrl">
+            </div>
+          </div>
+          <div class="field-row">
+            <div>
+              <label data-i18n="dashboard.profile.soundcloud">Lien SoundCloud</label>
+              <input type="url" id="profile-soundcloudUrl">
+            </div>
+            <div>
+              <label data-i18n="dashboard.profile.instagram">Lien Instagram</label>
+              <input type="url" id="profile-instagramUrl">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" data-i18n="dashboard.profile.save">Enregistrer le profil</button>
+            <span class="form-note" id="profile-status"></span>
+          </div>
+        </form>
+      </div>
+
+      <div class="panel" style="margin-top:24px;">
+        <h3 data-i18n="dashboard.addTrack.title">Publier un morceau</h3>
+        <form id="track-form">
+          <label data-i18n="dashboard.addTrack.trackTitle">Titre du morceau</label>
+          <input type="text" id="track-title" required>
+          <label data-i18n="dashboard.addTrack.genre">Genre</label>
+          <input type="text" id="track-genre">
+          <label data-i18n="dashboard.addTrack.audio">Fichier audio</label>
+          <input type="file" id="track-audio" accept="audio/*" required>
+
+          <label data-i18n="dashboard.addTrack.aiLevel">Ce morceau a-t-il été fait avec l'aide de l'IA ?</label>
+          <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="ai-level" value="none" checked> <span data-i18n="ai.level.none">Non, entièrement humain</span></label>
+            <label class="radio-option"><input type="radio" name="ai-level" value="assisted"> <span data-i18n="ai.level.assisted">Assisté par IA (paroles, musique, ou proposition retravaillée par un humain)</span></label>
+            <label class="radio-option"><input type="radio" name="ai-level" value="generated"> <span data-i18n="ai.level.generated">Généré par IA sans retouche humaine significative</span></label>
+          </div>
+
+          <div id="ai-detail-block" hidden>
+            <label data-i18n="dashboard.addTrack.aiTool">Outil utilisé</label>
+            <select id="track-aiTool">
+              <option value="Suno">Suno</option>
+              <option value="Udio">Udio</option>
+              <option value="AIVA">AIVA</option>
+              <option value="Boomy">Boomy</option>
+              <option value="Soundraw">Soundraw</option>
+              <option value="Beatoven.ai">Beatoven.ai</option>
+              <option value="Amper / Shutterstock">Amper / Shutterstock Music</option>
+              <option value="autre">— autre —</option>
+            </select>
+            <input type="text" id="track-aiToolOther" data-i18n-placeholder="dashboard.addTrack.aiToolOtherPh" placeholder="Précise l'outil" hidden>
+          </div>
+          <p class="ai-hint" data-i18n="dashboard.addTrack.aiHint">Coché ou non, ton morceau est le bienvenu ici. Cette information est affichée publiquement, en toute transparence.</p>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" data-i18n="dashboard.addTrack.submit">Publier</button>
+            <span class="form-note" id="track-status"></span>
+          </div>
+        </form>
+      </div>
+
+      <div style="margin-top:36px;">
+        <h3 data-i18n="dashboard.myTracks.title">Mes morceaux</h3>
+        <div id="my-tracks-list"></div>
+      </div>
+    </div>
+
+    <!-- ADMINISTRATION (visible uniquement pour le compte admin) -->
+    <div id="admin-block" hidden style="margin-top:48px;">
+      <div class="section-head">
+        <h2 data-i18n="admin.title">Administration</h2>
+        <p data-i18n="admin.lede">Vue réservée à l'administratrice de la plateforme.</p>
+      </div>
+      <div class="panel">
+        <h3 data-i18n="admin.users.title">Artistes inscrits</h3>
+        <div id="admin-users-list"></div>
+      </div>
+      <div class="panel" style="margin-top:24px;">
+        <h3 data-i18n="admin.tracks.title">Tous les morceaux</h3>
+        <div id="admin-tracks-list"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="on-paper main-view" id="decouvrir">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 data-i18n="discover.title">Découvrir</h2>
+      <p data-i18n="discover.lede">Les morceaux publiés par la communauté Résonance.</p>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="feed" id="feed"></div>
+  </div>
+</section>
+
+<section class="on-paper" id="artiste" hidden>
+  <div class="wrap">
+    <button class="btn-back" id="back-to-discover">← <span data-i18n="discover.title">Découvrir</span></button>
+    <div class="artist-header">
+      <div>
+        <h2 id="artist-page-name"></h2>
+        <p id="artist-page-bio" class="artist-bio"></p>
+        <div class="artist-links" id="artist-page-links"></div>
+      </div>
+      <div class="artist-follow">
+        <span id="artist-follower-count" class="follower-count"></span>
+        <button class="btn btn-primary" id="follow-btn" hidden></button>
+      </div>
+    </div>
+    <div class="feed" id="artist-page-tracks" style="margin-top:28px;"></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p data-i18n="footer.text">Résonance est un projet indépendant.</p>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
