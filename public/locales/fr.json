@@ -54,7 +54,7 @@
   "dashboard.addTrack.aiToolOtherPh": "Précise l'outil",
   "dashboard.addTrack.aiHint": "Coché ou non, ton morceau est le bienvenu ici. Cette information est affichée publiquement, en toute transparence.",
   "dashboard.addTrack.genesis": "Raconte comment ce morceau est né (optionnel)",
-  "dashboard.addTrack.genesisPh": "Les paroles écrites il y a des années, une proposition IA qui a tout changé, des mois à peaufiner…",
+  "dashboard.addTrack.genesisPh": "D'où vient ce morceau ? Une idée ancienne, une étincelle IA, un travail de plusieurs mois… à toi de raconter.",
   "dashboard.addTrack.explicit": "Contient un langage explicite / grossier",
   "dashboard.addTrack.explicitHint": "Permet aux auditeurs qui le souhaitent de filtrer ce contenu.",
   "dashboard.addTrack.submit": "Publier",

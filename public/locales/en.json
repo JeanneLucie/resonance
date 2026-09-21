@@ -54,7 +54,7 @@
   "dashboard.addTrack.aiToolOtherPh": "Name the tool",
   "dashboard.addTrack.aiHint": "Checked or not, your track is welcome here. This is shown publicly, in full transparency.",
   "dashboard.addTrack.genesis": "Tell how this track came to be (optional)",
-  "dashboard.addTrack.genesisPh": "Lyrics written years ago, an AI proposal that changed everything, months of polishing…",
+  "dashboard.addTrack.genesisPh": "Where does this track come from? An old idea, an AI spark, months of work… tell it your way.",
   "dashboard.addTrack.explicit": "Contains explicit / crude language",
   "dashboard.addTrack.explicitHint": "Lets listeners who prefer to filter this content out.",
   "dashboard.addTrack.submit": "Publish",
