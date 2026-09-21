@@ -160,6 +160,8 @@ document.getElementById('nav-logout').addEventListener('click', async () => {
   currentUser = null;
   updateAuthUI();
   updateAdminUI();
+  window.location.hash = '';
+  window.scrollTo(0, 0);
 });
 
 // --- Profil ---
@@ -473,6 +475,17 @@ function renderFilteredFeed() {
     return;
   }
   feed.innerHTML = filtered.map(renderTrackCard).join('');
+  wireAutoplay(feed);
+}
+
+function wireAutoplay(container) {
+  const audios = Array.from(container.querySelectorAll('audio'));
+  audios.forEach((audio, idx) => {
+    audio.addEventListener('ended', () => {
+      const next = audios[idx + 1];
+      if (next) next.play();
+    });
+  });
 }
 
 document.getElementById('discover-search').addEventListener('input', renderFilteredFeed);
@@ -866,6 +879,7 @@ async function loadArtistPage(artistId) {
   const visibleTracks = tracks.filter((tr) => !hideExplicitPref || !tr.explicit);
   tracksFeed.innerHTML =
     visibleTracks.length === 0 ? '<div class="empty-state">' + t('discover.empty') + '</div>' : visibleTracks.map(renderTrackCard).join('');
+  wireAutoplay(tracksFeed);
 }
 
 function handleRoute() {
