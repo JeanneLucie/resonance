@@ -924,8 +924,15 @@ installBtn.addEventListener('click', async () => {
 
 // --- Init ---
 (async function init() {
+  // Si l'adresse garde une ancienne ancre (#decouvrir, etc.) sans être une
+  // vraie page artiste, on revient en haut plutôt que de suivre le saut
+  // automatique du navigateur vers cette section.
+  if (window.location.hash && !window.location.hash.match(/^#\/artiste\/\d+$/)) {
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
   await loadLang(CURRENT_LANG);
   await refreshMe();
   await loadFeed();
   handleRoute();
+  window.scrollTo(0, 0);
 })();

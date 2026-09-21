@@ -80,6 +80,7 @@ section.on-paper h2, section.on-paper h3 { color: var(--text-on-paper); }
 .explicit-filter { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 0.85rem; color: var(--text-on-paper-dim); cursor: pointer; }
 .parental-lock-btn { margin-top: 10px; margin-left: 0; display: inline-block; }
 .parental-info { margin-top: 10px; font-size: 0.78rem; color: var(--text-on-paper-dim); max-width: 62ch; line-height: 1.5; }
+.parental-info + .parental-info { margin-top: 8px; font-style: italic; }
 
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
 @media (max-width: 760px) { .steps { grid-template-columns: 1fr; } }

@@ -107,6 +107,7 @@
   "discover.parentalPinTooShort": "The PIN must be at least 4 characters.",
   "discover.parentalPinMismatch": "The two PINs don't match.",
   "discover.parentalInfo": "Résonance lets you hide tracks flagged as containing explicit language, locked with a PIN only a parent knows. Set it up directly on your child's device. Designed to support families up to France's digital age of consent (15), it's a simple, honest filter — not an identity check.",
+  "discover.parentalCaveat": "Important for parents: like any online service, Résonance cannot automatically detect a visitor's age — especially since listening requires no account at all. It's up to you to activate this lock, on your child's device: check \"Hide explicit content\" above, then click \"🔒 Lock\".",
   "tag.explicit": "Explicit",
   "tag.ai": "AI-assisted",
   "link.spotify": "Spotify",
