@@ -48,10 +48,11 @@ async function createRelease({ title, artistId, releaseDate }) {
   return lgRequest('POST', '/api/public/releases', { title, artistId, releaseDate });
 }
 
-async function uploadTrackAudio({ releaseId, title, audioFilePath }) {
+async function uploadTrackAudio({ releaseId, title, audioUrl }) {
   // NOTE : l'upload de fichier passe probablement par multipart/form-data
   // plutôt que du JSON — à ajuster une fois la référence exacte consultée.
-  return lgRequest('POST', '/api/public/releases/' + releaseId + '/tracks', { title, audioFilePath });
+  // audioUrl pointe vers le fichier hébergé sur Supabase Storage.
+  return lgRequest('POST', '/api/public/releases/' + releaseId + '/tracks', { title, audioUrl });
 }
 
 async function submitForDistribution(releaseId) {

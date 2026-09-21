@@ -4,33 +4,20 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const supabase = require('./supabaseClient');
 const labelgrid = require('./labelgrid');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-in-.env';
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').toLowerCase();
 
-// --- Config upload audio ---
-// NOTE : ce dossier reste local au serveur et n'est pas encore persistant
-// (il peut être effacé lors d'un redéploiement sur le plan gratuit de
-// Render). C'est une amélioration à faire plus tard avec un stockage
-// cloud dédié (ex. Supabase Storage), séparée de cette réparation-ci qui
-// ne concerne que les comptes et les infos des morceaux.
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const safe = Date.now() + '-' + file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, safe);
-  },
-});
+// --- Config upload (audio, pochettes, avatars, bannières) ---
+// Les fichiers sont stockés sur Supabase Storage (bucket "media"),
+// permanent — contrairement à un dossier local sur Render, qui peut être
+// effacé à chaque redéploiement.
+const STORAGE_BUCKET = 'media';
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 60 * 1024 * 1024 }, // 60 Mo par fichier
   fileFilter: (req, file, cb) => {
     if (file.fieldname === 'cover' || file.fieldname === 'avatar' || file.fieldname === 'banner') {
@@ -46,10 +33,30 @@ const upload = multer({
   },
 });
 
+async function uploadToStorage(file) {
+  const safe = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '-' + file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(safe, file.buffer, { contentType: file.mimetype });
+  if (error) throw error;
+  const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(safe);
+  return data.publicUrl;
+}
+
+function storagePathFromUrl(url) {
+  if (!url) return null;
+  const marker = '/' + STORAGE_BUCKET + '/';
+  const idx = url.indexOf(marker);
+  return idx === -1 ? null : url.slice(idx + marker.length);
+}
+
+async function removeFromStorage(url) {
+  const path = storagePathFromUrl(url);
+  if (!path) return;
+  await supabase.storage.from(STORAGE_BUCKET).remove([path]);
+}
+
 // --- Middlewares ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(uploadsDir));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(
   session({
@@ -180,13 +187,13 @@ app.put(
 
     const avatarFile = req.files && req.files.avatar && req.files.avatar[0];
     if (avatarFile) {
-      fields.avatar_url = '/uploads/' + avatarFile.filename;
-      if (current && current.avatar_url) fs.unlink(path.join(uploadsDir, path.basename(current.avatar_url)), () => {});
+      fields.avatar_url = await uploadToStorage(avatarFile);
+      if (current && current.avatar_url) removeFromStorage(current.avatar_url);
     }
     const bannerFile = req.files && req.files.banner && req.files.banner[0];
     if (bannerFile) {
-      fields.banner_url = '/uploads/' + bannerFile.filename;
-      if (current && current.banner_url) fs.unlink(path.join(uploadsDir, path.basename(current.banner_url)), () => {});
+      fields.banner_url = await uploadToStorage(bannerFile);
+      if (current && current.banner_url) removeFromStorage(current.banner_url);
     }
 
     const { data: user, error } = await supabase.from('users').update(fields).eq('id', req.session.userId).select().single();
@@ -234,6 +241,9 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (!title || !audioFile) return res.status(400).json({ error: 'missing_fields' });
 
+  const audioUrl = await uploadToStorage(audioFile);
+  const coverUrl = coverFile ? await uploadToStorage(coverFile) : '';
+
   const { data: track, error } = await supabase
     .from('tracks')
     .insert({
@@ -242,8 +252,8 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
       genre: genre || '',
       ai_level: aiLevel || 'none',
       ai_tool: aiTool || '',
-      audio_url: '/uploads/' + audioFile.filename,
-      cover_url: coverFile ? '/uploads/' + coverFile.filename : '',
+      audio_url: audioUrl,
+      cover_url: coverUrl,
       collaborators: collaborators || '',
       genesis: genesis || '',
       created_at: Date.now(),
@@ -269,8 +279,8 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
 
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (coverFile) {
-    fields.cover_url = '/uploads/' + coverFile.filename;
-    if (track.cover_url) fs.unlink(path.join(uploadsDir, path.basename(track.cover_url)), () => {});
+    fields.cover_url = await uploadToStorage(coverFile);
+    if (track.cover_url) removeFromStorage(track.cover_url);
   }
 
   const { data: updated, error } = await supabase.from('tracks').update(fields).eq('id', track.id).select().single();
@@ -282,7 +292,8 @@ app.delete('/api/tracks/:id', requireAuth, async (req, res) => {
   const { data: track } = await supabase.from('tracks').select('*').eq('id', req.params.id).eq('user_id', req.session.userId).maybeSingle();
   if (!track) return res.status(404).json({ error: 'not_found' });
   await supabase.from('tracks').delete().eq('id', track.id);
-  fs.unlink(path.join(uploadsDir, path.basename(track.audio_url)), () => {});
+  removeFromStorage(track.audio_url);
+  if (track.cover_url) removeFromStorage(track.cover_url);
   res.json({ ok: true });
 });
 
@@ -350,7 +361,7 @@ app.post('/api/tracks/:id/distribute', requireAuth, async (req, res) => {
     await labelgrid.uploadTrackAudio({
       releaseId: release.id,
       title: track.title,
-      audioFilePath: path.join(uploadsDir, path.basename(track.audio_url)),
+      audioUrl: track.audio_url,
     });
     await labelgrid.submitForDistribution(release.id);
 
@@ -394,7 +405,8 @@ app.delete('/api/admin/tracks/:id', requireAdmin, async (req, res) => {
   const { data: track } = await supabase.from('tracks').select('*').eq('id', req.params.id).maybeSingle();
   if (!track) return res.status(404).json({ error: 'not_found' });
   await supabase.from('tracks').delete().eq('id', track.id);
-  fs.unlink(path.join(uploadsDir, path.basename(track.audio_url)), () => {});
+  removeFromStorage(track.audio_url);
+  if (track.cover_url) removeFromStorage(track.cover_url);
   res.json({ ok: true });
 });
 
@@ -403,7 +415,10 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
   if (targetId === req.session.userId) return res.status(400).json({ error: 'cannot_delete_self' });
   const { data: tracks } = await supabase.from('tracks').select('*').eq('user_id', targetId);
   await supabase.from('users').delete().eq('id', targetId);
-  (tracks || []).forEach((t) => fs.unlink(path.join(uploadsDir, path.basename(t.audio_url)), () => {}));
+  (tracks || []).forEach((t) => {
+    removeFromStorage(t.audio_url);
+    if (t.cover_url) removeFromStorage(t.cover_url);
+  });
   res.json({ ok: true });
 });
 
