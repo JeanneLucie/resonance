@@ -11,6 +11,10 @@ async function loadLang(lang) {
     const key = el.getAttribute('data-i18n');
     if (STR[key]) el.textContent = STR[key];
   });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (STR[key]) el.placeholder = STR[key];
+  });
   document.querySelectorAll('.lang-btn').forEach((b) => {
     b.classList.toggle('active', b.getAttribute('data-lang') === lang);
   });
@@ -354,17 +358,55 @@ function linkPill(url, label, donate) {
   );
 }
 
+let ALL_TRACKS = [];
+
 async function loadFeed() {
-  const feed = document.getElementById('feed');
   const res = await fetch('/api/tracks');
   const { tracks } = await res.json();
+  ALL_TRACKS = tracks;
+  populateGenreFilter(tracks);
+  renderFilteredFeed();
+}
 
-  if (tracks.length === 0) {
-    feed.innerHTML = '<div class="empty-state">' + t('discover.empty') + '</div>';
+function populateGenreFilter(tracks) {
+  const select = document.getElementById('discover-genre');
+  const current = select.value;
+  const genres = [...new Set(tracks.map((t) => t.genre).filter(Boolean))].sort();
+  const staticOption = select.querySelector('option[value=""]');
+  select.innerHTML = '';
+  select.appendChild(staticOption);
+  genres.forEach((g) => {
+    const opt = document.createElement('option');
+    opt.value = g;
+    opt.textContent = g;
+    select.appendChild(opt);
+  });
+  select.value = current;
+}
+
+function renderFilteredFeed() {
+  const feed = document.getElementById('feed');
+  const query = document.getElementById('discover-search').value.trim().toLowerCase();
+  const genre = document.getElementById('discover-genre').value;
+  const aiLevel = document.getElementById('discover-ai').value;
+
+  const filtered = ALL_TRACKS.filter((tr) => {
+    const matchesQuery = !query || tr.title.toLowerCase().includes(query) || tr.artistName.toLowerCase().includes(query);
+    const matchesGenre = !genre || tr.genre === genre;
+    const matchesAi = !aiLevel || tr.aiLevel === aiLevel;
+    return matchesQuery && matchesGenre && matchesAi;
+  });
+
+  if (filtered.length === 0) {
+    feed.innerHTML = '<div class="empty-state">' + (ALL_TRACKS.length === 0 ? t('discover.empty') : t('discover.noMatch')) + '</div>';
     return;
   }
-  feed.innerHTML = tracks.map(renderTrackCard).join('');
+  feed.innerHTML = filtered.map(renderTrackCard).join('');
 }
+
+document.getElementById('discover-search').addEventListener('input', renderFilteredFeed);
+document.getElementById('discover-genre').addEventListener('change', renderFilteredFeed);
+document.getElementById('discover-ai').addEventListener('change', renderFilteredFeed);
 
 // --- Administration ---
 function updateAdminUI() {

@@ -166,7 +166,7 @@ app.put('/api/me', requireAuth, async (req, res) => {
 
 // --- Morceaux ---
 app.get('/api/tracks', async (req, res) => {
-  const { data: tracks } = await supabase.from('tracks').select('*').order('created_at', { ascending: false }).limit(50);
+  const { data: tracks } = await supabase.from('tracks').select('*').order('created_at', { ascending: false }).limit(200);
   const userIds = [...new Set((tracks || []).map((t) => t.user_id))];
   const { data: users } = userIds.length
     ? await supabase.from('users').select('id, artist_name, donation_link, spotify_url, apple_url, soundcloud_url, instagram_url').in('id', userIds)

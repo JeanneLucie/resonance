@@ -51,6 +51,18 @@
       <h2 data-i18n="discover.title">Découvrir</h2>
       <p data-i18n="discover.lede">Les morceaux publiés par la communauté Résonance.</p>
     </div>
+    <div class="discover-controls">
+      <input type="text" id="discover-search" data-i18n-placeholder="discover.searchPh" placeholder="Chercher un morceau ou un artiste…">
+      <select id="discover-genre">
+        <option value="" data-i18n="discover.allGenres">Tous les genres</option>
+      </select>
+      <select id="discover-ai">
+        <option value="" data-i18n="discover.allAi">IA : tout afficher</option>
+        <option value="none" data-i18n="ai.level.none">Non, entièrement humain</option>
+        <option value="assisted" data-i18n="ai.tag.assisted">Assisté par IA</option>
+        <option value="generated" data-i18n="ai.tag.generated">Généré par IA</option>
+      </select>
+    </div>
   </div>
   <div class="wrap">
     <div class="feed" id="feed"></div>
