@@ -9,7 +9,7 @@ async function loadLang(lang) {
   localStorage.setItem('resonance_lang', lang);
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.getAttribute('data-i18n');
-    if (STR[key]) el.textContent = STR[key];
+    if (STR[key]) el.innerHTML = STR[key];
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
     const key = el.getAttribute('data-i18n-placeholder');

@@ -37,6 +37,7 @@
   "dashboard.profile.suno": "Suno link (public profile)",
   "dashboard.profile.bio": "Short bio",
   "dashboard.profile.donation": "Support / donation link",
+  "dashboard.profile.donationHint": "No account yet to receive donations? <a href=\"https://ko-fi.com\" target=\"_blank\" rel=\"noopener\">Ko-fi.com</a> is free and quick to set up (a few minutes).",
   "dashboard.profile.spotify": "Spotify link",
   "dashboard.profile.apple": "Apple Music link",
   "dashboard.profile.soundcloud": "SoundCloud link",

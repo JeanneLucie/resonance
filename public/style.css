@@ -77,6 +77,8 @@ section.on-paper h2, section.on-paper h3 { color: var(--text-on-paper); }
 }
 .discover-controls input { flex: 1; min-width: 200px; }
 .discover-controls select { min-width: 150px; }
+.field-hint { font-size: 0.78rem; color: var(--text-on-paper-dim); margin-top: 6px; }
+.field-hint a { color: var(--brass-deep); }
 .explicit-filter { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 0.85rem; color: var(--text-on-paper-dim); cursor: pointer; }
 .parental-lock-btn { margin-top: 10px; margin-left: 0; display: inline-block; }
 .parental-info { margin-top: 10px; font-size: 0.78rem; color: var(--text-on-paper-dim); max-width: 62ch; line-height: 1.5; }
