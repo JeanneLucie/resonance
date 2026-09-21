@@ -320,7 +320,15 @@ app.get('/api/artists/:id', async (req, res) => {
 
   res.json({
     artist: publicUser(artist),
-    tracks: (tracks || []).map((t) => mapTrack(t, artist.artist_name)),
+    tracks: (tracks || []).map((t) => ({
+      ...mapTrack(t, artist.artist_name),
+      donationLink: artist.donation_link,
+      spotifyUrl: artist.spotify_url,
+      appleUrl: artist.apple_url,
+      soundcloudUrl: artist.soundcloud_url,
+      instagramUrl: artist.instagram_url,
+      sunoUrl: artist.suno_url,
+    })),
     followerCount,
     isFollowing,
   });
