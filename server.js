@@ -227,12 +227,13 @@ app.get('/api/tracks', async (req, res) => {
 });
 
 app.get('/api/me/tracks', requireAuth, async (req, res) => {
+  const { data: me } = await supabase.from('users').select('artist_name').eq('id', req.session.userId).single();
   const { data: tracks } = await supabase
     .from('tracks')
     .select('*')
     .eq('user_id', req.session.userId)
     .order('created_at', { ascending: false });
-  res.json({ tracks: (tracks || []).map((t) => mapTrack(t)) });
+  res.json({ tracks: (tracks || []).map((t) => mapTrack(t, me ? me.artist_name : '')) });
 });
 
 app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req, res) => {

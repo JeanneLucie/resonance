@@ -599,16 +599,38 @@ async function generatePromoVisual(trackId) {
   ctx.font = '600 62px Fraunces, serif';
   fitText(ctx, tr.title, SIZE / 2, coverY + coverSize + 90, SIZE - 120, 62);
 
-  // Artiste
+  // Artiste (+ collaborateurs éventuels)
+  const artistLine = (tr.artistName || (currentUser && currentUser.artistName) || '') + (tr.collaborators ? ' · ' + t('track.with') + ' ' + tr.collaborators : '');
   ctx.fillStyle = '#B8B0A0';
   ctx.font = '400 34px "IBM Plex Sans", sans-serif';
-  ctx.fillText(tr.artistName, SIZE / 2, coverY + coverSize + 140);
+  fitText(ctx, artistLine, SIZE / 2, coverY + coverSize + 140, SIZE - 100, 34, '400', '"IBM Plex Sans", sans-serif');
 
   // Marque
   ctx.fillStyle = '#D98F3D';
   ctx.font = '600 30px Fraunces, serif';
   ctx.textAlign = 'left';
   ctx.fillText('Résonance', 44, SIZE - 30);
+
+  // QR code vers la page de l'artiste sur Résonance
+  const qrSize = 108;
+  const qrTargetUrl = window.location.origin + '/#/artiste/' + tr.userId;
+  const qr = qrcode(0, 'M');
+  qr.addData(qrTargetUrl);
+  qr.make();
+  const modules = qr.getModuleCount();
+  const cell = qrSize / modules;
+  const qrX = SIZE - qrSize - 44;
+  const qrY = SIZE - qrSize - 30;
+  ctx.fillStyle = '#EDE7D9';
+  ctx.fillRect(qrX - 8, qrY - 8, qrSize + 16, qrSize + 16);
+  ctx.fillStyle = '#1E1A2E';
+  for (let row = 0; row < modules; row++) {
+    for (let col = 0; col < modules; col++) {
+      if (qr.isDark(row, col)) {
+        ctx.fillRect(qrX + col * cell, qrY + row * cell, cell + 0.5, cell + 0.5);
+      }
+    }
+  }
 
   const link = document.createElement('a');
   link.download = (tr.title || 'resonance').replace(/[^a-zA-Z0-9-_]+/g, '_') + '.png';
@@ -636,12 +658,15 @@ function loadImage(src) {
   });
 }
 
-function fitText(ctx, text, x, y, maxWidth, baseSize) {
+function fitText(ctx, text, x, y, maxWidth, baseSize, weight, family) {
+  weight = weight || '600';
+  family = family || 'Fraunces, serif';
+  const minSize = family.indexOf('IBM') !== -1 ? 20 : 30;
   let size = baseSize;
-  ctx.font = '600 ' + size + 'px Fraunces, serif';
-  while (ctx.measureText(text).width > maxWidth && size > 30) {
-    size -= 4;
-    ctx.font = '600 ' + size + 'px Fraunces, serif';
+  ctx.font = weight + ' ' + size + 'px ' + family;
+  while (ctx.measureText(text).width > maxWidth && size > minSize) {
+    size -= 2;
+    ctx.font = weight + ' ' + size + 'px ' + family;
   }
   ctx.fillText(text, x, y);
 }
