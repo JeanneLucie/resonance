@@ -550,11 +550,12 @@ async function generatePromoVisual(trackId) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, SIZE, SIZE);
 
-  // Barres décoratives en bas
+  // Barres décoratives en bas — s'arrêtent avant la zone réservée au QR code
   const barColors = ['#D98F3D', '#4FA69B'];
+  const barsMaxX = SIZE - 108 - 44 - 30; // laisse l'espace du QR code libre
   let x = 40;
   let i = 0;
-  while (x < SIZE - 40) {
+  while (x < barsMaxX) {
     const h = 20 + Math.abs(Math.sin(i * 0.6)) * 90;
     ctx.fillStyle = barColors[i % 2];
     ctx.fillRect(x, SIZE - 70 - h, 10, h);
