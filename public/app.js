@@ -171,28 +171,36 @@ function fillProfileForm(user) {
   document.getElementById('profile-appleUrl').value = user.appleUrl || '';
   document.getElementById('profile-soundcloudUrl').value = user.soundcloudUrl || '';
   document.getElementById('profile-instagramUrl').value = user.instagramUrl || '';
+  document.getElementById('profile-sunoUrl').value = user.sunoUrl || '';
+
+  const avatarPreview = document.getElementById('profile-avatar-preview');
+  if (user.avatarUrl) { avatarPreview.src = user.avatarUrl; avatarPreview.hidden = false; } else { avatarPreview.hidden = true; }
+  const bannerPreview = document.getElementById('profile-banner-preview');
+  if (user.bannerUrl) { bannerPreview.src = user.bannerUrl; bannerPreview.hidden = false; } else { bannerPreview.hidden = true; }
 }
 
 document.getElementById('profile-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const status = document.getElementById('profile-status');
-  const body = {
-    artistName: document.getElementById('profile-artistName').value.trim(),
-    bio: document.getElementById('profile-bio').value.trim(),
-    donationLink: document.getElementById('profile-donationLink').value.trim(),
-    spotifyUrl: document.getElementById('profile-spotifyUrl').value.trim(),
-    appleUrl: document.getElementById('profile-appleUrl').value.trim(),
-    soundcloudUrl: document.getElementById('profile-soundcloudUrl').value.trim(),
-    instagramUrl: document.getElementById('profile-instagramUrl').value.trim(),
-  };
-  const res = await fetch('/api/me', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const formData = new FormData();
+  formData.append('artistName', document.getElementById('profile-artistName').value.trim());
+  formData.append('bio', document.getElementById('profile-bio').value.trim());
+  formData.append('donationLink', document.getElementById('profile-donationLink').value.trim());
+  formData.append('spotifyUrl', document.getElementById('profile-spotifyUrl').value.trim());
+  formData.append('appleUrl', document.getElementById('profile-appleUrl').value.trim());
+  formData.append('soundcloudUrl', document.getElementById('profile-soundcloudUrl').value.trim());
+  formData.append('instagramUrl', document.getElementById('profile-instagramUrl').value.trim());
+  formData.append('sunoUrl', document.getElementById('profile-sunoUrl').value.trim());
+  const avatarFile = document.getElementById('profile-avatar').files[0];
+  if (avatarFile) formData.append('avatar', avatarFile);
+  const bannerFile = document.getElementById('profile-banner').files[0];
+  if (bannerFile) formData.append('banner', bannerFile);
+
+  const res = await fetch('/api/me', { method: 'PUT', body: formData });
   const data = await res.json();
   if (res.ok) {
     currentUser = data.user;
+    fillProfileForm(currentUser);
     status.textContent = '✓';
     setTimeout(() => (status.textContent = ''), 2000);
     loadFeed();
@@ -229,6 +237,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   const formData = new FormData();
   formData.append('title', document.getElementById('track-title').value.trim());
   formData.append('genre', document.getElementById('track-genre').value.trim());
+  formData.append('collaborators', document.getElementById('track-collaborators').value.trim());
   formData.append('aiLevel', aiLevel);
   formData.append('aiTool', aiTool);
   formData.append('audio', fileInput.files[0]);
@@ -251,10 +260,13 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   loadFeed();
 });
 
+let MY_TRACKS = [];
+
 async function loadMyTracks() {
   const res = await fetch('/api/me/tracks');
   if (!res.ok) return;
   const { tracks } = await res.json();
+  MY_TRACKS = tracks;
   const list = document.getElementById('my-tracks-list');
   if (tracks.length === 0) {
     list.innerHTML = '<p class="empty-state">' + t('dashboard.myTracks.empty') + '</p>';
@@ -274,14 +286,25 @@ async function loadMyTracks() {
         escapeHtml(tr.title) +
         '</span><div style="display:flex; gap:10px; align-items:center;">' +
         distHtml +
+        '<button class="mini-btn edit-only-btn" data-edit-id="' +
+        tr.id +
+        '">' +
+        t('dashboard.myTracks.edit') +
+        '</button>' +
         '<button class="del-btn" data-id="' +
         tr.id +
         '">' +
         t('dashboard.myTracks.delete') +
-        '</button></div></div>'
+        '</button></div></div>' +
+        '<div class="edit-panel" id="edit-panel-' +
+        tr.id +
+        '" hidden></div>'
       );
     })
     .join('');
+  list.querySelectorAll('.edit-only-btn').forEach((btn) => {
+    btn.addEventListener('click', () => toggleEditPanel(Number(btn.getAttribute('data-edit-id'))));
+  });
   list.querySelectorAll('.dist-only-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       btn.textContent = '…';
@@ -343,6 +366,7 @@ function renderTrackCard(tr) {
   if (tr.appleUrl) links.push(linkPill(tr.appleUrl, t('link.apple')));
   if (tr.soundcloudUrl) links.push(linkPill(tr.soundcloudUrl, t('link.soundcloud')));
   if (tr.instagramUrl) links.push(linkPill(tr.instagramUrl, t('link.instagram')));
+  if (tr.sunoUrl) links.push(linkPill(tr.sunoUrl, t('link.suno')));
   if (tr.donationLink) links.push(linkPill(tr.donationLink, t('link.donate'), true));
 
   return (
@@ -355,7 +379,9 @@ function renderTrackCard(tr) {
     tr.userId +
     '">' +
     escapeHtml(tr.artistName) +
-    '</a></div><div class="tags">' +
+    '</a>' +
+    (tr.collaborators ? '<span class="collab"> · ' + t('track.with') + ' ' + escapeHtml(tr.collaborators) + '</span>' : '') +
+    '</div><div class="tags">' +
     tags.join('') +
     '</div></div>' +
     '<audio controls controlsList="nodownload" oncontextmenu="return false" preload="none" src="' +
@@ -435,6 +461,58 @@ function renderFilteredFeed() {
 document.getElementById('discover-search').addEventListener('input', renderFilteredFeed);
 document.getElementById('discover-genre').addEventListener('change', renderFilteredFeed);
 document.getElementById('discover-ai').addEventListener('change', renderFilteredFeed);
+
+function toggleEditPanel(trackId) {
+  const panel = document.getElementById('edit-panel-' + trackId);
+  if (!panel.hidden) {
+    panel.hidden = true;
+    return;
+  }
+  const tr = MY_TRACKS.find((x) => x.id === trackId);
+  panel.innerHTML =
+    '<label>' + t('dashboard.addTrack.trackTitle') + '</label>' +
+    '<input type="text" class="edit-title" value="' + escapeHtml(tr.title) + '">' +
+    '<label>' + t('dashboard.addTrack.genre') + '</label>' +
+    '<input type="text" class="edit-genre" value="' + escapeHtml(tr.genre || '') + '">' +
+    '<label>' + t('dashboard.addTrack.collaborators') + '</label>' +
+    '<input type="text" class="edit-collab" value="' + escapeHtml(tr.collaborators || '') + '">' +
+    '<label>' + t('dashboard.addTrack.aiLevel') + '</label>' +
+    '<select class="edit-ai">' +
+    '<option value="none"' + (tr.aiLevel === 'none' ? ' selected' : '') + '>' + t('ai.level.none') + '</option>' +
+    '<option value="assisted"' + (tr.aiLevel === 'assisted' ? ' selected' : '') + '>' + t('ai.level.assisted') + '</option>' +
+    '<option value="generated"' + (tr.aiLevel === 'generated' ? ' selected' : '') + '>' + t('ai.level.generated') + '</option>' +
+    '</select>' +
+    '<label>' + t('dashboard.addTrack.aiTool') + '</label>' +
+    '<input type="text" class="edit-aitool" value="' + escapeHtml(tr.aiTool || '') + '">' +
+    '<label>' + t('dashboard.addTrack.cover') + '</label>' +
+    '<input type="file" class="edit-cover" accept="image/*">' +
+    '<div class="form-actions"><button type="button" class="btn btn-primary edit-save">' + t('dashboard.myTracks.save') + '</button>' +
+    '<span class="form-note edit-status"></span></div>';
+  panel.hidden = false;
+
+  panel.querySelector('.edit-save').addEventListener('click', async () => {
+    const status = panel.querySelector('.edit-status');
+    const formData = new FormData();
+    formData.append('title', panel.querySelector('.edit-title').value.trim());
+    formData.append('genre', panel.querySelector('.edit-genre').value.trim());
+    formData.append('collaborators', panel.querySelector('.edit-collab').value.trim());
+    formData.append('aiLevel', panel.querySelector('.edit-ai').value);
+    formData.append('aiTool', panel.querySelector('.edit-aitool').value.trim());
+    const coverFile = panel.querySelector('.edit-cover').files[0];
+    if (coverFile) formData.append('cover', coverFile);
+
+    status.textContent = '…';
+    const res = await fetch('/api/tracks/' + trackId, { method: 'PUT', body: formData });
+    if (!res.ok) {
+      status.textContent = t('error.generic');
+      return;
+    }
+    showToast('✓');
+    panel.hidden = true;
+    loadMyTracks();
+    loadFeed();
+  });
+}
 
 // --- Administration ---
 function updateAdminUI() {
@@ -517,11 +595,17 @@ async function loadArtistPage(artistId) {
   document.getElementById('artist-page-bio').textContent = artist.bio || '';
   document.getElementById('artist-page-bio').hidden = !artist.bio;
 
+  const banner = document.getElementById('artist-page-banner');
+  if (artist.bannerUrl) { banner.src = artist.bannerUrl; banner.hidden = false; } else { banner.hidden = true; }
+  const avatar = document.getElementById('artist-page-avatar');
+  if (artist.avatarUrl) { avatar.src = artist.avatarUrl; avatar.hidden = false; } else { avatar.hidden = true; }
+
   const links = [];
   if (artist.spotifyUrl) links.push(linkPill(artist.spotifyUrl, t('link.spotify')));
   if (artist.appleUrl) links.push(linkPill(artist.appleUrl, t('link.apple')));
   if (artist.soundcloudUrl) links.push(linkPill(artist.soundcloudUrl, t('link.soundcloud')));
   if (artist.instagramUrl) links.push(linkPill(artist.instagramUrl, t('link.instagram')));
+  if (artist.sunoUrl) links.push(linkPill(artist.sunoUrl, t('link.suno')));
   if (artist.donationLink) links.push(linkPill(artist.donationLink, t('link.donate'), true));
   document.getElementById('artist-page-links').innerHTML = links.join('');
 

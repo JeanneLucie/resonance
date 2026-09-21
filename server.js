@@ -33,9 +33,9 @@ const upload = multer({
   storage,
   limits: { fileSize: 60 * 1024 * 1024 }, // 60 Mo par fichier
   fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'cover') {
+    if (file.fieldname === 'cover' || file.fieldname === 'avatar' || file.fieldname === 'banner') {
       if (!file.mimetype.startsWith('image/')) {
-        return cb(new Error('La pochette doit être une image.'));
+        return cb(new Error('Ce champ attend une image.'));
       }
       return cb(null, true);
     }
@@ -84,6 +84,9 @@ function publicUser(u) {
     appleUrl: u.apple_url,
     soundcloudUrl: u.soundcloud_url,
     instagramUrl: u.instagram_url,
+    sunoUrl: u.suno_url || '',
+    avatarUrl: u.avatar_url || '',
+    bannerUrl: u.banner_url || '',
     role: u.role,
     followingIds: u.following_ids || [],
   };
@@ -99,6 +102,7 @@ function mapTrack(t, artistName) {
     aiTool: t.ai_tool,
     audioUrl: t.audio_url,
     coverUrl: t.cover_url || '',
+    collaborators: t.collaborators || '',
     distribution: t.distribution,
     createdAt: Number(t.created_at),
     artistName,
@@ -154,29 +158,48 @@ app.get('/api/me', async (req, res) => {
   res.json({ user: publicUser(user) });
 });
 
-app.put('/api/me', requireAuth, async (req, res) => {
-  const fields = {
-    artist_name: req.body.artistName,
-    bio: req.body.bio,
-    donation_link: req.body.donationLink,
-    spotify_url: req.body.spotifyUrl,
-    apple_url: req.body.appleUrl,
-    soundcloud_url: req.body.soundcloudUrl,
-    instagram_url: req.body.instagramUrl,
-  };
-  Object.keys(fields).forEach((k) => fields[k] === undefined && delete fields[k]);
+app.put(
+  '/api/me',
+  requireAuth,
+  upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'banner', maxCount: 1 }]),
+  async (req, res) => {
+    const { data: current } = await supabase.from('users').select('avatar_url, banner_url').eq('id', req.session.userId).single();
 
-  const { data: user, error } = await supabase.from('users').update(fields).eq('id', req.session.userId).select().single();
-  if (error) return res.status(500).json({ error: 'server_error', message: error.message });
-  res.json({ ok: true, user: publicUser(user) });
-});
+    const fields = {
+      artist_name: req.body.artistName,
+      bio: req.body.bio,
+      donation_link: req.body.donationLink,
+      spotify_url: req.body.spotifyUrl,
+      apple_url: req.body.appleUrl,
+      soundcloud_url: req.body.soundcloudUrl,
+      instagram_url: req.body.instagramUrl,
+      suno_url: req.body.sunoUrl,
+    };
+    Object.keys(fields).forEach((k) => fields[k] === undefined && delete fields[k]);
+
+    const avatarFile = req.files && req.files.avatar && req.files.avatar[0];
+    if (avatarFile) {
+      fields.avatar_url = '/uploads/' + avatarFile.filename;
+      if (current && current.avatar_url) fs.unlink(path.join(uploadsDir, path.basename(current.avatar_url)), () => {});
+    }
+    const bannerFile = req.files && req.files.banner && req.files.banner[0];
+    if (bannerFile) {
+      fields.banner_url = '/uploads/' + bannerFile.filename;
+      if (current && current.banner_url) fs.unlink(path.join(uploadsDir, path.basename(current.banner_url)), () => {});
+    }
+
+    const { data: user, error } = await supabase.from('users').update(fields).eq('id', req.session.userId).select().single();
+    if (error) return res.status(500).json({ error: 'server_error', message: error.message });
+    res.json({ ok: true, user: publicUser(user) });
+  }
+);
 
 // --- Morceaux ---
 app.get('/api/tracks', async (req, res) => {
   const { data: tracks } = await supabase.from('tracks').select('*').order('created_at', { ascending: false }).limit(200);
   const userIds = [...new Set((tracks || []).map((t) => t.user_id))];
   const { data: users } = userIds.length
-    ? await supabase.from('users').select('id, artist_name, donation_link, spotify_url, apple_url, soundcloud_url, instagram_url').in('id', userIds)
+    ? await supabase.from('users').select('id, artist_name, donation_link, spotify_url, apple_url, soundcloud_url, instagram_url, suno_url').in('id', userIds)
     : { data: [] };
   const byId = Object.fromEntries((users || []).map((u) => [u.id, u]));
 
@@ -189,6 +212,7 @@ app.get('/api/tracks', async (req, res) => {
       appleUrl: u ? u.apple_url : '',
       soundcloudUrl: u ? u.soundcloud_url : '',
       instagramUrl: u ? u.instagram_url : '',
+      sunoUrl: u ? u.suno_url : '',
     };
   });
   res.json({ tracks: enriched });
@@ -204,7 +228,7 @@ app.get('/api/me/tracks', requireAuth, async (req, res) => {
 });
 
 app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req, res) => {
-  const { title, genre, aiLevel, aiTool } = req.body;
+  const { title, genre, aiLevel, aiTool, collaborators } = req.body;
   const audioFile = req.files && req.files.audio && req.files.audio[0];
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (!title || !audioFile) return res.status(400).json({ error: 'missing_fields' });
@@ -219,6 +243,7 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
       ai_tool: aiTool || '',
       audio_url: '/uploads/' + audioFile.filename,
       cover_url: coverFile ? '/uploads/' + coverFile.filename : '',
+      collaborators: collaborators || '',
       created_at: Date.now(),
     })
     .select()
@@ -226,6 +251,28 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
 
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   res.json({ ok: true, track: mapTrack(track) });
+});
+
+app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount: 1 }]), async (req, res) => {
+  const { data: track } = await supabase.from('tracks').select('*').eq('id', req.params.id).eq('user_id', req.session.userId).maybeSingle();
+  if (!track) return res.status(404).json({ error: 'not_found' });
+
+  const fields = {};
+  if (req.body.title !== undefined) fields.title = req.body.title;
+  if (req.body.genre !== undefined) fields.genre = req.body.genre;
+  if (req.body.aiLevel !== undefined) fields.ai_level = req.body.aiLevel;
+  if (req.body.aiTool !== undefined) fields.ai_tool = req.body.aiTool;
+  if (req.body.collaborators !== undefined) fields.collaborators = req.body.collaborators;
+
+  const coverFile = req.files && req.files.cover && req.files.cover[0];
+  if (coverFile) {
+    fields.cover_url = '/uploads/' + coverFile.filename;
+    if (track.cover_url) fs.unlink(path.join(uploadsDir, path.basename(track.cover_url)), () => {});
+  }
+
+  const { data: updated, error } = await supabase.from('tracks').update(fields).eq('id', track.id).select().single();
+  if (error) return res.status(500).json({ error: 'server_error', message: error.message });
+  res.json({ ok: true, track: mapTrack(updated) });
 });
 
 app.delete('/api/tracks/:id', requireAuth, async (req, res) => {

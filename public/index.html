@@ -146,6 +146,12 @@
       <div class="panel">
         <h3 data-i18n="dashboard.profile.title">Mon profil</h3>
         <form id="profile-form">
+          <label data-i18n="dashboard.profile.avatar">Photo de profil</label>
+          <input type="file" id="profile-avatar" accept="image/*">
+          <img id="profile-avatar-preview" class="profile-preview avatar-preview" hidden alt="">
+          <label data-i18n="dashboard.profile.banner">Bannière</label>
+          <input type="file" id="profile-banner" accept="image/*">
+          <img id="profile-banner-preview" class="profile-preview banner-preview" hidden alt="">
           <label data-i18n="auth.artistName">Nom d'artiste</label>
           <input type="text" id="profile-artistName">
           <label data-i18n="dashboard.profile.bio">Bio courte</label>
@@ -172,6 +178,8 @@
               <input type="url" id="profile-instagramUrl">
             </div>
           </div>
+          <label data-i18n="dashboard.profile.suno">Lien Suno (profil public)</label>
+          <input type="url" id="profile-sunoUrl" placeholder="https://suno.com/@…">
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" data-i18n="dashboard.profile.save">Enregistrer le profil</button>
             <span class="form-note" id="profile-status"></span>
@@ -186,6 +194,8 @@
           <input type="text" id="track-title" required>
           <label data-i18n="dashboard.addTrack.genre">Genre</label>
           <input type="text" id="track-genre">
+          <label data-i18n="dashboard.addTrack.collaborators">Autres artistes sur ce morceau (optionnel)</label>
+          <input type="text" id="track-collaborators" data-i18n-placeholder="dashboard.addTrack.collaboratorsPh" placeholder="Sacha Aftalion, …">
           <label data-i18n="dashboard.addTrack.audio">Fichier audio</label>
           <input type="file" id="track-audio" accept="audio/*" required>
           <label data-i18n="dashboard.addTrack.cover">Pochette (optionnelle — sinon générée automatiquement)</label>
@@ -247,13 +257,17 @@
 
 
 <section class="on-paper" id="artiste" hidden>
+  <img id="artist-page-banner" class="artist-page-banner" hidden alt="">
   <div class="wrap">
     <button class="btn-back" id="back-to-discover">← <span data-i18n="discover.title">Découvrir</span></button>
     <div class="artist-header">
-      <div>
-        <h2 id="artist-page-name"></h2>
-        <p id="artist-page-bio" class="artist-bio"></p>
-        <div class="artist-links" id="artist-page-links"></div>
+      <div class="artist-header-main">
+        <img id="artist-page-avatar" class="artist-page-avatar" hidden alt="">
+        <div>
+          <h2 id="artist-page-name"></h2>
+          <p id="artist-page-bio" class="artist-bio"></p>
+          <div class="artist-links" id="artist-page-links"></div>
+        </div>
       </div>
       <div class="artist-follow">
         <span id="artist-follower-count" class="follower-count"></span>
@@ -267,6 +281,7 @@
 <footer>
   <div class="wrap">
     <p data-i18n="footer.text">Résonance est un projet indépendant.</p>
+    <p data-i18n="footer.evolving">Résonance continuera d'évoluer.</p>
   </div>
 </footer>
 

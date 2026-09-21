@@ -12,6 +12,9 @@ create table if not exists users (
   apple_url text default '',
   soundcloud_url text default '',
   instagram_url text default '',
+  suno_url text default '',
+  avatar_url text default '',
+  banner_url text default '',
   role text default 'artist',
   following_ids jsonb default '[]'::jsonb,
   created_at bigint not null
@@ -26,6 +29,7 @@ create table if not exists tracks (
   ai_tool text default '',
   audio_url text not null,
   cover_url text default '',
+  collaborators text default '',
   distribution jsonb,
   created_at bigint not null
 );
