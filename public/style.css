@@ -37,7 +37,8 @@ nav.top {
   display: flex; align-items: center; justify-content: space-between;
   padding: 20px 24px; max-width: 1040px; margin: 0 auto; flex-wrap: wrap; gap: 12px;
 }
-.wordmark { font-family: 'Fraunces', serif; font-size: 1.3rem; font-weight: 600; }
+.wordmark { font-family: 'Fraunces', serif; font-size: 1.4rem; font-weight: 500; font-style: italic; letter-spacing: -0.01em; }
+.wordmark-r { font-style: normal; font-weight: 700; color: var(--brass); font-size: 1.15em; }
 .nav-right { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
 .nav-link { text-decoration: none; font-size: 0.92rem; opacity: 0.88; background: none; border: none; color: inherit; font-family: inherit; cursor: pointer; }
 .nav-link:hover { opacity: 1; }
@@ -52,6 +53,7 @@ nav.top {
 .hero h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); }
 .hero p.lede { font-size: 1.1rem; color: var(--text-on-ink-dim); max-width: 46ch; margin-top: 18px; }
 .cta-row { display: flex; gap: 14px; margin-top: 22px; flex-wrap: wrap; }
+.install-note { margin-top: 18px; font-size: 0.82rem; color: var(--text-on-ink-dim); max-width: 46ch; }
 .btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 3px; border: none; font-size: 0.95rem; font-weight: 500; cursor: pointer; text-decoration: none; font-family: 'IBM Plex Sans', sans-serif; }
 .btn-primary { background: var(--brass); color: #1E1A2E; }
 .btn-primary:hover { background: #E39C4E; }

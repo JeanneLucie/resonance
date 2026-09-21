@@ -894,6 +894,7 @@ if ('serviceWorker' in navigator) {
 // --- Bouton "Installer l'appli" ---
 const installBtn = document.getElementById('install-btn');
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+const isMacSafari = /Macintosh/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 let deferredInstallPrompt = null;
 
@@ -903,7 +904,7 @@ if (!isStandalone) {
     deferredInstallPrompt = e;
     installBtn.hidden = false;
   });
-  if (isIOS) installBtn.hidden = false;
+  if (isIOS || isMacSafari) installBtn.hidden = false;
 }
 
 installBtn.addEventListener('click', async () => {
@@ -914,6 +915,10 @@ installBtn.addEventListener('click', async () => {
     installBtn.hidden = true;
   } else if (isIOS) {
     window.alert(t('nav.installIOS'));
+  } else if (isMacSafari) {
+    window.alert(t('nav.installMac'));
+  } else {
+    window.alert(t('nav.installGeneric'));
   }
 });
 
