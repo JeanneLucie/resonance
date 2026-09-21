@@ -25,6 +25,7 @@ create table if not exists tracks (
   ai_level text default 'none',
   ai_tool text default '',
   audio_url text not null,
+  cover_url text default '',
   distribution jsonb,
   created_at bigint not null
 );

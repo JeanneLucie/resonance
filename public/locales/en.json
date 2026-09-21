@@ -38,6 +38,7 @@
   "dashboard.addTrack.trackTitle": "Track title",
   "dashboard.addTrack.genre": "Genre",
   "dashboard.addTrack.audio": "Audio file (mp3, wav…)",
+  "dashboard.addTrack.cover": "Cover art (optional — auto-generated otherwise)",
   "dashboard.addTrack.aiLevel": "Was this track made with the help of AI?",
   "dashboard.addTrack.aiTool": "Tool used",
   "dashboard.addTrack.aiToolOtherPh": "Name the tool",

@@ -33,6 +33,12 @@ const upload = multer({
   storage,
   limits: { fileSize: 60 * 1024 * 1024 }, // 60 Mo par fichier
   fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'cover') {
+      if (!file.mimetype.startsWith('image/')) {
+        return cb(new Error('La pochette doit être une image.'));
+      }
+      return cb(null, true);
+    }
     if (!file.mimetype.startsWith('audio/')) {
       return cb(new Error('Seuls les fichiers audio sont acceptés.'));
     }
@@ -92,6 +98,7 @@ function mapTrack(t, artistName) {
     aiLevel: t.ai_level,
     aiTool: t.ai_tool,
     audioUrl: t.audio_url,
+    coverUrl: t.cover_url || '',
     distribution: t.distribution,
     createdAt: Number(t.created_at),
     artistName,
@@ -196,9 +203,11 @@ app.get('/api/me/tracks', requireAuth, async (req, res) => {
   res.json({ tracks: (tracks || []).map((t) => mapTrack(t)) });
 });
 
-app.post('/api/tracks', requireAuth, upload.single('audio'), async (req, res) => {
+app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req, res) => {
   const { title, genre, aiLevel, aiTool } = req.body;
-  if (!title || !req.file) return res.status(400).json({ error: 'missing_fields' });
+  const audioFile = req.files && req.files.audio && req.files.audio[0];
+  const coverFile = req.files && req.files.cover && req.files.cover[0];
+  if (!title || !audioFile) return res.status(400).json({ error: 'missing_fields' });
 
   const { data: track, error } = await supabase
     .from('tracks')
@@ -208,7 +217,8 @@ app.post('/api/tracks', requireAuth, upload.single('audio'), async (req, res) =>
       genre: genre || '',
       ai_level: aiLevel || 'none',
       ai_tool: aiTool || '',
-      audio_url: '/uploads/' + req.file.filename,
+      audio_url: '/uploads/' + audioFile.filename,
+      cover_url: coverFile ? '/uploads/' + coverFile.filename : '',
       created_at: Date.now(),
     })
     .select()

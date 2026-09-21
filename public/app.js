@@ -232,6 +232,8 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   formData.append('aiLevel', aiLevel);
   formData.append('aiTool', aiTool);
   formData.append('audio', fileInput.files[0]);
+  const coverInput = document.getElementById('track-cover');
+  if (coverInput.files[0]) formData.append('cover', coverInput.files[0]);
 
   status.textContent = '…';
   const res = await fetch('/api/tracks', { method: 'POST', body: formData });
@@ -308,6 +310,28 @@ function formatDate(ts) {
   return d.toLocaleDateString(CURRENT_LANG === 'en' ? 'en-GB' : 'fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+function coverArt(tr) {
+  if (tr.coverUrl) {
+    return '<img class="cover-art" src="' + escapeHtml(tr.coverUrl) + '" alt="">';
+  }
+  const letter = (tr.title || '?').trim().charAt(0).toUpperCase();
+  const palette = [
+    ['#D98F3D', '#B8721F'],
+    ['#4FA69B', '#2E7B71'],
+    ['#8C6FB0', '#5F4A82'],
+  ];
+  const [c1, c2] = palette[Math.abs(tr.id || 0) % palette.length];
+  return (
+    '<div class="cover-art" style="background:linear-gradient(145deg,' +
+    c1 +
+    ',' +
+    c2 +
+    ')">' +
+    escapeHtml(letter) +
+    '</div>'
+  );
+}
+
 function renderTrackCard(tr) {
   const tags = [];
   if (tr.genre) tags.push('<span class="tag">' + escapeHtml(tr.genre) + '</span>');
@@ -323,9 +347,8 @@ function renderTrackCard(tr) {
 
   return (
     '<div class="track">' +
-    '<audio controls controlsList="nodownload" oncontextmenu="return false" preload="none" src="' +
-    escapeHtml(tr.audioUrl) +
-    '"></audio>' +
+    coverArt(tr) +
+    '<div class="track-body">' +
     '<div class="meta"><h3>' +
     escapeHtml(tr.title) +
     '</h3><div class="artist"><a class="artist-name-link" href="#/artiste/' +
@@ -334,13 +357,18 @@ function renderTrackCard(tr) {
     escapeHtml(tr.artistName) +
     '</a></div><div class="tags">' +
     tags.join('') +
-    '</div><div class="copyright">© ' +
+    '</div></div>' +
+    '<audio controls controlsList="nodownload" oncontextmenu="return false" preload="none" src="' +
+    escapeHtml(tr.audioUrl) +
+    '"></audio>' +
+    '<div class="copyright">© ' +
     escapeHtml(tr.artistName) +
     ' · ' +
     t('track.publishedOn') +
     ' ' +
     formatDate(tr.createdAt) +
-    '</div></div>' +
+    '</div>' +
+    '</div>' +
     '<div class="actions">' +
     links.join('') +
     '</div></div>'

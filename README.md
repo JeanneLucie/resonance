@@ -68,25 +68,36 @@ elle reflète une vraie différence de statut.
 
 Cette plateforme héberge et fait connaître les morceaux, mais ne
 livre pas elle-même la musique aux plateformes de streaming — aucune
-petite structure ne le peut directement (voir l'explication donnée
-plus tôt dans la conversation sur les trois niveaux d'autonomie). Le
-champ "outil utilisé" (Suno, Udio, etc.) sert à la transparence et au
-tri interne ; pour la diffusion réelle vers Spotify/Apple, la voie
-réaliste reste un distributeur existant (ex. programme "Label
-Distribution" de RouteNote), utilisé en coulisses.
+petite structure ne le peut directement, pas même en payant (statut
+accordé par Spotify/Apple/Amazon eux-mêmes, après des années
+d'activité prouvée). Le champ "outil utilisé" (Suno, Udio, etc.) sert
+à la transparence et au tri interne.
+
+Pour la diffusion réelle, Résonance se connecte à **LabelGrid** via
+son API (voir `labelgrid.js` et le bouton "Distribuer vers
+Spotify/Apple" sur le tableau de bord artiste) — invisible pour
+l'artiste, qui ne quitte jamais Résonance. Il suffit d'activer un plan
+API chez LabelGrid et de renseigner `LABELGRID_API_TOKEN` dans `.env`
+pour que ça fonctionne (voir plus haut dans ce fichier).
 
 ## Aller plus loin
 
-- **Stockage** : les fichiers audio sont actuellement stockés sur le
-  disque du serveur (dossier `uploads/`). Pour un vrai lancement
-  public, prévoir un stockage cloud (S3 ou équivalent) qui survit aux
-  redéploiements.
-- **Base de données** : `data/db.json` convient pour tester avec
-  quelques dizaines d'artistes. Au-delà, remplacer par une vraie base
-  (PostgreSQL, par exemple) pour la fiabilité en cas d'accès
-  simultanés.
+- **Stockage audio** : les fichiers uploadés sont actuellement stockés
+  sur le disque du serveur (dossier `uploads/`), ce qui n'est pas
+  garanti permanent sur le plan gratuit de Render. Pour un vrai
+  lancement public, prévoir un stockage cloud dédié (Supabase
+  Storage, ou S3).
+- **Base de données** : les comptes et morceaux sont stockés sur
+  Supabase (PostgreSQL géré), ce qui survit aux redéploiements et
+  convient à un usage réel, pas seulement à des tests.
 - **Hébergement** : ce code peut être déployé sur Railway, Render, un
   VPS, ou tout hébergeur Node.js.
-- **Nom de domaine** : achète `resonance-quelquechose.com` (ou
-  équivalent disponible) chez un registrar comme OVH ou Gandi une fois
-  prête à publier.
+- **Nom de domaine** : achète un domaine (ex. `resonance-tonnom.com`)
+  chez un registrar comme OVH ou Gandi, puis connecte-le dans Render
+  (Settings → Custom Domains) une fois prête à publier.
+- **Distribution externe** : la connexion à LabelGrid (Spotify, Apple
+  Music…) est prête côté code mais nécessite un compte LabelGrid actif
+  et sa clé API dans `.env` pour fonctionner.
+- **Recherche et filtres** : en place dans "Découvrir" (titre/artiste,
+  genre, niveau d'IA), suffisant jusqu'à plusieurs centaines de
+  morceaux.
