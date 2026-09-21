@@ -117,6 +117,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     artistName: document.getElementById('signup-artistName').value.trim(),
     email: document.getElementById('signup-email').value.trim(),
     password: document.getElementById('signup-password').value,
+    acceptedTerms: document.getElementById('signup-terms').checked,
   };
   const res = await fetch('/api/signup', {
     method: 'POST',

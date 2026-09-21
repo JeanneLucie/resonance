@@ -136,6 +136,12 @@
             <input type="email" id="signup-email" required>
             <label data-i18n="auth.password">Mot de passe (8 caractères minimum)</label>
             <input type="password" id="signup-password" required minlength="8">
+            <div class="checkbox-row">
+              <input type="checkbox" id="signup-terms" required>
+              <div class="ctext">
+                <span data-i18n="auth.termsLabel">J'ai lu et j'accepte les <a href="/cgu.html" target="_blank" rel="noopener">conditions d'utilisation et la politique de confidentialité</a> de Résonance.</span>
+              </div>
+            </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" data-i18n="auth.submitSignup">Créer mon compte</button>
               <span class="form-note" id="signup-status"></span>
@@ -303,6 +309,7 @@
   <div class="wrap">
     <p data-i18n="footer.text">Résonance est un projet indépendant.</p>
     <p data-i18n="footer.evolving">Résonance continuera d'évoluer.</p>
+    <p><a href="/cgu.html" data-i18n="footer.terms">Conditions d'utilisation & confidentialité</a></p>
   </div>
 </footer>
 

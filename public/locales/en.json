@@ -29,6 +29,7 @@
   "auth.email": "Email address",
   "auth.password": "Password (8 characters minimum)",
   "auth.submitSignup": "Create my account",
+  "auth.termsLabel": "I have read and accept Résonance's <a href=\"/cgu.html\" target=\"_blank\" rel=\"noopener\">terms of use and privacy policy</a>.",
   "auth.submitLogin": "Log in",
   "dashboard.title": "My space",
   "dashboard.profile.title": "My profile",
@@ -120,8 +121,10 @@
   "link.donate": "Support",
   "footer.text": "Résonance is an independent project. Donation and streaming links lead to the services each artist has chosen.",
   "footer.evolving": "Résonance is a French platform that will keep evolving with your feedback — a space that welcomes AI-assisted creations while staying within the rules, so artists' work is recognized and paid.",
+  "footer.terms": "Terms of use & privacy",
   "error.missing_fields": "Please fill in all required fields.",
   "error.password_too_short": "Password must be at least 8 characters.",
+  "error.terms_not_accepted": "Please accept the terms of use to create an account.",
   "error.email_taken": "This email address is already in use.",
   "error.invalid_credentials": "Incorrect email or password.",
   "error.generic": "Something went wrong, please try again."

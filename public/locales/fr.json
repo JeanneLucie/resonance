@@ -29,6 +29,7 @@
   "auth.email": "Adresse e-mail",
   "auth.password": "Mot de passe (8 caractères minimum)",
   "auth.submitSignup": "Créer mon compte",
+  "auth.termsLabel": "J'ai lu et j'accepte les <a href=\"/cgu.html\" target=\"_blank\" rel=\"noopener\">conditions d'utilisation et la politique de confidentialité</a> de Résonance.",
   "auth.submitLogin": "Se connecter",
   "dashboard.title": "Mon espace",
   "dashboard.profile.title": "Mon profil",
@@ -120,8 +121,10 @@
   "link.donate": "Soutenir",
   "footer.text": "Résonance est un projet indépendant. Les liens de don et de streaming renvoient vers les services choisis par chaque artiste.",
   "footer.evolving": "Résonance est une plateforme française qui continuera d'évoluer avec vos retours — un espace qui accueille les créations assistées par IA tout en respectant les règles, pour que le travail des artistes soit reconnu et rémunéré.",
+  "footer.terms": "Conditions d'utilisation & confidentialité",
   "error.missing_fields": "Merci de remplir tous les champs obligatoires.",
   "error.password_too_short": "Le mot de passe doit contenir au moins 8 caractères.",
+  "error.terms_not_accepted": "Merci d'accepter les conditions d'utilisation pour créer un compte.",
   "error.email_taken": "Cette adresse e-mail est déjà utilisée.",
   "error.invalid_credentials": "E-mail ou mot de passe incorrect.",
   "error.generic": "Une erreur est survenue, réessaie."

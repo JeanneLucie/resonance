@@ -120,9 +120,10 @@ function mapTrack(t, artistName) {
 
 // --- Auth ---
 app.post('/api/signup', async (req, res) => {
-  const { artistName, email, password } = req.body;
+  const { artistName, email, password, acceptedTerms } = req.body;
   if (!artistName || !email || !password) return res.status(400).json({ error: 'missing_fields' });
   if (password.length < 8) return res.status(400).json({ error: 'password_too_short' });
+  if (!acceptedTerms) return res.status(400).json({ error: 'terms_not_accepted' });
 
   const { data: existing } = await supabase.from('users').select('id').ilike('email', email).maybeSingle();
   if (existing) return res.status(409).json({ error: 'email_taken' });
