@@ -862,8 +862,14 @@ async function loadArtistPage(artistId) {
 
   const followBtn = document.getElementById('follow-btn');
   const isMe = currentUser && currentUser.id === artist.id;
-  if (!currentUser || isMe) {
+  if (isMe) {
     followBtn.hidden = true;
+  } else if (!currentUser) {
+    followBtn.hidden = false;
+    followBtn.textContent = t('artist.followLoginPrompt');
+    followBtn.onclick = () => {
+      window.location.hash = '#espace';
+    };
   } else {
     followBtn.hidden = false;
     followBtn.textContent = isFollowing ? t('artist.unfollow') : t('artist.follow');

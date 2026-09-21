@@ -79,6 +79,7 @@
   "admin.confirmRemoveUser": "Delete this account and all of its tracks?",
   "admin.confirmRemoveTrack": "Remove this track from the catalog?",
   "artist.follow": "Follow",
+  "artist.followLoginPrompt": "Log in to follow",
   "artist.unfollow": "Following",
   "artist.follower": "follower",
   "artist.followers": "followers",

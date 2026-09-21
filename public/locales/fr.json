@@ -79,6 +79,7 @@
   "admin.confirmRemoveUser": "Supprimer ce compte et tous ses morceaux ?",
   "admin.confirmRemoveTrack": "Supprimer ce morceau du catalogue ?",
   "artist.follow": "Suivre",
+  "artist.followLoginPrompt": "Se connecter pour suivre",
   "artist.unfollow": "Abonné(e)",
   "artist.follower": "abonné",
   "artist.followers": "abonnés",
