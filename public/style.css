@@ -161,7 +161,8 @@ img.cover-art { object-fit: contain; background: var(--ink); }
 .empty-state { padding: 36px 0; color: var(--text-on-ink-dim); font-size: 0.92rem; }
 
 .my-track-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line-paper); }
-.my-track-row .title { font-weight: 500; }
+.my-track-row .title { font-weight: 500; display: flex; flex-direction: column; gap: 2px; }
+.my-track-date { font-weight: 400; font-size: 0.76rem; color: var(--text-on-paper-dim); }
 .my-track-row .del-btn { background: none; border: 1px solid var(--line-paper); color: var(--text-on-paper-dim); padding: 5px 12px; border-radius: 3px; cursor: pointer; font-size: 0.8rem; }
 .edit-panel { padding: 16px; margin: 6px 0 12px; background: var(--paper); border: 1px solid var(--line-paper); border-radius: 6px; }
 .edit-panel label { margin-top: 10px; }

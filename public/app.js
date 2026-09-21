@@ -285,6 +285,7 @@ async function loadMyTracks() {
       return (
         '<div class="my-track-row"><span class="title">' +
         escapeHtml(tr.title) +
+        '<span class="my-track-date">' + formatDate(tr.createdAt) + '</span>' +
         '</span><div style="display:flex; gap:10px; align-items:center;">' +
         distHtml +
         '<button class="mini-btn edit-only-btn" data-edit-id="' +
