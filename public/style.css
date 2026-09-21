@@ -75,6 +75,9 @@ section.on-paper h2, section.on-paper h3 { color: var(--text-on-paper); }
 }
 .discover-controls input { flex: 1; min-width: 200px; }
 .discover-controls select { min-width: 150px; }
+.explicit-filter { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 0.85rem; color: var(--text-on-paper-dim); cursor: pointer; }
+.parental-lock-btn { margin-top: 10px; margin-left: 0; display: inline-block; }
+.parental-info { margin-top: 10px; font-size: 0.78rem; color: var(--text-on-paper-dim); max-width: 62ch; line-height: 1.5; }
 
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
 @media (max-width: 760px) { .steps { grid-template-columns: 1fr; } }
@@ -149,6 +152,7 @@ img.cover-art { object-fit: contain; background: var(--ink); }
 .track .tags { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .tag { font-size: 0.74rem; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--line); color: var(--text-on-ink-dim); }
 .tag.ai { border: none; background: none; padding: 3px 0; color: var(--text-on-ink-dim); opacity: 0.8; font-size: 0.72rem; }
+.tag.explicit { border-color: #B85450; color: #D98680; }
 .copyright { font-size: 0.72rem; color: var(--text-on-ink-dim); opacity: 0.75; }
 .genesis { margin-top: 8px; }
 .genesis summary { cursor: pointer; font-size: 0.8rem; color: var(--brass); }
@@ -168,6 +172,8 @@ img.cover-art { object-fit: contain; background: var(--ink); }
 .edit-panel label { margin-top: 10px; }
 .edit-panel label:first-child { margin-top: 0; }
 .edit-panel input, .edit-panel select { width: 100%; padding: 8px 10px; border-radius: 3px; border: 1px solid var(--line-paper); background: var(--paper-soft); font-family: 'IBM Plex Sans', sans-serif; font-size: 0.88rem; }
+.edit-explicit-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 0.85rem; }
+.edit-explicit-row input { width: auto; }
 .profile-preview { display: block; margin-top: 8px; border-radius: 6px; max-width: 100%; }
 .avatar-preview { width: 84px; height: 84px; object-fit: cover; border-radius: 50%; }
 .banner-preview { width: 100%; max-height: 140px; object-fit: cover; }

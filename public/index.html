@@ -27,6 +27,7 @@
   <a href="#espace" data-i18n="nav.admin" class="nav-link" id="nav-admin" hidden>Administration</a>
     <a href="#espace" data-i18n="nav.login" class="nav-link" id="nav-login">Se connecter</a>
     <button data-i18n="nav.logout" class="nav-link btn-link" id="nav-logout" hidden>Se déconnecter</button>
+    <button data-i18n="nav.install" class="nav-link btn-link" id="install-btn" hidden>📲 Installer l'appli</button>
   </div>
 </nav>
 
@@ -64,6 +65,9 @@
         <option value="generated" data-i18n="ai.tag.generated">Généré par IA</option>
       </select>
     </div>
+    <label class="explicit-filter"><input type="checkbox" id="discover-hide-explicit" checked> <span data-i18n="discover.hideExplicit">Masquer le contenu explicite / grossier</span></label>
+    <button type="button" class="mini-btn parental-lock-btn" id="parental-lock-btn" data-i18n="discover.parentalLock">🔒 Verrouiller (contrôle parental)</button>
+    <p class="parental-info" data-i18n="discover.parentalInfo">Résonance permet de masquer les morceaux signalés comme contenant un langage explicite, avec un verrou par code que seul un parent connaît. Active-le directement sur l'appareil de ton enfant. Pensé pour accompagner les familles jusqu'à la majorité numérique (15 ans, selon la loi française), c'est un filtre simple et honnête — pas un contrôle d'identité.</p>
   </div>
   <div class="wrap">
     <div class="feed" id="feed"></div>
@@ -227,6 +231,14 @@
 
           <label data-i18n="dashboard.addTrack.genesis">Raconte comment ce morceau est né (optionnel)</label>
           <textarea id="track-genesis" data-i18n-placeholder="dashboard.addTrack.genesisPh" placeholder="Les paroles écrites il y a des années, une proposition IA qui a tout changé, des mois à peaufiner…"></textarea>
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="track-explicit">
+            <div class="ctext">
+              <strong data-i18n="dashboard.addTrack.explicit">Contient un langage explicite / grossier</strong><br>
+              <span data-i18n="dashboard.addTrack.explicitHint">Permet aux auditeurs qui le souhaitent de filtrer ce contenu.</span>
+            </div>
+          </div>
 
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" data-i18n="dashboard.addTrack.submit">Publier</button>

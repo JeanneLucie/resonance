@@ -111,6 +111,7 @@ function mapTrack(t, artistName) {
     coverUrl: t.cover_url || '',
     collaborators: t.collaborators || '',
     genesis: t.genesis || '',
+    explicit: !!t.explicit,
     distribution: t.distribution,
     createdAt: Number(t.created_at),
     artistName,
@@ -237,7 +238,7 @@ app.get('/api/me/tracks', requireAuth, async (req, res) => {
 });
 
 app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req, res) => {
-  const { title, genre, aiLevel, aiTool, collaborators, genesis } = req.body;
+  const { title, genre, aiLevel, aiTool, collaborators, genesis, explicit } = req.body;
   const audioFile = req.files && req.files.audio && req.files.audio[0];
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (!title || !audioFile) return res.status(400).json({ error: 'missing_fields' });
@@ -257,6 +258,7 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
       cover_url: coverUrl,
       collaborators: collaborators || '',
       genesis: genesis || '',
+      explicit: explicit === 'true' || explicit === true,
       created_at: Date.now(),
     })
     .select()
@@ -277,6 +279,7 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
   if (req.body.aiTool !== undefined) fields.ai_tool = req.body.aiTool;
   if (req.body.collaborators !== undefined) fields.collaborators = req.body.collaborators;
   if (req.body.genesis !== undefined) fields.genesis = req.body.genesis;
+  if (req.body.explicit !== undefined) fields.explicit = req.body.explicit === 'true' || req.body.explicit === true;
 
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (coverFile) {

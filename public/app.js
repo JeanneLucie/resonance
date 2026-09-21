@@ -239,6 +239,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   formData.append('genre', document.getElementById('track-genre').value.trim());
   formData.append('collaborators', document.getElementById('track-collaborators').value.trim());
   formData.append('genesis', document.getElementById('track-genesis').value.trim());
+  formData.append('explicit', document.getElementById('track-explicit').checked);
   formData.append('aiLevel', aiLevel);
   formData.append('aiTool', aiTool);
   formData.append('audio', fileInput.files[0]);
@@ -370,6 +371,7 @@ function renderTrackCard(tr) {
   if (tr.genre) tags.push('<span class="tag">' + escapeHtml(tr.genre) + '</span>');
   if (tr.aiLevel === 'assisted') tags.push('<span class="tag ai">' + t('ai.tag.assisted') + (tr.aiTool ? ' · ' + escapeHtml(tr.aiTool) : '') + '</span>');
   if (tr.aiLevel === 'generated') tags.push('<span class="tag ai">' + t('ai.tag.generated') + (tr.aiTool ? ' · ' + escapeHtml(tr.aiTool) : '') + '</span>');
+  if (tr.explicit) tags.push('<span class="tag explicit">' + t('tag.explicit') + '</span>');
 
   const links = [];
   if (tr.spotifyUrl) links.push(linkPill(tr.spotifyUrl, t('link.spotify')));
@@ -456,12 +458,14 @@ function renderFilteredFeed() {
   const query = document.getElementById('discover-search').value.trim().toLowerCase();
   const genre = document.getElementById('discover-genre').value;
   const aiLevel = document.getElementById('discover-ai').value;
+  const hideExplicit = document.getElementById('discover-hide-explicit').checked;
 
   const filtered = ALL_TRACKS.filter((tr) => {
     const matchesQuery = !query || tr.title.toLowerCase().includes(query) || tr.artistName.toLowerCase().includes(query);
     const matchesGenre = !genre || tr.genre === genre;
     const matchesAi = !aiLevel || tr.aiLevel === aiLevel;
-    return matchesQuery && matchesGenre && matchesAi;
+    const matchesExplicit = !hideExplicit || !tr.explicit;
+    return matchesQuery && matchesGenre && matchesAi && matchesExplicit;
   });
 
   if (filtered.length === 0) {
@@ -474,6 +478,60 @@ function renderFilteredFeed() {
 document.getElementById('discover-search').addEventListener('input', renderFilteredFeed);
 document.getElementById('discover-genre').addEventListener('change', renderFilteredFeed);
 document.getElementById('discover-ai').addEventListener('change', renderFilteredFeed);
+
+const hideExplicitCheckbox = document.getElementById('discover-hide-explicit');
+const savedHideExplicit = localStorage.getItem('resonance_hide_explicit');
+if (savedHideExplicit !== null) hideExplicitCheckbox.checked = savedHideExplicit === 'true';
+hideExplicitCheckbox.addEventListener('change', () => {
+  localStorage.setItem('resonance_hide_explicit', hideExplicitCheckbox.checked);
+  renderFilteredFeed();
+});
+
+// --- Contrôle parental (verrouillage local à cet appareil) ---
+const parentalLockBtn = document.getElementById('parental-lock-btn');
+
+function isParentalLocked() {
+  return localStorage.getItem('resonance_parental_lock') === 'true';
+}
+
+function refreshParentalLockUI() {
+  const locked = isParentalLocked();
+  hideExplicitCheckbox.disabled = locked;
+  parentalLockBtn.textContent = locked ? t('discover.parentalUnlock') : t('discover.parentalLock');
+}
+
+parentalLockBtn.addEventListener('click', () => {
+  if (isParentalLocked()) {
+    const pin = window.prompt(t('discover.parentalEnterPin'));
+    if (pin === null) return;
+    if (pin === localStorage.getItem('resonance_parental_pin')) {
+      localStorage.removeItem('resonance_parental_lock');
+      localStorage.removeItem('resonance_parental_pin');
+      refreshParentalLockUI();
+    } else {
+      window.alert(t('discover.parentalWrongPin'));
+    }
+  } else {
+    const pin = window.prompt(t('discover.parentalSetPin'));
+    if (pin === null || pin.trim().length < 4) {
+      if (pin !== null) window.alert(t('discover.parentalPinTooShort'));
+      return;
+    }
+    const confirmPin = window.prompt(t('discover.parentalConfirmPin'));
+    if (confirmPin !== pin) {
+      window.alert(t('discover.parentalPinMismatch'));
+      return;
+    }
+    hideExplicitCheckbox.checked = true;
+    localStorage.setItem('resonance_hide_explicit', 'true');
+    localStorage.setItem('resonance_parental_pin', pin.trim());
+    localStorage.setItem('resonance_parental_lock', 'true');
+    refreshParentalLockUI();
+    renderFilteredFeed();
+  }
+});
+
+refreshParentalLockUI();
 
 function toggleEditPanel(trackId) {
   const panel = document.getElementById('edit-panel-' + trackId);
@@ -491,6 +549,7 @@ function toggleEditPanel(trackId) {
     '<input type="text" class="edit-collab" value="' + escapeHtml(tr.collaborators || '') + '">' +
     '<label>' + t('dashboard.addTrack.genesis') + '</label>' +
     '<textarea class="edit-genesis">' + escapeHtml(tr.genesis || '') + '</textarea>' +
+    '<label class="edit-explicit-row"><input type="checkbox" class="edit-explicit"' + (tr.explicit ? ' checked' : '') + '> ' + t('dashboard.addTrack.explicit') + '</label>' +
     '<label>' + t('dashboard.addTrack.aiLevel') + '</label>' +
     '<select class="edit-ai">' +
     '<option value="none"' + (tr.aiLevel === 'none' ? ' selected' : '') + '>' + t('ai.level.none') + '</option>' +
@@ -512,6 +571,7 @@ function toggleEditPanel(trackId) {
     formData.append('genre', panel.querySelector('.edit-genre').value.trim());
     formData.append('collaborators', panel.querySelector('.edit-collab').value.trim());
     formData.append('genesis', panel.querySelector('.edit-genesis').value.trim());
+    formData.append('explicit', panel.querySelector('.edit-explicit').checked);
     formData.append('aiLevel', panel.querySelector('.edit-ai').value);
     formData.append('aiTool', panel.querySelector('.edit-aitool').value.trim());
     const coverFile = panel.querySelector('.edit-cover').files[0];
@@ -633,9 +693,26 @@ async function generatePromoVisual(trackId) {
     }
   }
 
+  const fileName = (tr.title || 'resonance').replace(/[^a-zA-Z0-9-_]+/g, '_') + '.png';
+
+  // Sur téléphone : ouvre le menu de partage natif (Instagram, TikTok,
+  // messages…), prêt en un clic. Sinon (ordinateur, navigateurs qui ne
+  // le permettent pas), on télécharge simplement l'image.
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  const file = new File([blob], fileName, { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: tr.title || 'Résonance' });
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return; // l'artiste a annulé le partage
+      // sinon, on continue vers le téléchargement classique ci-dessous
+    }
+  }
+
   const link = document.createElement('a');
-  link.download = (tr.title || 'resonance').replace(/[^a-zA-Z0-9-_]+/g, '_') + '.png';
-  link.href = canvas.toDataURL('image/png');
+  link.download = fileName;
+  link.href = URL.createObjectURL(blob);
   link.click();
 }
 
@@ -785,8 +862,10 @@ async function loadArtistPage(artistId) {
   }
 
   const tracksFeed = document.getElementById('artist-page-tracks');
+  const hideExplicitPref = localStorage.getItem('resonance_hide_explicit') !== 'false';
+  const visibleTracks = tracks.filter((tr) => !hideExplicitPref || !tr.explicit);
   tracksFeed.innerHTML =
-    tracks.length === 0 ? '<div class="empty-state">' + t('discover.empty') + '</div>' : tracks.map(renderTrackCard).join('');
+    visibleTracks.length === 0 ? '<div class="empty-state">' + t('discover.empty') + '</div>' : visibleTracks.map(renderTrackCard).join('');
 }
 
 function handleRoute() {
@@ -811,6 +890,32 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
+
+// --- Bouton "Installer l'appli" ---
+const installBtn = document.getElementById('install-btn');
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+let deferredInstallPrompt = null;
+
+if (!isStandalone) {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    installBtn.hidden = false;
+  });
+  if (isIOS) installBtn.hidden = false;
+}
+
+installBtn.addEventListener('click', async () => {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    installBtn.hidden = true;
+  } else if (isIOS) {
+    window.alert(t('nav.installIOS'));
+  }
+});
 
 // --- Init ---
 (async function init() {
