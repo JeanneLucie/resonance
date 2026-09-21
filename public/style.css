@@ -150,6 +150,9 @@ img.cover-art { object-fit: contain; background: var(--ink); }
 .tag { font-size: 0.74rem; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--line); color: var(--text-on-ink-dim); }
 .tag.ai { border: none; background: none; padding: 3px 0; color: var(--text-on-ink-dim); opacity: 0.8; font-size: 0.72rem; }
 .copyright { font-size: 0.72rem; color: var(--text-on-ink-dim); opacity: 0.75; }
+.genesis { margin-top: 8px; }
+.genesis summary { cursor: pointer; font-size: 0.8rem; color: var(--brass); }
+.genesis p { margin: 8px 0 0; font-size: 0.85rem; color: var(--text-on-ink-dim); line-height: 1.5; white-space: pre-wrap; }
 .track .actions { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; justify-self: end; }
 @media (max-width: 680px) { .track .actions { justify-self: start; } }
 .track audio { width: 100%; height: 36px; }

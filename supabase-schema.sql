@@ -30,6 +30,7 @@ create table if not exists tracks (
   audio_url text not null,
   cover_url text default '',
   collaborators text default '',
+  genesis text default '',
   distribution jsonb,
   created_at bigint not null
 );

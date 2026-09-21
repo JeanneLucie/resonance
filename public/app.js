@@ -238,6 +238,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   formData.append('title', document.getElementById('track-title').value.trim());
   formData.append('genre', document.getElementById('track-genre').value.trim());
   formData.append('collaborators', document.getElementById('track-collaborators').value.trim());
+  formData.append('genesis', document.getElementById('track-genesis').value.trim());
   formData.append('aiLevel', aiLevel);
   formData.append('aiTool', aiTool);
   formData.append('audio', fileInput.files[0]);
@@ -291,6 +292,11 @@ async function loadMyTracks() {
         '">' +
         t('dashboard.myTracks.edit') +
         '</button>' +
+        '<button class="mini-btn promo-btn" data-promo-id="' +
+        tr.id +
+        '">' +
+        t('dashboard.myTracks.promo') +
+        '</button>' +
         '<button class="del-btn" data-id="' +
         tr.id +
         '">' +
@@ -304,6 +310,9 @@ async function loadMyTracks() {
     .join('');
   list.querySelectorAll('.edit-only-btn').forEach((btn) => {
     btn.addEventListener('click', () => toggleEditPanel(Number(btn.getAttribute('data-edit-id'))));
+  });
+  list.querySelectorAll('.promo-btn').forEach((btn) => {
+    btn.addEventListener('click', () => generatePromoVisual(Number(btn.getAttribute('data-promo-id'))));
   });
   list.querySelectorAll('.dist-only-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -394,6 +403,9 @@ function renderTrackCard(tr) {
     ' ' +
     formatDate(tr.createdAt) +
     '</div>' +
+    (tr.genesis
+      ? '<details class="genesis"><summary>' + t('track.genesisToggle') + '</summary><p>' + escapeHtml(tr.genesis) + '</p></details>'
+      : '') +
     '</div>' +
     '<div class="actions">' +
     links.join('') +
@@ -476,6 +488,8 @@ function toggleEditPanel(trackId) {
     '<input type="text" class="edit-genre" value="' + escapeHtml(tr.genre || '') + '">' +
     '<label>' + t('dashboard.addTrack.collaborators') + '</label>' +
     '<input type="text" class="edit-collab" value="' + escapeHtml(tr.collaborators || '') + '">' +
+    '<label>' + t('dashboard.addTrack.genesis') + '</label>' +
+    '<textarea class="edit-genesis">' + escapeHtml(tr.genesis || '') + '</textarea>' +
     '<label>' + t('dashboard.addTrack.aiLevel') + '</label>' +
     '<select class="edit-ai">' +
     '<option value="none"' + (tr.aiLevel === 'none' ? ' selected' : '') + '>' + t('ai.level.none') + '</option>' +
@@ -496,6 +510,7 @@ function toggleEditPanel(trackId) {
     formData.append('title', panel.querySelector('.edit-title').value.trim());
     formData.append('genre', panel.querySelector('.edit-genre').value.trim());
     formData.append('collaborators', panel.querySelector('.edit-collab').value.trim());
+    formData.append('genesis', panel.querySelector('.edit-genesis').value.trim());
     formData.append('aiLevel', panel.querySelector('.edit-ai').value);
     formData.append('aiTool', panel.querySelector('.edit-aitool').value.trim());
     const coverFile = panel.querySelector('.edit-cover').files[0];
@@ -512,6 +527,122 @@ function toggleEditPanel(trackId) {
     loadMyTracks();
     loadFeed();
   });
+}
+
+// --- Visuel promo (image carrée prête à poster) ---
+async function generatePromoVisual(trackId) {
+  const tr = MY_TRACKS.find((x) => x.id === trackId);
+  if (!tr) return;
+
+  await document.fonts.ready;
+
+  const SIZE = 1080;
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+
+  // Fond dégradé
+  const bg = ctx.createLinearGradient(0, 0, SIZE, SIZE);
+  bg.addColorStop(0, '#1E1A2E');
+  bg.addColorStop(1, '#2A2540');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, SIZE, SIZE);
+
+  // Barres décoratives en bas
+  const barColors = ['#D98F3D', '#4FA69B'];
+  let x = 40;
+  let i = 0;
+  while (x < SIZE - 40) {
+    const h = 20 + Math.abs(Math.sin(i * 0.6)) * 90;
+    ctx.fillStyle = barColors[i % 2];
+    ctx.fillRect(x, SIZE - 70 - h, 10, h);
+    x += 18;
+    i++;
+  }
+
+  // Pochette (image réelle ou bloc généré)
+  const coverSize = 640;
+  const coverX = (SIZE - coverSize) / 2;
+  const coverY = 140;
+  ctx.save();
+  roundRectPath(ctx, coverX, coverY, coverSize, coverSize, 24);
+  ctx.clip();
+  if (tr.coverUrl) {
+    const img = await loadImage(tr.coverUrl);
+    ctx.fillStyle = '#1E1A2E';
+    ctx.fillRect(coverX, coverY, coverSize, coverSize);
+    const scale = Math.max(coverSize / img.width, coverSize / img.height);
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    ctx.drawImage(img, coverX + (coverSize - dw) / 2, coverY + (coverSize - dh) / 2, dw, dh);
+  } else {
+    const palette = [['#D98F3D', '#B8721F'], ['#4FA69B', '#2E7B71'], ['#8C6FB0', '#5F4A82']];
+    const [c1, c2] = palette[Math.abs(tr.id || 0) % palette.length];
+    const grad = ctx.createLinearGradient(coverX, coverY, coverX + coverSize, coverY + coverSize);
+    grad.addColorStop(0, c1);
+    grad.addColorStop(1, c2);
+    ctx.fillStyle = grad;
+    ctx.fillRect(coverX, coverY, coverSize, coverSize);
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.font = '600 220px Fraunces, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((tr.title || '?').trim().charAt(0).toUpperCase(), coverX + coverSize / 2, coverY + coverSize / 2 + 20);
+  }
+  ctx.restore();
+
+  // Titre
+  ctx.fillStyle = '#EDE7D9';
+  ctx.textAlign = 'center';
+  ctx.font = '600 62px Fraunces, serif';
+  fitText(ctx, tr.title, SIZE / 2, coverY + coverSize + 90, SIZE - 120, 62);
+
+  // Artiste
+  ctx.fillStyle = '#B8B0A0';
+  ctx.font = '400 34px "IBM Plex Sans", sans-serif';
+  ctx.fillText(tr.artistName, SIZE / 2, coverY + coverSize + 140);
+
+  // Marque
+  ctx.fillStyle = '#D98F3D';
+  ctx.font = '600 30px Fraunces, serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Résonance', 44, SIZE - 30);
+
+  const link = document.createElement('a');
+  link.download = (tr.title || 'resonance').replace(/[^a-zA-Z0-9-_]+/g, '_') + '.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+function fitText(ctx, text, x, y, maxWidth, baseSize) {
+  let size = baseSize;
+  ctx.font = '600 ' + size + 'px Fraunces, serif';
+  while (ctx.measureText(text).width > maxWidth && size > 30) {
+    size -= 4;
+    ctx.font = '600 ' + size + 'px Fraunces, serif';
+  }
+  ctx.fillText(text, x, y);
 }
 
 // --- Administration ---
