@@ -88,6 +88,22 @@ const authLimiter = rateLimit({
   message: { error: 'too_many_attempts' },
 });
 
+// Deuxième protection, cette fois basée sur le COMPTE visé (son
+// e-mail) plutôt que sur l'origine de la tentative (son adresse IP).
+// Indispensable en plus de authLimiter : sans ça, quelqu'un pourrait
+// contourner la limite par IP simplement en changeant de réseau
+// (Wi-Fi, données mobiles...) tout en continuant de viser le même
+// compte. Avec les deux limites actives, le compte ciblé reste
+// protégé quel que soit le réseau utilisé pour l'attaquer.
+const loginEmailLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.body && req.body.email ? req.body.email.toLowerCase() : 'unknown'),
+  message: { error: 'too_many_attempts' },
+});
+
 // Limite plus large pour les écoutes/signalements publics — évite qu'un
 // script gonfle artificiellement les statistiques d'écoute ou inonde
 // les signalements, sans gêner de vrais visiteurs.
@@ -202,7 +218,7 @@ app.post('/api/signup', authLimiter, async (req, res) => {
   res.json({ ok: true, user: publicUser(user) });
 });
 
-app.post('/api/login', authLimiter, async (req, res) => {
+app.post('/api/login', authLimiter, loginEmailLimiter, async (req, res) => {
   const { email, password } = req.body;
   const { data: user } = await supabase.from('users').select('*').ilike('email', email || '').maybeSingle();
   if (!user) return res.status(401).json({ error: 'invalid_credentials' });
