@@ -415,6 +415,9 @@ function renderTrackCard(tr) {
     '</div>' +
     '<div class="actions">' +
     links.join('') +
+    '<button type="button" class="link-pill share-track-btn" data-share-url="' +
+    escapeHtml(window.location.origin + '/#/artiste/' + tr.userId) +
+    '">🔗</button>' +
     '</div></div>'
   );
 }
@@ -941,6 +944,47 @@ installBtn.addEventListener('click', async () => {
   } else {
     window.alert(t('nav.installGeneric'));
   }
+});
+
+// --- Bouton "Partager" (page courante ou lien spécifique) ---
+async function shareUrl(url, textKey) {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Résonance', text: t(textKey || 'nav.shareText'), url });
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+    }
+  }
+  // Pas de partage natif (ordinateur) : on copie le lien et on montre le QR code
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast(t('nav.shareCopied'));
+  } catch (err) {
+    /* silencieux si le presse-papiers échoue */
+  }
+  showShareQr(url);
+}
+
+document.getElementById('share-page-btn').addEventListener('click', () => shareUrl(window.location.href));
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.share-track-btn');
+  if (btn) shareUrl(btn.getAttribute('data-share-url'), 'nav.shareTrackText');
+});
+
+function showShareQr(url) {
+  const popover = document.getElementById('share-qr-popover');
+  const holder = document.getElementById('share-qr-code');
+  holder.innerHTML = '';
+  const qr = qrcode(0, 'M');
+  qr.addData(url);
+  qr.make();
+  holder.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 4 });
+  popover.hidden = false;
+}
+document.getElementById('close-qr-popover').addEventListener('click', () => {
+  document.getElementById('share-qr-popover').hidden = true;
 });
 
 // --- Init ---
