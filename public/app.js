@@ -221,6 +221,17 @@ document.getElementById('track-aiTool').addEventListener('change', (e) => {
 });
 
 // --- Ajout de morceau ---
+let trackFormDirty = false;
+document.getElementById('track-form').addEventListener('input', () => {
+  trackFormDirty = true;
+});
+window.addEventListener('beforeunload', (e) => {
+  if (trackFormDirty) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
 document.getElementById('track-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const status = document.getElementById('track-status');
@@ -257,6 +268,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   }
   status.textContent = '';
   document.getElementById('track-form').reset();
+  trackFormDirty = false;
   document.getElementById('ai-detail-block').hidden = true;
   document.getElementById('track-aiToolOther').hidden = true;
   showToast('✓');
@@ -1151,6 +1163,15 @@ document.getElementById('soundcloud-connect-btn').addEventListener('click', asyn
   }
   const data = await res.json();
   if (data.authorizeUrl) window.location.href = data.authorizeUrl;
+});
+
+document.querySelectorAll('.password-toggle').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById(btn.getAttribute('data-target'));
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btn.textContent = showing ? '👁' : '🙈';
+  });
 });
 
 document.getElementById('share-page-btn').addEventListener('click', () => shareUrl(window.location.href));
