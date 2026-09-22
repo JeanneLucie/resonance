@@ -399,9 +399,21 @@ function renderTrackCard(tr) {
     '</div><div class="tags">' +
     tags.join('') +
     '</div></div>' +
-    '<audio controls controlsList="nodownload" oncontextmenu="return false" preload="none" src="' +
+    '<button type="button" class="play-track-btn" data-track-id="' +
+    tr.id +
+    '" data-audio-url="' +
     escapeHtml(tr.audioUrl) +
-    '"></audio>' +
+    '" data-title="' +
+    escapeHtml(tr.title) +
+    '" data-artist="' +
+    escapeHtml(tr.artistName) +
+    '" data-cover="' +
+    escapeHtml(tr.coverUrl || '') +
+    '" data-cover-fallback="' +
+    escapeHtml((tr.title || '?').trim().charAt(0).toUpperCase()) +
+    '" data-cover-id="' +
+    tr.id +
+    '"><span class="play-icon">▶</span></button>' +
     '<div class="copyright">© ' +
     escapeHtml(tr.artistName) +
     ' · ' +
@@ -481,17 +493,8 @@ function renderFilteredFeed() {
     return;
   }
   feed.innerHTML = filtered.map(renderTrackCard).join('');
-  wireAutoplay(feed);
-}
-
-function wireAutoplay(container) {
-  const audios = Array.from(container.querySelectorAll('audio'));
-  audios.forEach((audio, idx) => {
-    audio.addEventListener('ended', () => {
-      const next = audios[idx + 1];
-      if (next) next.play();
-    });
-  });
+  currentDiscoverQueue = filtered;
+  refreshPlayButtons();
 }
 
 document.getElementById('discover-search').addEventListener('input', renderFilteredFeed);
@@ -895,7 +898,8 @@ async function loadArtistPage(artistId) {
   const visibleTracks = tracks.filter((tr) => !hideExplicitPref || !tr.explicit);
   tracksFeed.innerHTML =
     visibleTracks.length === 0 ? '<div class="empty-state">' + t('discover.empty') + '</div>' : visibleTracks.map(renderTrackCard).join('');
-  wireAutoplay(tracksFeed);
+  currentArtistQueue = visibleTracks;
+  refreshPlayButtons();
 }
 
 function handleRoute() {
@@ -991,6 +995,132 @@ function showShareQr(url) {
 }
 document.getElementById('close-qr-popover').addEventListener('click', () => {
   document.getElementById('share-qr-popover').hidden = true;
+});
+
+// --- Lecteur persistant (continue en fond en naviguant sur le site) ---
+let currentDiscoverQueue = [];
+let currentArtistQueue = [];
+let currentTrackId = null;
+let currentQueueRef = [];
+
+const globalAudio = document.getElementById('global-audio');
+const playerBar = document.getElementById('player-bar');
+const playerPlaypause = document.getElementById('player-playpause');
+const playerSeek = document.getElementById('player-seek');
+const playerTimeCurrent = document.getElementById('player-time-current');
+const playerTimeDuration = document.getElementById('player-time-duration');
+
+function formatTime(sec) {
+  if (!isFinite(sec) || sec < 0) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return m + ':' + s;
+}
+
+function findTrackById(id) {
+  return ALL_TRACKS.find((t) => t.id === id) || (MY_TRACKS || []).find((t) => t.id === id) || null;
+}
+
+function playTrackById(id, audioUrl, title, artist, coverUrl, coverFallback, queue) {
+  currentQueueRef = queue || currentDiscoverQueue;
+  currentTrackId = id;
+  globalAudio.src = audioUrl;
+  globalAudio.play().catch(() => {});
+
+  document.getElementById('player-title').textContent = title;
+  document.getElementById('player-artist').textContent = artist;
+  const img = document.getElementById('player-cover-img');
+  const fallback = document.getElementById('player-cover-fallback');
+  if (coverUrl) {
+    img.src = coverUrl;
+    img.hidden = false;
+    fallback.hidden = true;
+  } else {
+    img.hidden = true;
+    fallback.hidden = false;
+    fallback.textContent = coverFallback || '?';
+  }
+  playerBar.hidden = false;
+  refreshPlayButtons();
+}
+
+function pausePlayback() {
+  globalAudio.pause();
+  refreshPlayButtons();
+}
+
+function refreshPlayButtons() {
+  document.querySelectorAll('.play-track-btn').forEach((btn) => {
+    const isThisTrack = Number(btn.getAttribute('data-track-id')) === currentTrackId;
+    const isPlaying = isThisTrack && !globalAudio.paused;
+    btn.classList.toggle('is-playing', isPlaying);
+  });
+  playerPlaypause.textContent = globalAudio.paused ? '▶' : '⏸';
+}
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.play-track-btn');
+  if (!btn) return;
+  const id = Number(btn.getAttribute('data-track-id'));
+  if (id === currentTrackId) {
+    if (globalAudio.paused) {
+      globalAudio.play().catch(() => {});
+    } else {
+      globalAudio.pause();
+    }
+    refreshPlayButtons();
+    return;
+  }
+  // Détermine la file d'attente : celle de la page artiste si le bouton s'y trouve, sinon celle de Découvrir
+  const inArtistPage = !!btn.closest('#artist-page-tracks');
+  playTrackById(
+    id,
+    btn.getAttribute('data-audio-url'),
+    btn.getAttribute('data-title'),
+    btn.getAttribute('data-artist'),
+    btn.getAttribute('data-cover'),
+    btn.getAttribute('data-cover-fallback'),
+    inArtistPage ? currentArtistQueue : currentDiscoverQueue
+  );
+});
+
+playerPlaypause.addEventListener('click', () => {
+  if (globalAudio.paused) globalAudio.play().catch(() => {});
+  else globalAudio.pause();
+  refreshPlayButtons();
+});
+
+document.getElementById('player-close').addEventListener('click', () => {
+  globalAudio.pause();
+  globalAudio.src = '';
+  currentTrackId = null;
+  playerBar.hidden = true;
+  refreshPlayButtons();
+});
+
+globalAudio.addEventListener('play', refreshPlayButtons);
+globalAudio.addEventListener('pause', refreshPlayButtons);
+
+globalAudio.addEventListener('loadedmetadata', () => {
+  playerSeek.max = globalAudio.duration || 0;
+  playerTimeDuration.textContent = formatTime(globalAudio.duration);
+});
+globalAudio.addEventListener('timeupdate', () => {
+  playerSeek.value = globalAudio.currentTime;
+  playerTimeCurrent.textContent = formatTime(globalAudio.currentTime);
+});
+playerSeek.addEventListener('input', () => {
+  globalAudio.currentTime = Number(playerSeek.value);
+});
+
+globalAudio.addEventListener('ended', () => {
+  const idx = currentQueueRef.findIndex((t) => t.id === currentTrackId);
+  const next = idx > -1 ? currentQueueRef[idx + 1] : null;
+  if (next) {
+    playTrackById(next.id, next.audioUrl, next.title, next.artistName, next.coverUrl, (next.title || '?').trim().charAt(0).toUpperCase(), currentQueueRef);
+  } else {
+    refreshPlayButtons();
+  }
 });
 
 // --- Init ---
