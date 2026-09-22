@@ -1193,6 +1193,12 @@ document.getElementById('shuffle-play-btn').addEventListener('click', () => {
   playTrackById(pick.id, pick.audioUrl, pick.title, pick.artistName, pick.coverUrl, (pick.title || '?').trim().charAt(0).toUpperCase(), ALL_TRACKS);
 });
 
+document.getElementById('artist-shuffle-play-btn').addEventListener('click', () => {
+  if (currentArtistQueue.length === 0) return;
+  const pick = currentArtistQueue[Math.floor(Math.random() * currentArtistQueue.length)];
+  playTrackById(pick.id, pick.audioUrl, pick.title, pick.artistName, pick.coverUrl, (pick.title || '?').trim().charAt(0).toUpperCase(), currentArtistQueue);
+});
+
 // --- Init ---
 (async function init() {
   // Si l'adresse garde une ancienne ancre (#decouvrir, etc.) sans être une
