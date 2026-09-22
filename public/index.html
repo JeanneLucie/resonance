@@ -187,16 +187,7 @@
           <label data-i18n="dashboard.profile.donation">Lien de soutien / don</label>
           <input type="url" id="profile-donationLink" placeholder="https://ko-fi.com/…">
           <p class="field-hint" data-i18n="dashboard.profile.donationHint">Pas encore de compte pour recevoir des dons ? <a href="https://ko-fi.com" target="_blank" rel="noopener">Ko-fi.com</a> est gratuit et rapide à créer (quelques minutes).</p>
-          <div class="field-row">
-            <div>
-              <label data-i18n="dashboard.profile.spotify">Lien Spotify</label>
-              <input type="url" id="profile-spotifyUrl">
-            </div>
-            <div>
-              <label data-i18n="dashboard.profile.apple">Lien Apple Music</label>
-              <input type="url" id="profile-appleUrl">
-            </div>
-          </div>
+          <p class="field-hint" data-i18n="dashboard.profile.spotifyAppleHint">Les liens Spotify et Apple Music se renseignent maintenant par morceau (chaque chanson a sa propre page), pas ici — retrouve-les dans "Publier un morceau" ou en modifiant un morceau déjà publié.</p>
           <div class="field-row">
             <div>
               <label data-i18n="dashboard.profile.soundcloud">Lien SoundCloud</label>
@@ -225,6 +216,16 @@
           <input type="text" id="track-genre">
           <label data-i18n="dashboard.addTrack.collaborators">Autres artistes sur ce morceau (optionnel)</label>
           <input type="text" id="track-collaborators" data-i18n-placeholder="dashboard.addTrack.collaboratorsPh" placeholder="Sacha Aftalion, …">
+          <div class="field-row">
+            <div>
+              <label data-i18n="dashboard.profile.spotify">Lien Spotify (optionnel)</label>
+              <input type="url" id="track-spotifyUrl">
+            </div>
+            <div>
+              <label data-i18n="dashboard.profile.apple">Lien Apple Music (optionnel)</label>
+              <input type="url" id="track-appleUrl">
+            </div>
+          </div>
           <label data-i18n="dashboard.addTrack.audio">Fichier audio</label>
           <input type="file" id="track-audio" accept="audio/*" required>
           <label data-i18n="dashboard.addTrack.cover">Pochette (optionnelle — sinon générée automatiquement)</label>

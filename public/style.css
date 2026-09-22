@@ -170,8 +170,9 @@ img.cover-art { object-fit: contain; background: var(--ink); }
 .genesis { margin-top: 8px; }
 .genesis summary { cursor: pointer; font-size: 0.8rem; color: var(--brass); }
 .genesis p { margin: 8px 0 0; font-size: 0.85rem; color: var(--text-on-ink-dim); line-height: 1.5; white-space: pre-wrap; }
-.track .actions { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; justify-self: end; }
-@media (max-width: 680px) { .track .actions { justify-self: start; } }
+.track .actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; justify-self: end; }
+.actions-row { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+@media (max-width: 680px) { .track .actions { justify-self: start; align-items: flex-start; } .actions-row { justify-content: flex-start; } }
 .track audio { width: 100%; height: 36px; }
 .link-pill { font-size: 0.68rem; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--line); text-decoration: none; color: var(--text-on-ink-dim); opacity: 0.75; }
 .link-pill.donate { border-color: var(--brass); color: var(--brass); opacity: 1; }

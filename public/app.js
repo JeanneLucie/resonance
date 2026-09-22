@@ -170,8 +170,6 @@ function fillProfileForm(user) {
   document.getElementById('profile-artistName').value = user.artistName || '';
   document.getElementById('profile-bio').value = user.bio || '';
   document.getElementById('profile-donationLink').value = user.donationLink || '';
-  document.getElementById('profile-spotifyUrl').value = user.spotifyUrl || '';
-  document.getElementById('profile-appleUrl').value = user.appleUrl || '';
   document.getElementById('profile-soundcloudUrl').value = user.soundcloudUrl || '';
   document.getElementById('profile-instagramUrl').value = user.instagramUrl || '';
   document.getElementById('profile-sunoUrl').value = user.sunoUrl || '';
@@ -189,8 +187,6 @@ document.getElementById('profile-form').addEventListener('submit', async (e) => 
   formData.append('artistName', document.getElementById('profile-artistName').value.trim());
   formData.append('bio', document.getElementById('profile-bio').value.trim());
   formData.append('donationLink', document.getElementById('profile-donationLink').value.trim());
-  formData.append('spotifyUrl', document.getElementById('profile-spotifyUrl').value.trim());
-  formData.append('appleUrl', document.getElementById('profile-appleUrl').value.trim());
   formData.append('soundcloudUrl', document.getElementById('profile-soundcloudUrl').value.trim());
   formData.append('instagramUrl', document.getElementById('profile-instagramUrl').value.trim());
   formData.append('sunoUrl', document.getElementById('profile-sunoUrl').value.trim());
@@ -241,6 +237,8 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   formData.append('title', document.getElementById('track-title').value.trim());
   formData.append('genre', document.getElementById('track-genre').value.trim());
   formData.append('collaborators', document.getElementById('track-collaborators').value.trim());
+  formData.append('spotifyUrl', document.getElementById('track-spotifyUrl').value.trim());
+  formData.append('appleUrl', document.getElementById('track-appleUrl').value.trim());
   formData.append('genesis', document.getElementById('track-genesis').value.trim());
   formData.append('explicit', document.getElementById('track-explicit').checked);
   formData.append('aiLevel', aiLevel);
@@ -376,13 +374,15 @@ function renderTrackCard(tr) {
   if (tr.aiLevel === 'generated') tags.push('<span class="tag ai">' + t('ai.tag.generated') + (tr.aiTool ? ' · ' + escapeHtml(tr.aiTool) : '') + '</span>');
   if (tr.explicit) tags.push('<span class="tag explicit">' + t('tag.explicit') + '</span>');
 
-  const links = [];
-  if (tr.spotifyUrl) links.push(linkPill(tr.spotifyUrl, t('link.spotify')));
-  if (tr.appleUrl) links.push(linkPill(tr.appleUrl, t('link.apple')));
-  if (tr.soundcloudUrl) links.push(linkPill(tr.soundcloudUrl, t('link.soundcloud')));
-  if (tr.instagramUrl) links.push(linkPill(tr.instagramUrl, t('link.instagram')));
-  if (tr.sunoUrl) links.push(linkPill(tr.sunoUrl, t('link.suno')));
-  if (tr.donationLink) links.push(linkPill(tr.donationLink, t('link.donate'), true));
+  const streamingLinks = [];
+  if (tr.spotifyUrl) streamingLinks.push(linkPill(tr.spotifyUrl, t('link.spotify')));
+  if (tr.appleUrl) streamingLinks.push(linkPill(tr.appleUrl, t('link.apple')));
+  if (tr.soundcloudUrl) streamingLinks.push(linkPill(tr.soundcloudUrl, t('link.soundcloud')));
+
+  const otherLinks = [];
+  if (tr.instagramUrl) otherLinks.push(linkPill(tr.instagramUrl, t('link.instagram')));
+  if (tr.sunoUrl) otherLinks.push(linkPill(tr.sunoUrl, t('link.suno')));
+  if (tr.donationLink) otherLinks.push(linkPill(tr.donationLink, t('link.donate'), true));
 
   return (
     '<div class="track">' +
@@ -414,11 +414,13 @@ function renderTrackCard(tr) {
       : '') +
     '</div>' +
     '<div class="actions">' +
-    links.join('') +
+    (streamingLinks.length ? '<div class="actions-row">' + streamingLinks.join('') + '</div>' : '') +
+    '<div class="actions-row">' +
+    otherLinks.join('') +
     '<button type="button" class="link-pill share-track-btn" data-share-url="' +
     escapeHtml(window.location.origin + '/#/artiste/' + tr.userId) +
     '">🔗</button>' +
-    '</div></div>'
+    '</div></div></div>'
   );
 }
 function linkPill(url, label, donate) {
@@ -564,6 +566,10 @@ function toggleEditPanel(trackId) {
     '<input type="text" class="edit-genre" value="' + escapeHtml(tr.genre || '') + '">' +
     '<label>' + t('dashboard.addTrack.collaborators') + '</label>' +
     '<input type="text" class="edit-collab" value="' + escapeHtml(tr.collaborators || '') + '">' +
+    '<label>' + t('dashboard.profile.spotify') + '</label>' +
+    '<input type="url" class="edit-spotify" value="' + escapeHtml(tr.spotifyUrl || '') + '">' +
+    '<label>' + t('dashboard.profile.apple') + '</label>' +
+    '<input type="url" class="edit-apple" value="' + escapeHtml(tr.appleUrl || '') + '">' +
     '<label>' + t('dashboard.addTrack.genesis') + '</label>' +
     '<textarea class="edit-genesis">' + escapeHtml(tr.genesis || '') + '</textarea>' +
     '<label class="edit-explicit-row"><input type="checkbox" class="edit-explicit"' + (tr.explicit ? ' checked' : '') + '> ' + t('dashboard.addTrack.explicit') + '</label>' +
@@ -587,6 +593,8 @@ function toggleEditPanel(trackId) {
     formData.append('title', panel.querySelector('.edit-title').value.trim());
     formData.append('genre', panel.querySelector('.edit-genre').value.trim());
     formData.append('collaborators', panel.querySelector('.edit-collab').value.trim());
+    formData.append('spotifyUrl', panel.querySelector('.edit-spotify').value.trim());
+    formData.append('appleUrl', panel.querySelector('.edit-apple').value.trim());
     formData.append('genesis', panel.querySelector('.edit-genesis').value.trim());
     formData.append('explicit', panel.querySelector('.edit-explicit').checked);
     formData.append('aiLevel', panel.querySelector('.edit-ai').value);
@@ -853,8 +861,6 @@ async function loadArtistPage(artistId) {
   if (artist.avatarUrl) { avatar.src = artist.avatarUrl; avatar.hidden = false; } else { avatar.hidden = true; }
 
   const links = [];
-  if (artist.spotifyUrl) links.push(linkPill(artist.spotifyUrl, t('link.spotify')));
-  if (artist.appleUrl) links.push(linkPill(artist.appleUrl, t('link.apple')));
   if (artist.soundcloudUrl) links.push(linkPill(artist.soundcloudUrl, t('link.soundcloud')));
   if (artist.instagramUrl) links.push(linkPill(artist.instagramUrl, t('link.instagram')));
   if (artist.sunoUrl) links.push(linkPill(artist.sunoUrl, t('link.suno')));

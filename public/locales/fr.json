@@ -43,6 +43,7 @@
   "dashboard.profile.bio": "Bio courte",
   "dashboard.profile.donation": "Lien de soutien / don",
   "dashboard.profile.donationHint": "Pas encore de compte pour recevoir des dons ? <a href=\"https://ko-fi.com\" target=\"_blank\" rel=\"noopener\">Ko-fi.com</a> est gratuit et rapide à créer (quelques minutes).",
+  "dashboard.profile.spotifyAppleHint": "Les liens Spotify et Apple Music se renseignent maintenant par morceau (chaque chanson a sa propre page), pas ici — retrouve-les dans \"Publier un morceau\" ou en modifiant un morceau déjà publié.",
   "dashboard.profile.spotify": "Lien Spotify",
   "dashboard.profile.apple": "Lien Apple Music",
   "dashboard.profile.soundcloud": "Lien SoundCloud",

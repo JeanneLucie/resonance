@@ -32,6 +32,8 @@ create table if not exists tracks (
   collaborators text default '',
   genesis text default '',
   explicit boolean default false,
+  spotify_url text default '',
+  apple_url text default '',
   distribution jsonb,
   created_at bigint not null
 );

@@ -43,6 +43,7 @@
   "dashboard.profile.bio": "Short bio",
   "dashboard.profile.donation": "Support / donation link",
   "dashboard.profile.donationHint": "No account yet to receive donations? <a href=\"https://ko-fi.com\" target=\"_blank\" rel=\"noopener\">Ko-fi.com</a> is free and quick to set up (a few minutes).",
+  "dashboard.profile.spotifyAppleHint": "Spotify and Apple Music links are now set per track (each song has its own page), not here — find them in \"Publish a track\" or by editing an already published track.",
   "dashboard.profile.spotify": "Spotify link",
   "dashboard.profile.apple": "Apple Music link",
   "dashboard.profile.soundcloud": "SoundCloud link",

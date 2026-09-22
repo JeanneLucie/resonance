@@ -112,6 +112,8 @@ function mapTrack(t, artistName) {
     collaborators: t.collaborators || '',
     genesis: t.genesis || '',
     explicit: !!t.explicit,
+    spotifyUrl: t.spotify_url || '',
+    appleUrl: t.apple_url || '',
     distribution: t.distribution,
     createdAt: Number(t.created_at),
     artistName,
@@ -218,8 +220,6 @@ app.get('/api/tracks', async (req, res) => {
     return {
       ...mapTrack(t, u ? u.artist_name : 'Artiste supprimé'),
       donationLink: u ? u.donation_link : '',
-      spotifyUrl: u ? u.spotify_url : '',
-      appleUrl: u ? u.apple_url : '',
       soundcloudUrl: u ? u.soundcloud_url : '',
       instagramUrl: u ? u.instagram_url : '',
       sunoUrl: u ? u.suno_url : '',
@@ -239,7 +239,7 @@ app.get('/api/me/tracks', requireAuth, async (req, res) => {
 });
 
 app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req, res) => {
-  const { title, genre, aiLevel, aiTool, collaborators, genesis, explicit } = req.body;
+  const { title, genre, aiLevel, aiTool, collaborators, genesis, explicit, spotifyUrl, appleUrl } = req.body;
   const audioFile = req.files && req.files.audio && req.files.audio[0];
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (!title || !audioFile) return res.status(400).json({ error: 'missing_fields' });
@@ -260,6 +260,8 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
       collaborators: collaborators || '',
       genesis: genesis || '',
       explicit: explicit === 'true' || explicit === true,
+      spotify_url: spotifyUrl || '',
+      apple_url: appleUrl || '',
       created_at: Date.now(),
     })
     .select()
@@ -281,6 +283,8 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
   if (req.body.collaborators !== undefined) fields.collaborators = req.body.collaborators;
   if (req.body.genesis !== undefined) fields.genesis = req.body.genesis;
   if (req.body.explicit !== undefined) fields.explicit = req.body.explicit === 'true' || req.body.explicit === true;
+  if (req.body.spotifyUrl !== undefined) fields.spotify_url = req.body.spotifyUrl;
+  if (req.body.appleUrl !== undefined) fields.apple_url = req.body.appleUrl;
 
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (coverFile) {
@@ -324,8 +328,6 @@ app.get('/api/artists/:id', async (req, res) => {
     tracks: (tracks || []).map((t) => ({
       ...mapTrack(t, artist.artist_name),
       donationLink: artist.donation_link,
-      spotifyUrl: artist.spotify_url,
-      appleUrl: artist.apple_url,
       soundcloudUrl: artist.soundcloud_url,
       instagramUrl: artist.instagram_url,
       sunoUrl: artist.suno_url,
