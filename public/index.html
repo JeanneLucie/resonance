@@ -24,6 +24,8 @@
 </head>
 <body>
 
+<a href="#main-content" class="skip-link" data-i18n="a11y.skipToContent">Aller au contenu</a>
+
 <nav class="top">
   <div class="wordmark"><span class="wordmark-r">R</span>ésonance</div>
   <div class="nav-right">
@@ -41,7 +43,7 @@
     <div id="share-qr-popover" class="share-qr-popover" hidden>
       <div id="share-qr-code"></div>
       <p data-i18n="nav.shareQrHint">Scanne pour ouvrir cette page sur un autre téléphone.</p>
-      <button type="button" id="close-qr-popover">✕</button>
+      <button type="button" id="close-qr-popover" aria-label="Fermer">✕</button>
     </div>
   </div>
 </nav>
@@ -64,6 +66,7 @@
 </section>
 
 <section class="on-paper main-view" id="decouvrir">
+<a id="main-content"></a>
   <div class="wrap">
     <div class="section-head">
       <h2 data-i18n="discover.title">Découvrir</h2>
@@ -85,6 +88,11 @@
     <label class="explicit-filter"><input type="checkbox" id="discover-hide-explicit" checked> <span data-i18n="discover.hideExplicit">Masquer le contenu explicite / grossier</span></label>
     <button type="button" class="mini-btn parental-lock-btn" id="parental-lock-btn" data-i18n="discover.parentalLock">🔒 Verrouiller (contrôle parental)</button>
     <p class="parental-info" data-i18n="discover.parentalInfo">Résonance permet de masquer les morceaux signalés comme contenant un langage explicite, avec un verrou par code que seul un parent connaît. Active-le directement sur l'appareil de ton enfant. Pensé pour accompagner les familles jusqu'à la majorité numérique (15 ans, selon la loi française), c'est un filtre simple et honnête — pas un contrôle d'identité.</p>
+
+    <div id="recent-listens-block" hidden style="margin-top:28px;">
+      <h3 class="recent-listens-title" data-i18n="discover.recentListens">Écoutés récemment</h3>
+      <div id="recent-listens-strip" class="recent-listens-strip"></div>
+    </div>
     <p class="parental-info" data-i18n="discover.parentalCaveat">Important pour les parents : comme n'importe quel service en ligne, Résonance ne peut pas détecter automatiquement l'âge d'un visiteur — surtout que l'écoute ne nécessite aucun compte. C'est à vous d'activer ce verrou, sur l'appareil de votre enfant : coche "Masquer le contenu explicite" ci-dessus, puis clique "🔒 Verrouiller".</p>
   </div>
   <div class="wrap">
@@ -130,16 +138,16 @@
         <div id="login-form-wrap">
           <h3 data-i18n="auth.login.title">Se connecter</h3>
           <form id="login-form">
-            <label data-i18n="auth.email">Adresse e-mail</label>
+            <label data-i18n="auth.email" for="login-email">Adresse e-mail</label>
             <input type="email" id="login-email" required>
-            <label data-i18n="auth.password">Mot de passe</label>
+            <label data-i18n="auth.password" for="login-password">Mot de passe</label>
             <div class="password-wrap">
               <input type="password" id="login-password" required>
               <button type="button" class="password-toggle" data-target="login-password" aria-label="Afficher le mot de passe">👁</button>
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" data-i18n="auth.submitLogin">Se connecter</button>
-              <span class="form-note" id="login-status"></span>
+              <span class="form-note" id="login-status" aria-live="polite"></span>
             </div>
           </form>
           <p class="switch-link"><a href="#" id="show-signup" data-i18n="auth.switchToSignup">Pas encore de compte ?</a></p>
@@ -147,11 +155,11 @@
         <div id="signup-form-wrap" hidden>
           <h3 data-i18n="auth.signup.title">Créer mon compte</h3>
           <form id="signup-form">
-            <label data-i18n="auth.artistName">Nom d'artiste</label>
+            <label data-i18n="auth.artistName" for="signup-artistName">Nom d'artiste</label>
             <input type="text" id="signup-artistName" required>
-            <label data-i18n="auth.email">Adresse e-mail</label>
+            <label data-i18n="auth.email" for="signup-email">Adresse e-mail</label>
             <input type="email" id="signup-email" required>
-            <label data-i18n="auth.password">Mot de passe (8 caractères minimum)</label>
+            <label data-i18n="auth.password" for="signup-password">Mot de passe (8 caractères minimum)</label>
             <div class="password-wrap">
               <input type="password" id="signup-password" required minlength="8">
               <button type="button" class="password-toggle" data-target="signup-password" aria-label="Afficher le mot de passe">👁</button>
@@ -164,7 +172,7 @@
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" data-i18n="auth.submitSignup">Créer mon compte</button>
-              <span class="form-note" id="signup-status"></span>
+              <span class="form-note" id="signup-status" aria-live="polite"></span>
             </div>
           </form>
           <p class="switch-link"><a href="#" id="show-login" data-i18n="auth.switchToLogin">Déjà un compte ?</a></p>
@@ -193,36 +201,36 @@
       <div class="panel">
         <h3 data-i18n="dashboard.profile.title">Mon profil</h3>
         <form id="profile-form">
-          <label data-i18n="dashboard.profile.avatar">Photo de profil</label>
+          <label data-i18n="dashboard.profile.avatar" for="profile-avatar">Photo de profil</label>
           <input type="file" id="profile-avatar" accept="image/*">
           <img id="profile-avatar-preview" class="profile-preview avatar-preview" hidden alt="">
-          <label data-i18n="dashboard.profile.banner">Bannière</label>
+          <label data-i18n="dashboard.profile.banner" for="profile-banner">Bannière</label>
           <input type="file" id="profile-banner" accept="image/*">
           <img id="profile-banner-preview" class="profile-preview banner-preview" hidden alt="">
-          <label data-i18n="auth.artistName">Nom d'artiste</label>
+          <label data-i18n="auth.artistName" for="profile-artistName">Nom d'artiste</label>
           <input type="text" id="profile-artistName">
-          <label data-i18n="dashboard.profile.bio">Bio courte</label>
+          <label data-i18n="dashboard.profile.bio" for="profile-bio">Bio courte</label>
           <textarea id="profile-bio"></textarea>
-          <label data-i18n="dashboard.profile.donation">Lien de soutien / don</label>
+          <label data-i18n="dashboard.profile.donation" for="profile-donationLink">Lien de soutien / don</label>
           <input type="url" id="profile-donationLink" placeholder="https://ko-fi.com/…">
           <p class="field-hint" data-i18n="dashboard.profile.donationHint">Pas encore de compte pour recevoir des dons ? <a href="https://ko-fi.com" target="_blank" rel="noopener">Ko-fi.com</a> est gratuit et rapide à créer (quelques minutes).</p>
           <p class="field-hint" data-i18n="dashboard.profile.spotifyAppleHint">Les liens Spotify et Apple Music se renseignent maintenant par morceau (chaque chanson a sa propre page), pas ici — retrouve-les dans "Publier un morceau" ou en modifiant un morceau déjà publié.</p>
           <div class="field-row">
             <div>
-              <label data-i18n="dashboard.profile.soundcloud">Lien SoundCloud</label>
+              <label data-i18n="dashboard.profile.soundcloud" for="profile-soundcloudUrl">Lien SoundCloud</label>
               <input type="url" id="profile-soundcloudUrl">
               <button type="button" class="mini-btn" id="soundcloud-connect-btn" data-i18n="soundcloud.connectBtn" style="margin-top:6px;">🔗 Connecter mon compte SoundCloud</button>
             </div>
             <div>
-              <label data-i18n="dashboard.profile.instagram">Lien Instagram</label>
+              <label data-i18n="dashboard.profile.instagram" for="profile-instagramUrl">Lien Instagram</label>
               <input type="url" id="profile-instagramUrl">
             </div>
           </div>
-          <label data-i18n="dashboard.profile.suno">Lien Suno (profil public)</label>
+          <label data-i18n="dashboard.profile.suno" for="profile-sunoUrl">Lien Suno (profil public)</label>
           <input type="url" id="profile-sunoUrl" placeholder="https://suno.com/@…">
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" data-i18n="dashboard.profile.save">Enregistrer le profil</button>
-            <span class="form-note" id="profile-status"></span>
+            <span class="form-note" id="profile-status" aria-live="polite"></span>
           </div>
         </form>
       </div>
@@ -234,36 +242,38 @@
           <button type="button" id="resend-verification-btn-2" data-i18n="verify.resend">Renvoyer l'e-mail</button>
         </div>
         <form id="track-form">
-          <label data-i18n="dashboard.addTrack.trackTitle">Titre du morceau</label>
+          <label data-i18n="dashboard.addTrack.trackTitle" for="track-title">Titre du morceau</label>
           <input type="text" id="track-title" required>
-          <label data-i18n="dashboard.addTrack.genre">Genre</label>
+          <label data-i18n="dashboard.addTrack.genre" for="track-genre">Genre</label>
           <input type="text" id="track-genre">
-          <label data-i18n="dashboard.addTrack.collaborators">Autres artistes sur ce morceau (optionnel)</label>
+          <label data-i18n="dashboard.addTrack.collaborators" for="track-collaborators">Autres artistes sur ce morceau (optionnel)</label>
           <input type="text" id="track-collaborators" data-i18n-placeholder="dashboard.addTrack.collaboratorsPh" placeholder="Entre le nom du second artiste s'il y en a un…">
           <div class="field-row">
             <div>
-              <label data-i18n="dashboard.profile.spotify">Lien Spotify (optionnel)</label>
+              <label data-i18n="dashboard.profile.spotify" for="track-spotifyUrl">Lien Spotify (optionnel)</label>
               <input type="url" id="track-spotifyUrl">
             </div>
             <div>
-              <label data-i18n="dashboard.profile.apple">Lien Apple Music (optionnel)</label>
+              <label data-i18n="dashboard.profile.apple" for="track-appleUrl">Lien Apple Music (optionnel)</label>
               <input type="url" id="track-appleUrl">
             </div>
           </div>
-          <label data-i18n="dashboard.addTrack.audio">Fichier audio</label>
+          <label data-i18n="dashboard.addTrack.audio" for="track-audio">Fichier audio</label>
           <input type="file" id="track-audio" accept="audio/*" required>
-          <label data-i18n="dashboard.addTrack.cover">Pochette (optionnelle — sinon générée automatiquement)</label>
+          <label data-i18n="dashboard.addTrack.cover" for="track-cover">Pochette (optionnelle — sinon générée automatiquement)</label>
           <input type="file" id="track-cover" accept="image/*">
 
-          <label data-i18n="dashboard.addTrack.aiLevel">Ce morceau a-t-il été fait avec l'aide de l'IA ?</label>
+          <fieldset class="radio-fieldset">
+          <legend data-i18n="dashboard.addTrack.aiLevel">Ce morceau a-t-il été fait avec l'aide de l'IA ?</legend>
           <div class="radio-group">
             <label class="radio-option"><input type="radio" name="ai-level" value="none" checked> <span data-i18n="ai.level.none">Non, entièrement humain</span></label>
             <label class="radio-option"><input type="radio" name="ai-level" value="assisted"> <span data-i18n="ai.level.assisted">Assisté par IA (paroles, musique, ou proposition retravaillée par un humain)</span></label>
             <label class="radio-option"><input type="radio" name="ai-level" value="generated"> <span data-i18n="ai.level.generated">Généré par IA sans retouche humaine significative</span></label>
           </div>
+          </fieldset>
 
           <div id="ai-detail-block" hidden>
-            <label data-i18n="dashboard.addTrack.aiTool">Outil utilisé</label>
+            <label data-i18n="dashboard.addTrack.aiTool" for="track-aiTool">Outil utilisé</label>
             <select id="track-aiTool">
               <option value="Suno">Suno</option>
               <option value="Udio">Udio</option>
@@ -278,7 +288,7 @@
           </div>
           <p class="ai-hint" data-i18n="dashboard.addTrack.aiHint">Coché ou non, ton morceau est le bienvenu ici. Cette information est affichée publiquement, en toute transparence.</p>
 
-          <label data-i18n="dashboard.addTrack.genesis">Raconte comment ce morceau est né (optionnel)</label>
+          <label data-i18n="dashboard.addTrack.genesis" for="track-genesis">Raconte comment ce morceau est né (optionnel)</label>
           <textarea id="track-genesis" data-i18n-placeholder="dashboard.addTrack.genesisPh" placeholder="D'où vient ce morceau ? Une idée ancienne, une étincelle IA, un travail de plusieurs mois… à toi de raconter."></textarea>
 
           <div class="checkbox-row">
@@ -291,7 +301,7 @@
 
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" data-i18n="dashboard.addTrack.submit">Publier</button>
-            <span class="form-note" id="track-status"></span>
+            <span class="form-note" id="track-status" aria-live="polite"></span>
           </div>
         </form>
       </div>
@@ -375,11 +385,11 @@
   <div class="wrap">
     <p data-i18n="footer.text">Résonance est un projet indépendant.</p>
     <p data-i18n="footer.evolving">Résonance continuera d'évoluer.</p>
-    <p><a href="/cgu.html" data-i18n="footer.terms">Conditions d'utilisation & confidentialité</a></p>
+    <p><a href="/cgu.html" data-i18n="footer.terms">Conditions d'utilisation & confidentialité</a> · <a href="/roadmap.html" data-i18n="footer.roadmap">Feuille de route</a></p>
   </div>
 </footer>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="player-bar" id="player-bar" hidden>
   <div class="player-cover" id="player-cover">
@@ -396,7 +406,7 @@
     <input type="range" id="player-seek" min="0" max="100" value="0" step="0.1">
     <span class="player-time" id="player-time-duration">0:00</span>
   </div>
-  <button type="button" class="player-close" id="player-close">✕</button>
+  <button type="button" class="player-close" id="player-close" aria-label="Fermer le lecteur">✕</button>
 </div>
 <audio id="global-audio" preload="none"></audio>
 

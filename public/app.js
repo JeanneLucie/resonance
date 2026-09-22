@@ -525,7 +525,9 @@ function renderTrackCard(tr) {
     '</div><div class="tags">' +
     tags.join('') +
     '</div></div>' +
-    '<button type="button" class="play-track-btn" data-track-id="' +
+    '<button type="button" class="play-track-btn" aria-label="' +
+    t('track.playAria').replace('{title}', escapeHtml(tr.title)) +
+    '" data-track-id="' +
     tr.id +
     '" data-audio-url="' +
     escapeHtml(tr.audioUrl) +
@@ -1291,6 +1293,7 @@ function playTrackById(id, audioUrl, title, artist, coverUrl, coverFallback, que
   currentTrackId = id;
   globalAudio.src = audioUrl;
   globalAudio.play().catch(() => {});
+  saveRecentListen({ id, title, artistName: artist, coverUrl });
 
   // Une écoute ne compte qu'après 15 secondes de lecture réelle, pour
   // éviter qu'un simple clic accidentel gonfle les chiffres — comme le
@@ -1400,6 +1403,77 @@ globalAudio.addEventListener('ended', () => {
   }
 });
 
+// --- Historique d'écoute récent (localStorage uniquement, aucun compte
+// requis — ne quitte jamais l'appareil de la personne) ---
+const RECENT_LISTENS_KEY = 'resonance_recent_listens';
+const RECENT_LISTENS_MAX = 12;
+
+function saveRecentListen(track) {
+  let recent = [];
+  try {
+    recent = JSON.parse(localStorage.getItem(RECENT_LISTENS_KEY) || '[]');
+  } catch (err) {
+    recent = [];
+  }
+  recent = recent.filter((r) => r.id !== track.id);
+  recent.unshift({ id: track.id, title: track.title, artistName: track.artistName, coverUrl: track.coverUrl || '' });
+  recent = recent.slice(0, RECENT_LISTENS_MAX);
+  try {
+    localStorage.setItem(RECENT_LISTENS_KEY, JSON.stringify(recent));
+  } catch (err) {
+    /* silencieux si le stockage local est plein/indisponible */
+  }
+  renderRecentListens();
+}
+
+function renderRecentListens() {
+  let recent = [];
+  try {
+    recent = JSON.parse(localStorage.getItem(RECENT_LISTENS_KEY) || '[]');
+  } catch (err) {
+    recent = [];
+  }
+  const block = document.getElementById('recent-listens-block');
+  const strip = document.getElementById('recent-listens-strip');
+  if (recent.length === 0) {
+    block.hidden = true;
+    return;
+  }
+  block.hidden = false;
+  strip.innerHTML = recent
+    .map(
+      (r) =>
+        '<button type="button" class="recent-listen-item recent-listen-play" data-track-id="' + r.id + '">' +
+        (r.coverUrl
+          ? '<img class="recent-listen-cover" src="' + escapeHtml(r.coverUrl) + '" alt="">'
+          : '<div class="recent-listen-cover-fallback">' + escapeHtml((r.title || '?').trim().charAt(0).toUpperCase()) + '</div>') +
+        '<div class="recent-listen-title">' + escapeHtml(r.title) + '</div>' +
+        '<div class="recent-listen-artist">' + escapeHtml(r.artistName) + '</div>' +
+        '</button>'
+    )
+    .join('');
+}
+
+document.getElementById('recent-listens-strip').addEventListener('click', (e) => {
+  const btn = e.target.closest('.recent-listen-play');
+  if (!btn) return;
+  const id = Number(btn.getAttribute('data-track-id'));
+  const track = ALL_TRACKS.find((t) => t.id === id);
+  if (track) {
+    playTrackById(track.id, track.audioUrl, track.title, track.artistName, track.coverUrl, (track.title || '?').trim().charAt(0).toUpperCase(), currentDiscoverQueue);
+  } else {
+    // Le morceau n'est plus dans le fil actuellement chargé (site
+    // rechargé) : on va chercher ses infos avant de le lancer.
+    fetch('/api/tracks/' + id)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && data.track) {
+          playTrackById(data.track.id, data.track.audioUrl, data.track.title, data.track.artistName, data.track.coverUrl, (data.track.title || '?').trim().charAt(0).toUpperCase(), [data.track]);
+        }
+      });
+  }
+});
+
 document.getElementById('shuffle-play-btn').addEventListener('click', () => {
   if (ALL_TRACKS.length === 0) return;
   const pick = ALL_TRACKS[Math.floor(Math.random() * ALL_TRACKS.length)];
@@ -1429,6 +1503,7 @@ document.getElementById('artist-shuffle-play-btn').addEventListener('click', () 
   await loadLang(CURRENT_LANG);
   await refreshMe();
   await loadFeed();
+  renderRecentListens();
   handleRoute();
   window.scrollTo(0, 0);
   if (verifiedResult === '1') showToast(t('verify.success'));
