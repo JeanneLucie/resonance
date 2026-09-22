@@ -173,6 +173,8 @@ textarea { resize: vertical; min-height: 64px; }
 .radio-group { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 .radio-option { display: flex; align-items: flex-start; gap: 9px; font-size: 0.9rem; color: var(--text-on-paper-dim); font-weight: 400; cursor: pointer; }
 .radio-option input { margin-top: 3px; }
+.checkbox-option { display: flex; align-items: flex-start; gap: 9px; font-size: 0.9rem; color: var(--text-on-paper-dim); font-weight: 400; cursor: pointer; }
+.checkbox-option input { margin-top: 3px; }
 #ai-detail-block { margin-top: 12px; }
 #ai-detail-block select, #ai-detail-block input { margin-top: 4px; }
 .ai-hint { font-size: 0.82rem; color: var(--text-on-paper-dim); margin-top: 12px; }

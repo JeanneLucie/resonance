@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Résonance — ta musique, ta plateforme</title>
-<meta name="description" content="Résonance héberge tes morceaux, te relie à tes plateformes de streaming et permet à ton public de te soutenir directement — sans commission. Une plateforme française qui accueille aussi les créations assistées par IA, en toute transparence.">
+<meta name="description" content="Résonance héberge tes morceaux, te relie à tes plateformes de streaming et permet à ton public de te soutenir directement, sans commission. Une plateforme française qui accueille aussi les créations assistées par IA, en toute transparence.">
 <meta property="og:title" content="Résonance — ta musique, ta plateforme">
-<meta property="og:description" content="Écoute et soutiens des artistes indépendants — musique humaine ou assistée par IA, sans commission sur les dons.">
+<meta property="og:description" content="Écoute et soutiens des artistes indépendants, musique humaine ou assistée par IA, sans commission sur les dons.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://resonance-726l.onrender.com">
 <meta property="og:image" content="https://resonance-726l.onrender.com/icons/icon-512.png">
@@ -32,6 +32,7 @@
     <div class="lang-switch">
       <button data-lang="fr" class="lang-btn active">FR</button>
       <button data-lang="en" class="lang-btn">EN</button>
+      <button data-lang="es" class="lang-btn">ES</button>
     </div>
     <a href="#decouvrir" data-i18n="nav.discover" class="nav-link">Découvrir</a>
     <a href="#espace" data-i18n="nav.dashboard" class="nav-link" id="nav-dashboard" hidden>Mon espace</a>
@@ -80,20 +81,21 @@
       </select>
       <select id="discover-ai">
         <option value="" data-i18n="discover.allAi">IA : tout afficher</option>
-        <option value="none" data-i18n="ai.level.none">Non, entièrement humain</option>
-        <option value="assisted" data-i18n="ai.tag.assisted">Assisté par IA</option>
-        <option value="generated" data-i18n="ai.tag.generated">Généré par IA</option>
+        <option value="no-ai" data-i18n="discover.aiFilter.none">Sans IA</option>
+        <option value="lyrics" data-i18n="discover.aiFilter.lyrics">Paroles IA</option>
+        <option value="music" data-i18n="discover.aiFilter.music">Musique IA</option>
+        <option value="vocals" data-i18n="discover.aiFilter.vocals">Voix IA</option>
       </select>
     </div>
     <label class="explicit-filter"><input type="checkbox" id="discover-hide-explicit" checked> <span data-i18n="discover.hideExplicit">Masquer le contenu explicite / grossier</span></label>
     <button type="button" class="mini-btn parental-lock-btn" id="parental-lock-btn" data-i18n="discover.parentalLock">🔒 Verrouiller (contrôle parental)</button>
-    <p class="parental-info" data-i18n="discover.parentalInfo">Résonance permet de masquer les morceaux signalés comme contenant un langage explicite, avec un verrou par code que seul un parent connaît. Active-le directement sur l'appareil de ton enfant. Pensé pour accompagner les familles jusqu'à la majorité numérique (15 ans, selon la loi française), c'est un filtre simple et honnête — pas un contrôle d'identité.</p>
+    <p class="parental-info" data-i18n="discover.parentalInfo">Résonance permet de masquer les morceaux signalés comme contenant un langage explicite, avec un verrou par code que seul un parent connaît. Active-le directement sur l'appareil de ton enfant. Pensé pour accompagner les familles jusqu'à la majorité numérique (15 ans, selon la loi française), c'est un filtre simple et honnête, pas un contrôle d'identité.</p>
 
     <div id="recent-listens-block" hidden style="margin-top:28px;">
       <h3 class="recent-listens-title" data-i18n="discover.recentListens">Écoutés récemment</h3>
       <div id="recent-listens-strip" class="recent-listens-strip"></div>
     </div>
-    <p class="parental-info" data-i18n="discover.parentalCaveat">Important pour les parents : comme n'importe quel service en ligne, Résonance ne peut pas détecter automatiquement l'âge d'un visiteur — surtout que l'écoute ne nécessite aucun compte. C'est à vous d'activer ce verrou, sur l'appareil de votre enfant : coche "Masquer le contenu explicite" ci-dessus, puis clique "🔒 Verrouiller".</p>
+    <p class="parental-info" data-i18n="discover.parentalCaveat">Important pour les parents : comme n'importe quel service en ligne, Résonance ne peut pas détecter automatiquement l'âge d'un visiteur, surtout que l'écoute ne nécessite aucun compte. C'est à vous d'activer ce verrou, sur l'appareil de votre enfant : coche "Masquer le contenu explicite" ci-dessus, puis clique "🔒 Verrouiller".</p>
   </div>
   <div class="wrap">
     <div class="feed" id="feed"></div>
@@ -214,7 +216,7 @@
           <label data-i18n="dashboard.profile.donation" for="profile-donationLink">Lien de soutien / don</label>
           <input type="url" id="profile-donationLink" placeholder="https://ko-fi.com/…">
           <p class="field-hint" data-i18n="dashboard.profile.donationHint">Pas encore de compte pour recevoir des dons ? <a href="https://ko-fi.com" target="_blank" rel="noopener">Ko-fi.com</a> est gratuit et rapide à créer (quelques minutes).</p>
-          <p class="field-hint" data-i18n="dashboard.profile.spotifyAppleHint">Les liens Spotify et Apple Music se renseignent maintenant par morceau (chaque chanson a sa propre page), pas ici — retrouve-les dans "Publier un morceau" ou en modifiant un morceau déjà publié.</p>
+          <p class="field-hint" data-i18n="dashboard.profile.spotifyAppleHint">Les liens Spotify et Apple Music se renseignent maintenant par morceau (chaque chanson a sa propre page), pas ici : retrouve-les dans "Publier un morceau" ou en modifiant un morceau déjà publié.</p>
           <div class="field-row">
             <div>
               <label data-i18n="dashboard.profile.soundcloud" for="profile-soundcloudUrl">Lien SoundCloud</label>
@@ -260,31 +262,21 @@
           </div>
           <label data-i18n="dashboard.addTrack.audio" for="track-audio">Fichier audio</label>
           <input type="file" id="track-audio" accept="audio/*" required>
-          <label data-i18n="dashboard.addTrack.cover" for="track-cover">Pochette (optionnelle — sinon générée automatiquement)</label>
+          <label data-i18n="dashboard.addTrack.cover" for="track-cover">Pochette (optionnelle, sinon générée automatiquement)</label>
           <input type="file" id="track-cover" accept="image/*">
 
           <fieldset class="radio-fieldset">
-          <legend data-i18n="dashboard.addTrack.aiLevel">Ce morceau a-t-il été fait avec l'aide de l'IA ?</legend>
+          <legend data-i18n="dashboard.addTrack.aiLevel">Quelles parties de ce morceau ont été faites avec l'aide de l'IA ?</legend>
           <div class="radio-group">
-            <label class="radio-option"><input type="radio" name="ai-level" value="none" checked> <span data-i18n="ai.level.none">Non, entièrement humain</span></label>
-            <label class="radio-option"><input type="radio" name="ai-level" value="assisted"> <span data-i18n="ai.level.assisted">Assisté par IA (paroles, musique, ou proposition retravaillée par un humain)</span></label>
-            <label class="radio-option"><input type="radio" name="ai-level" value="generated"> <span data-i18n="ai.level.generated">Généré par IA sans retouche humaine significative</span></label>
+            <label class="checkbox-option"><input type="checkbox" id="track-ai-lyrics"> <span data-i18n="ai.part.lyrics">Paroles (écrites ou retravaillées avec l'IA)</span></label>
+            <label class="checkbox-option"><input type="checkbox" id="track-ai-music"> <span data-i18n="ai.part.music">Musique / composition (avec l'aide de l'IA)</span></label>
+            <label class="checkbox-option"><input type="checkbox" id="track-ai-vocals"> <span data-i18n="ai.part.vocals">Voix (interprétée par une IA)</span></label>
           </div>
           </fieldset>
 
           <div id="ai-detail-block" hidden>
-            <label data-i18n="dashboard.addTrack.aiTool" for="track-aiTool">Outil utilisé</label>
-            <select id="track-aiTool">
-              <option value="Suno">Suno</option>
-              <option value="Udio">Udio</option>
-              <option value="AIVA">AIVA</option>
-              <option value="Boomy">Boomy</option>
-              <option value="Soundraw">Soundraw</option>
-              <option value="Beatoven.ai">Beatoven.ai</option>
-              <option value="Amper / Shutterstock">Amper / Shutterstock Music</option>
-              <option value="autre">— autre —</option>
-            </select>
-            <input type="text" id="track-aiToolOther" data-i18n-placeholder="dashboard.addTrack.aiToolOtherPh" placeholder="Précise l'outil" hidden>
+            <label data-i18n="dashboard.addTrack.aiTool" for="track-aiTool">Quel(s) outil(s) ont été utilisés ?</label>
+            <input type="text" id="track-aiTool" data-i18n-placeholder="dashboard.addTrack.aiToolPh" placeholder="Ex. Suno pour la voix, un autre outil pour le mastering…">
           </div>
           <p class="ai-hint" data-i18n="dashboard.addTrack.aiHint">Coché ou non, ton morceau est le bienvenu ici. Cette information est affichée publiquement, en toute transparence.</p>
 

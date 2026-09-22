@@ -164,7 +164,9 @@ function mapTrack(t, artistName) {
     userId: t.user_id,
     title: t.title,
     genre: t.genre,
-    aiLevel: t.ai_level,
+    aiLyrics: !!t.ai_lyrics,
+    aiMusic: !!t.ai_music,
+    aiVocals: !!t.ai_vocals,
     aiTool: t.ai_tool,
     audioUrl: t.audio_url,
     coverUrl: t.cover_url || '',
@@ -327,7 +329,7 @@ app.get('/api/me/tracks', requireAuth, async (req, res) => {
 });
 
 app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req, res) => {
-  const { title, genre, aiLevel, aiTool, collaborators, genesis, explicit, spotifyUrl, appleUrl } = req.body;
+  const { title, genre, aiLyrics, aiMusic, aiVocals, aiTool, collaborators, genesis, explicit, spotifyUrl, appleUrl } = req.body;
   const audioFile = req.files && req.files.audio && req.files.audio[0];
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (!title || !audioFile) return res.status(400).json({ error: 'missing_fields' });
@@ -357,7 +359,9 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
       user_id: req.session.userId,
       title,
       genre: genre || '',
-      ai_level: aiLevel || 'none',
+      ai_lyrics: aiLyrics === 'true' || aiLyrics === true,
+      ai_music: aiMusic === 'true' || aiMusic === true,
+      ai_vocals: aiVocals === 'true' || aiVocals === true,
       ai_tool: aiTool || '',
       audio_url: audioUrl,
       cover_url: coverUrl,
@@ -382,7 +386,9 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
   const fields = {};
   if (req.body.title !== undefined) fields.title = req.body.title;
   if (req.body.genre !== undefined) fields.genre = req.body.genre;
-  if (req.body.aiLevel !== undefined) fields.ai_level = req.body.aiLevel;
+  if (req.body.aiLyrics !== undefined) fields.ai_lyrics = req.body.aiLyrics === 'true' || req.body.aiLyrics === true;
+  if (req.body.aiMusic !== undefined) fields.ai_music = req.body.aiMusic === 'true' || req.body.aiMusic === true;
+  if (req.body.aiVocals !== undefined) fields.ai_vocals = req.body.aiVocals === 'true' || req.body.aiVocals === true;
   if (req.body.aiTool !== undefined) fields.ai_tool = req.body.aiTool;
   if (req.body.collaborators !== undefined) fields.collaborators = req.body.collaborators;
   if (req.body.genesis !== undefined) fields.genesis = req.body.genesis;

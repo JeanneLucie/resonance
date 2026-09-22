@@ -241,15 +241,16 @@ document.getElementById('profile-form').addEventListener('submit', async (e) => 
   }
 });
 
-// --- Sélection du niveau IA (affiche/masque le détail outil) ---
-document.querySelectorAll('input[name="ai-level"]').forEach((radio) => {
-  radio.addEventListener('change', () => {
-    const block = document.getElementById('ai-detail-block');
-    block.hidden = document.querySelector('input[name="ai-level"]:checked').value === 'none';
-  });
-});
-document.getElementById('track-aiTool').addEventListener('change', (e) => {
-  document.getElementById('track-aiToolOther').hidden = e.target.value !== 'autre';
+// --- Sélection des parties concernées par l'IA (affiche/masque le détail outil) ---
+function updateAiDetailVisibility() {
+  const anyChecked =
+    document.getElementById('track-ai-lyrics').checked ||
+    document.getElementById('track-ai-music').checked ||
+    document.getElementById('track-ai-vocals').checked;
+  document.getElementById('ai-detail-block').hidden = !anyChecked;
+}
+['track-ai-lyrics', 'track-ai-music', 'track-ai-vocals'].forEach((id) => {
+  document.getElementById(id).addEventListener('change', updateAiDetailVisibility);
 });
 
 // --- Ajout de morceau ---
@@ -270,13 +271,6 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   const fileInput = document.getElementById('track-audio');
   if (!fileInput.files[0]) return;
 
-  const aiLevel = document.querySelector('input[name="ai-level"]:checked').value;
-  let aiTool = '';
-  if (aiLevel !== 'none') {
-    const toolSelect = document.getElementById('track-aiTool').value;
-    aiTool = toolSelect === 'autre' ? document.getElementById('track-aiToolOther').value.trim() : toolSelect;
-  }
-
   const formData = new FormData();
   formData.append('title', document.getElementById('track-title').value.trim());
   formData.append('genre', document.getElementById('track-genre').value.trim());
@@ -285,8 +279,10 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   formData.append('appleUrl', document.getElementById('track-appleUrl').value.trim());
   formData.append('genesis', document.getElementById('track-genesis').value.trim());
   formData.append('explicit', document.getElementById('track-explicit').checked);
-  formData.append('aiLevel', aiLevel);
-  formData.append('aiTool', aiTool);
+  formData.append('aiLyrics', document.getElementById('track-ai-lyrics').checked);
+  formData.append('aiMusic', document.getElementById('track-ai-music').checked);
+  formData.append('aiVocals', document.getElementById('track-ai-vocals').checked);
+  formData.append('aiTool', document.getElementById('track-aiTool').value.trim());
   formData.append('audio', fileInput.files[0]);
   const coverInput = document.getElementById('track-cover');
   if (coverInput.files[0]) formData.append('cover', coverInput.files[0]);
@@ -302,7 +298,6 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   document.getElementById('track-form').reset();
   trackFormDirty = false;
   document.getElementById('ai-detail-block').hidden = true;
-  document.getElementById('track-aiToolOther').hidden = true;
   showToast('✓');
   loadMyTracks();
   loadFeed();
@@ -467,7 +462,8 @@ async function loadMyTracks() {
 // --- Feed public ---
 function formatDate(ts) {
   const d = new Date(ts);
-  return d.toLocaleDateString(CURRENT_LANG === 'en' ? 'en-GB' : 'fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
+  const localeMap = { fr: 'fr-FR', en: 'en-GB', es: 'es-ES' };
+  return d.toLocaleDateString(localeMap[CURRENT_LANG] || 'fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 function coverArt(tr) {
@@ -495,8 +491,13 @@ function coverArt(tr) {
 function renderTrackCard(tr) {
   const tags = [];
   if (tr.genre) tags.push('<span class="tag">' + escapeHtml(tr.genre) + '</span>');
-  if (tr.aiLevel === 'assisted') tags.push('<span class="tag ai">' + t('ai.tag.assisted') + (tr.aiTool ? ' · ' + escapeHtml(tr.aiTool) : '') + '</span>');
-  if (tr.aiLevel === 'generated') tags.push('<span class="tag ai">' + t('ai.tag.generated') + (tr.aiTool ? ' · ' + escapeHtml(tr.aiTool) : '') + '</span>');
+  const aiParts = [];
+  if (tr.aiLyrics) aiParts.push(t('ai.part.lyricsTag'));
+  if (tr.aiMusic) aiParts.push(t('ai.part.musicTag'));
+  if (tr.aiVocals) aiParts.push(t('ai.part.vocalsTag'));
+  if (aiParts.length) {
+    tags.push('<span class="tag ai">' + t('ai.tagPrefix') + ' ' + aiParts.join(', ') + (tr.aiTool ? ' · ' + escapeHtml(tr.aiTool) : '') + '</span>');
+  }
   if (tr.explicit) tags.push('<span class="tag explicit">' + t('tag.explicit') + '</span>');
   if (Date.now() - tr.createdAt < 7 * 24 * 60 * 60 * 1000) tags.push('<span class="tag new">' + t('tag.new') + '</span>');
 
@@ -614,13 +615,17 @@ function renderFilteredFeed() {
   const feed = document.getElementById('feed');
   const query = document.getElementById('discover-search').value.trim().toLowerCase();
   const genre = document.getElementById('discover-genre').value;
-  const aiLevel = document.getElementById('discover-ai').value;
+  const aiFilter = document.getElementById('discover-ai').value;
   const hideExplicit = document.getElementById('discover-hide-explicit').checked;
 
   const filtered = ALL_TRACKS.filter((tr) => {
     const matchesQuery = !query || tr.title.toLowerCase().includes(query) || tr.artistName.toLowerCase().includes(query);
     const matchesGenre = !genre || tr.genre === genre;
-    const matchesAi = !aiLevel || tr.aiLevel === aiLevel;
+    let matchesAi = true;
+    if (aiFilter === 'no-ai') matchesAi = !tr.aiLyrics && !tr.aiMusic && !tr.aiVocals;
+    else if (aiFilter === 'lyrics') matchesAi = !!tr.aiLyrics;
+    else if (aiFilter === 'music') matchesAi = !!tr.aiMusic;
+    else if (aiFilter === 'vocals') matchesAi = !!tr.aiVocals;
     const matchesExplicit = !hideExplicit || !tr.explicit;
     return matchesQuery && matchesGenre && matchesAi && matchesExplicit;
   });
@@ -714,11 +719,11 @@ function toggleEditPanel(trackId) {
     '<textarea class="edit-genesis">' + escapeHtml(tr.genesis || '') + '</textarea>' +
     '<label class="edit-explicit-row"><input type="checkbox" class="edit-explicit"' + (tr.explicit ? ' checked' : '') + '> ' + t('dashboard.addTrack.explicit') + '</label>' +
     '<label>' + t('dashboard.addTrack.aiLevel') + '</label>' +
-    '<select class="edit-ai">' +
-    '<option value="none"' + (tr.aiLevel === 'none' ? ' selected' : '') + '>' + t('ai.level.none') + '</option>' +
-    '<option value="assisted"' + (tr.aiLevel === 'assisted' ? ' selected' : '') + '>' + t('ai.level.assisted') + '</option>' +
-    '<option value="generated"' + (tr.aiLevel === 'generated' ? ' selected' : '') + '>' + t('ai.level.generated') + '</option>' +
-    '</select>' +
+    '<div class="radio-group">' +
+    '<label class="checkbox-option"><input type="checkbox" class="edit-ai-lyrics"' + (tr.aiLyrics ? ' checked' : '') + '> ' + t('ai.part.lyrics') + '</label>' +
+    '<label class="checkbox-option"><input type="checkbox" class="edit-ai-music"' + (tr.aiMusic ? ' checked' : '') + '> ' + t('ai.part.music') + '</label>' +
+    '<label class="checkbox-option"><input type="checkbox" class="edit-ai-vocals"' + (tr.aiVocals ? ' checked' : '') + '> ' + t('ai.part.vocals') + '</label>' +
+    '</div>' +
     '<label>' + t('dashboard.addTrack.aiTool') + '</label>' +
     '<input type="text" class="edit-aitool" value="' + escapeHtml(tr.aiTool || '') + '">' +
     '<label>' + t('dashboard.addTrack.cover') + '</label>' +
@@ -737,7 +742,9 @@ function toggleEditPanel(trackId) {
     formData.append('appleUrl', panel.querySelector('.edit-apple').value.trim());
     formData.append('genesis', panel.querySelector('.edit-genesis').value.trim());
     formData.append('explicit', panel.querySelector('.edit-explicit').checked);
-    formData.append('aiLevel', panel.querySelector('.edit-ai').value);
+    formData.append('aiLyrics', panel.querySelector('.edit-ai-lyrics').checked);
+    formData.append('aiMusic', panel.querySelector('.edit-ai-music').checked);
+    formData.append('aiVocals', panel.querySelector('.edit-ai-vocals').checked);
     formData.append('aiTool', panel.querySelector('.edit-aitool').value.trim());
     const coverFile = panel.querySelector('.edit-cover').files[0];
     if (coverFile) formData.append('cover', coverFile);
@@ -1365,6 +1372,20 @@ playerPlaypause.addEventListener('click', () => {
     showToast(t('player.pickTrackFirst'));
     return;
   }
+  if (globalAudio.paused) globalAudio.play().catch(() => {});
+  else globalAudio.pause();
+  refreshPlayButtons();
+});
+
+// --- Raccourci clavier : barre espace = lecture/pause ---
+// Ignoré quand on est en train de taper dans un champ (texte, zone de
+// texte, menu déroulant), pour ne jamais interrompre une saisie.
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space' && e.key !== ' ') return;
+  const tag = document.activeElement ? document.activeElement.tagName : '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (document.activeElement && document.activeElement.isContentEditable)) return;
+  if (!currentTrackId) return;
+  e.preventDefault();
   if (globalAudio.paused) globalAudio.play().catch(() => {});
   else globalAudio.pause();
   refreshPlayButtons();
