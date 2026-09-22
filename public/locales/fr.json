@@ -120,7 +120,7 @@
   "link.suno": "Suno",
   "link.donate": "Soutenir",
   "footer.text": "Résonance est un projet indépendant. Les liens de don et de streaming renvoient vers les services choisis par chaque artiste.",
-  "footer.evolving": "Résonance est une plateforme française qui continuera d'évoluer avec vos retours — un espace qui accueille les créations assistées par IA tout en respectant les règles, pour que le travail des artistes soit reconnu et rémunéré.",
+  "footer.evolving": "Résonance est une plateforme française qui continuera d'évoluer avec vos retours — un espace qui accueille les créations assistées par IA tout en respectant les règles, pour que le travail des artistes soit reconnu et rémunéré. Certaines améliorations sont déjà prêtes en coulisses, comme la distribution automatique vers Spotify et Apple Music en un clic — en attente d'assez d'artistes actifs pour être activée.",
   "footer.terms": "Conditions d'utilisation & confidentialité",
   "error.missing_fields": "Merci de remplir tous les champs obligatoires.",
   "error.password_too_short": "Le mot de passe doit contenir au moins 8 caractères.",
