@@ -265,11 +265,48 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
 
 let MY_TRACKS = [];
 
+async function loadStats() {
+  const totalPlays = MY_TRACKS.reduce((sum, tr) => sum + (tr.plays || 0), 0);
+  document.getElementById('stats-total-plays').textContent = totalPlays;
+
+  let followerCount = 0;
+  if (currentUser) {
+    try {
+      const res = await fetch('/api/artists/' + currentUser.id);
+      if (res.ok) followerCount = (await res.json()).followerCount || 0;
+    } catch (err) {
+      /* silencieux */
+    }
+  }
+  document.getElementById('stats-followers').textContent = followerCount;
+
+  const list = document.getElementById('stats-tracks-list');
+  if (MY_TRACKS.length === 0) {
+    list.innerHTML = '<p class="stats-empty">' + t('stats.empty') + '</p>';
+    return;
+  }
+  const sorted = [...MY_TRACKS].sort((a, b) => (b.plays || 0) - (a.plays || 0));
+  const maxPlays = Math.max(1, sorted[0].plays || 0);
+  list.innerHTML = sorted
+    .map(
+      (tr) =>
+        '<div class="stats-track-row"><div class="stats-track-top"><span class="stats-track-title">' +
+        escapeHtml(tr.title) +
+        '</span><span class="stats-track-count">' +
+        (tr.plays === 1 ? t('track.playsOne') : t('track.playsMany').replace('{n}', tr.plays || 0)) +
+        '</span></div><div class="stats-bar-track"><div class="stats-bar-fill" style="width:' +
+        Math.round(((tr.plays || 0) / maxPlays) * 100) +
+        '%"></div></div></div>'
+    )
+    .join('');
+}
+
 async function loadMyTracks() {
   const res = await fetch('/api/me/tracks');
   if (!res.ok) return;
   const { tracks } = await res.json();
   MY_TRACKS = tracks;
+  loadStats();
   const list = document.getElementById('my-tracks-list');
   if (tracks.length === 0) {
     list.innerHTML = '<p class="empty-state">' + t('dashboard.myTracks.empty') + '</p>';
