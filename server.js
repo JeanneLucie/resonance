@@ -309,6 +309,52 @@ app.post('/api/tracks/:id/register-play', async (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Signalement d'un morceau (accessible à n'importe quel visiteur) ---
+app.post('/api/tracks/:id/report', async (req, res) => {
+  const { reason } = req.body || {};
+  if (!reason || !reason.trim()) return res.status(400).json({ error: 'missing_reason' });
+  const { data: track } = await supabase.from('tracks').select('id, title, user_id').eq('id', req.params.id).maybeSingle();
+  if (!track) return res.status(404).json({ error: 'not_found' });
+  const { error } = await supabase.from('reports').insert({
+    track_id: track.id,
+    reason: reason.trim(),
+    resolved: false,
+    created_at: Date.now(),
+  });
+  if (error) return res.status(500).json({ error: 'server_error', message: error.message });
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/reports', requireAdmin, async (req, res) => {
+  const { data: reports } = await supabase.from('reports').select('*').eq('resolved', false).order('created_at', { ascending: false });
+  const trackIds = [...new Set((reports || []).map((r) => r.track_id))];
+  const { data: tracks } = trackIds.length ? await supabase.from('tracks').select('id, title, user_id').in('id', trackIds) : { data: [] };
+  const userIds = [...new Set((tracks || []).map((t) => t.user_id))];
+  const { data: users } = userIds.length ? await supabase.from('users').select('id, artist_name').in('id', userIds) : { data: [] };
+  const trackById = Object.fromEntries((tracks || []).map((t) => [t.id, t]));
+  const userById = Object.fromEntries((users || []).map((u) => [u.id, u]));
+
+  res.json({
+    reports: (reports || []).map((r) => {
+      const track = trackById[r.track_id];
+      const artist = track ? userById[track.user_id] : null;
+      return {
+        id: r.id,
+        trackId: r.track_id,
+        trackTitle: track ? track.title : 'Morceau supprimé',
+        artistName: artist ? artist.artist_name : '',
+        reason: r.reason,
+        createdAt: r.created_at,
+      };
+    }),
+  });
+});
+
+app.post('/api/admin/reports/:id/resolve', requireAdmin, async (req, res) => {
+  await supabase.from('reports').update({ resolved: true }).eq('id', req.params.id);
+  res.json({ ok: true });
+});
+
 app.delete('/api/tracks/:id', requireAuth, async (req, res) => {
   const { data: track } = await supabase.from('tracks').select('*').eq('id', req.params.id).eq('user_id', req.session.userId).maybeSingle();
   if (!track) return res.status(404).json({ error: 'not_found' });

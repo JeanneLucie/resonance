@@ -94,6 +94,13 @@ section.on-paper h2, section.on-paper h3 { color: var(--text-on-paper); }
 .stats-bar-track { height: 6px; border-radius: 3px; background: var(--line-paper); overflow: hidden; }
 .stats-bar-fill { height: 100%; background: var(--brass); border-radius: 3px; }
 .stats-empty { color: var(--text-on-paper-dim); font-size: 0.88rem; margin-top: 18px; }
+.onboarding-progress-text { font-size: 0.85rem; color: var(--text-on-paper-dim); margin-top: 6px; }
+.onboarding-bar { height: 6px; border-radius: 3px; background: var(--line-paper); overflow: hidden; margin-top: 10px; }
+.onboarding-bar-fill { height: 100%; background: var(--teal); border-radius: 3px; transition: width .3s; }
+.onboarding-list { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.onboarding-list li { font-size: 0.88rem; color: var(--text-on-paper-dim); display: flex; align-items: center; gap: 8px; }
+.onboarding-list li.done { color: var(--text-on-paper); }
+.onboarding-list .check { width: 16px; text-align: center; }
 .share-qr-popover {
   position: fixed; top: 70px; right: 20px; z-index: 50;
   background: var(--paper); border: 1px solid var(--line-paper); border-radius: 8px;
@@ -179,6 +186,7 @@ img.cover-art { object-fit: contain; background: var(--ink); }
 .tag { font-size: 0.74rem; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--line); color: var(--text-on-ink-dim); }
 .tag.ai { border: none; background: none; padding: 3px 0; color: var(--text-on-ink-dim); opacity: 0.8; font-size: 0.72rem; }
 .tag.explicit { border-color: #B85450; color: #D98680; }
+.tag.new { border-color: var(--teal); color: var(--teal); font-weight: 500; }
 .copyright { font-size: 0.72rem; color: var(--text-on-ink-dim); opacity: 0.75; }
 .genesis { margin-top: 8px; }
 .genesis summary { cursor: pointer; font-size: 0.8rem; color: var(--brass); }

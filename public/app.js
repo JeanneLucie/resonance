@@ -203,6 +203,7 @@ document.getElementById('profile-form').addEventListener('submit', async (e) => 
     status.textContent = '✓';
     setTimeout(() => (status.textContent = ''), 2000);
     loadFeed();
+    refreshOnboarding();
   } else {
     status.textContent = t('error.generic');
   }
@@ -265,6 +266,29 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
 
 let MY_TRACKS = [];
 
+function refreshOnboarding() {
+  if (!currentUser) return;
+  const steps = [
+    { done: !!currentUser.avatarUrl, key: 'onboarding.step.avatar' },
+    { done: !!(currentUser.bio && currentUser.bio.trim()), key: 'onboarding.step.bio' },
+    { done: !!currentUser.donationLink, key: 'onboarding.step.donation' },
+    { done: !!(currentUser.soundcloudUrl || currentUser.instagramUrl || currentUser.sunoUrl), key: 'onboarding.step.social' },
+    { done: MY_TRACKS.length > 0, key: 'onboarding.step.track' },
+  ];
+  const doneCount = steps.filter((s) => s.done).length;
+  const panel = document.getElementById('onboarding-panel');
+  if (doneCount === steps.length) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  document.getElementById('onboarding-progress-text').textContent = doneCount + '/' + steps.length + ' ' + t('onboarding.stepsDone');
+  document.getElementById('onboarding-bar-fill').style.width = Math.round((doneCount / steps.length) * 100) + '%';
+  document.getElementById('onboarding-list').innerHTML = steps
+    .map((s) => '<li class="' + (s.done ? 'done' : '') + '"><span class="check">' + (s.done ? '✓' : '○') + '</span>' + t(s.key) + '</li>')
+    .join('');
+}
+
 async function loadStats() {
   const totalPlays = MY_TRACKS.reduce((sum, tr) => sum + (tr.plays || 0), 0);
   document.getElementById('stats-total-plays').textContent = totalPlays;
@@ -307,6 +331,7 @@ async function loadMyTracks() {
   const { tracks } = await res.json();
   MY_TRACKS = tracks;
   loadStats();
+  refreshOnboarding();
   const list = document.getElementById('my-tracks-list');
   if (tracks.length === 0) {
     list.innerHTML = '<p class="empty-state">' + t('dashboard.myTracks.empty') + '</p>';
@@ -425,6 +450,7 @@ function renderTrackCard(tr) {
   if (tr.aiLevel === 'assisted') tags.push('<span class="tag ai">' + t('ai.tag.assisted') + (tr.aiTool ? ' · ' + escapeHtml(tr.aiTool) : '') + '</span>');
   if (tr.aiLevel === 'generated') tags.push('<span class="tag ai">' + t('ai.tag.generated') + (tr.aiTool ? ' · ' + escapeHtml(tr.aiTool) : '') + '</span>');
   if (tr.explicit) tags.push('<span class="tag explicit">' + t('tag.explicit') + '</span>');
+  if (Date.now() - tr.createdAt < 7 * 24 * 60 * 60 * 1000) tags.push('<span class="tag new">' + t('tag.new') + '</span>');
 
   const streamingLinks = [];
   if (tr.spotifyUrl) streamingLinks.push(linkPill(tr.spotifyUrl, t('link.spotify')));
@@ -486,6 +512,11 @@ function renderTrackCard(tr) {
     '<button type="button" class="link-pill share-track-btn" data-share-url="' +
     escapeHtml(window.location.origin + '/#/artiste/' + tr.userId) +
     '">🔗</button>' +
+    '<button type="button" class="link-pill report-track-btn" data-report-id="' +
+    tr.id +
+    '" title="' +
+    t('track.report') +
+    '">🚩</button>' +
     '</div></div></div>'
   );
 }
@@ -832,6 +863,41 @@ function fitText(ctx, text, x, y, maxWidth, baseSize, weight, family) {
 }
 
 // --- Administration ---
+async function loadAdminReports() {
+  const res = await fetch('/api/admin/reports');
+  if (!res.ok) return;
+  const { reports } = await res.json();
+  const list = document.getElementById('admin-reports-list');
+  if (reports.length === 0) {
+    list.innerHTML = '<p class="empty-state">' + t('admin.reports.empty') + '</p>';
+    return;
+  }
+  list.innerHTML = reports
+    .map(
+      (r) =>
+        '<div class="admin-row"><div class="who"><span>' +
+        escapeHtml(r.trackTitle) +
+        ' — ' +
+        escapeHtml(r.artistName) +
+        '</span><span class="sub">' +
+        escapeHtml(r.reason) +
+        ' · ' +
+        formatDate(r.createdAt) +
+        '</span></div><button class="del-btn" data-resolve-id="' +
+        r.id +
+        '">' +
+        t('admin.reports.resolve') +
+        '</button></div>'
+    )
+    .join('');
+  list.querySelectorAll('[data-resolve-id]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await fetch('/api/admin/reports/' + btn.getAttribute('data-resolve-id') + '/resolve', { method: 'POST' });
+      loadAdminReports();
+    });
+  });
+}
+
 function updateAdminUI() {
   const isAdmin = currentUser && currentUser.role === 'admin';
   document.getElementById('nav-admin').hidden = !isAdmin;
@@ -843,6 +909,7 @@ async function loadAdminOverview() {
   const res = await fetch('/api/admin/overview');
   if (!res.ok) return;
   const { users, tracks } = await res.json();
+  loadAdminReports();
 
   const usersList = document.getElementById('admin-users-list');
   usersList.innerHTML = users
@@ -1035,6 +1102,19 @@ document.getElementById('share-page-btn').addEventListener('click', () => shareU
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.share-track-btn');
   if (btn) shareUrl(btn.getAttribute('data-share-url'), 'nav.shareTrackText');
+});
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.report-track-btn');
+  if (!btn) return;
+  const reason = window.prompt(t('track.reportPrompt'));
+  if (!reason || !reason.trim()) return;
+  const res = await fetch('/api/tracks/' + btn.getAttribute('data-report-id') + '/report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason: reason.trim() }),
+  });
+  showToast(res.ok ? t('track.reportSent') : t('error.generic'));
 });
 
 function showShareQr(url) {

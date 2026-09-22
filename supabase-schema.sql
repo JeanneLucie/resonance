@@ -39,3 +39,11 @@ create table if not exists tracks (
   plays integer default 0,
   created_at bigint not null
 );
+
+create table if not exists reports (
+  id bigint generated always as identity primary key,
+  track_id bigint not null references tracks(id) on delete cascade,
+  reason text not null,
+  resolved boolean default false,
+  created_at bigint not null
+);
