@@ -169,5 +169,7 @@
   "error.email_taken": "This email address is already in use.",
   "error.invalid_credentials": "Incorrect email or password.",
   "error.too_many_attempts": "Too many attempts. Try again in 30 minutes.",
+  "error.too_many_attempts_countdown": "Too many attempts. Try again in {time}.",
+  "error.too_many_attempts_over": "You can try again now.",
   "error.generic": "Something went wrong, please try again."
 }

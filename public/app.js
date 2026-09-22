@@ -109,6 +109,28 @@ document.getElementById('show-login').addEventListener('click', (e) => {
 });
 
 // --- Signup ---
+// Affiche un compte à rebours en direct dans une zone de statut,
+// quand le serveur a répondu "trop de tentatives" — plus rassurant
+// qu'un simple message statique.
+function showRateLimitCountdown(statusEl, retryAfterSeconds) {
+  let remaining = Math.max(1, retryAfterSeconds);
+  const render = () => {
+    const m = Math.floor(remaining / 60);
+    const s = (remaining % 60).toString().padStart(2, '0');
+    statusEl.textContent = t('error.too_many_attempts_countdown').replace('{time}', m + ':' + s);
+  };
+  render();
+  const interval = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      clearInterval(interval);
+      statusEl.textContent = t('error.too_many_attempts_over');
+      return;
+    }
+    render();
+  }, 1000);
+}
+
 document.getElementById('signup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const status = document.getElementById('signup-status');
@@ -124,6 +146,11 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get('Retry-After')) || 1800;
+    showRateLimitCountdown(status, retryAfter);
+    return;
+  }
   const data = await res.json();
   if (!res.ok) {
     status.textContent = t('error.' + data.error) || t('error.generic');
@@ -147,6 +174,11 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get('Retry-After')) || 1800;
+    showRateLimitCountdown(status, retryAfter);
+    return;
+  }
   const data = await res.json();
   if (!res.ok) {
     status.textContent = t('error.' + data.error) || t('error.generic');
