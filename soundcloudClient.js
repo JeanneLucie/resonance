@@ -10,6 +10,13 @@
 // vraie logique de connexion (échange OAuth avec PKCE) est à compléter
 // une fois l'accès obtenu, en vérifiant leur documentation à ce
 // moment-là, car leur API a déjà changé plusieurs fois par le passé.
+//
+// À PRÉVOIR dans le vrai parcours de connexion : un artiste peut soit
+// déjà avoir un compte SoundCloud (le connecter directement via leur
+// page d'autorisation), soit ne pas en avoir du tout — dans ce
+// deuxième cas, il faudra le rediriger d'abord vers la création d'un
+// compte SoundCloud (gratuit) avant de pouvoir le connecter, plutôt
+// que de le laisser bloqué sans explication.
 
 const CLIENT_ID = process.env.SOUNDCLOUD_CLIENT_ID;
 const CLIENT_SECRET = process.env.SOUNDCLOUD_CLIENT_SECRET;

@@ -509,8 +509,10 @@ function renderTrackCard(tr) {
     (streamingLinks.length ? '<div class="actions-row">' + streamingLinks.join('') + '</div>' : '') +
     '<div class="actions-row">' +
     otherLinks.join('') +
-    '<button type="button" class="link-pill share-track-btn" data-share-url="' +
-    escapeHtml(window.location.origin + '/#/artiste/' + tr.userId) +
+    '<button type="button" class="link-pill share-track-btn" title="' +
+    t('track.shareTooltip') +
+    '" data-share-url="' +
+    escapeHtml(window.location.origin + '/#/morceau/' + tr.id) +
     '">🔗</button>' +
     '<button type="button" class="link-pill report-track-btn" data-report-id="' +
     tr.id +
@@ -1024,20 +1026,64 @@ async function loadArtistPage(artistId) {
 }
 
 function handleRoute() {
-  const match = window.location.hash.match(/^#\/artiste\/(\d+)$/);
+  const artistMatch = window.location.hash.match(/^#\/artiste\/(\d+)$/);
+  const trackMatch = window.location.hash.match(/^#\/morceau\/(\d+)$/);
   const artistSection = document.getElementById('artiste');
+  const trackSection = document.getElementById('morceau');
   const mainViews = document.querySelectorAll('.main-view');
-  if (match) {
+  if (artistMatch) {
     mainViews.forEach((el) => (el.hidden = true));
     artistSection.hidden = false;
-    loadArtistPage(match[1]);
+    trackSection.hidden = true;
+    loadArtistPage(artistMatch[1]);
+    window.scrollTo(0, 0);
+  } else if (trackMatch) {
+    mainViews.forEach((el) => (el.hidden = true));
+    artistSection.hidden = true;
+    trackSection.hidden = false;
+    loadTrackPage(trackMatch[1]);
     window.scrollTo(0, 0);
   } else {
     mainViews.forEach((el) => (el.hidden = false));
     artistSection.hidden = true;
+    trackSection.hidden = true;
   }
 }
 window.addEventListener('hashchange', handleRoute);
+
+document.getElementById('back-to-discover-from-track').addEventListener('click', () => {
+  window.location.hash = '';
+});
+
+async function loadTrackPage(trackId) {
+  const container = document.getElementById('track-page-content');
+  const moreContainer = document.getElementById('track-page-more');
+  container.innerHTML = '';
+  moreContainer.innerHTML = '';
+  const res = await fetch('/api/tracks/' + trackId);
+  if (!res.ok) {
+    container.innerHTML = '<div class="empty-state">' + t('track.notFound') + '</div>';
+    return;
+  }
+  const { track } = await res.json();
+  container.innerHTML = renderTrackCard(track);
+  currentDiscoverQueue = [track];
+  document.title = track.title + ' — ' + track.artistName + ' — Résonance';
+
+  // "Plus de cet artiste" — quelques autres morceaux, pour continuer la découverte
+  const artistRes = await fetch('/api/artists/' + track.userId);
+  if (artistRes.ok) {
+    const { tracks } = await artistRes.json();
+    const others = tracks.filter((tr) => tr.id !== track.id);
+    if (others.length) {
+      moreContainer.innerHTML =
+        '<h3>' + t('track.moreFromArtist').replace('{artist}', escapeHtml(track.artistName)) + '</h3>' +
+        '<div class="feed">' + others.map(renderTrackCard).join('') + '</div>';
+      currentArtistQueue = tracks;
+    }
+  }
+  refreshPlayButtons();
+}
 
 // --- Service worker (installation en app) ---
 if ('serviceWorker' in navigator) {
@@ -1298,7 +1344,7 @@ document.getElementById('artist-shuffle-play-btn').addEventListener('click', () 
   // Si l'adresse garde une ancienne ancre (#decouvrir, etc.) sans être une
   // vraie page artiste, on revient en haut plutôt que de suivre le saut
   // automatique du navigateur vers cette section.
-  if (window.location.hash && !window.location.hash.match(/^#\/artiste\/\d+$/)) {
+  if (window.location.hash && !window.location.hash.match(/^#\/artiste\/\d+$/) && !window.location.hash.match(/^#\/morceau\/\d+$/)) {
     history.replaceState(null, '', window.location.pathname + window.location.search);
   }
   await loadLang(CURRENT_LANG);

@@ -366,6 +366,23 @@ app.delete('/api/tracks/:id', requireAuth, async (req, res) => {
 });
 
 // --- Pages artiste publiques + suivi ---
+app.get('/api/tracks/:id', async (req, res) => {
+  const { data: track } = await supabase.from('tracks').select('*').eq('id', req.params.id).maybeSingle();
+  if (!track) return res.status(404).json({ error: 'not_found' });
+  const { data: artist } = await supabase.from('users').select('*').eq('id', track.user_id).maybeSingle();
+  if (!artist) return res.status(404).json({ error: 'not_found' });
+
+  res.json({
+    track: {
+      ...mapTrack(track, artist.artist_name),
+      donationLink: artist.donation_link,
+      soundcloudUrl: artist.soundcloud_url,
+      instagramUrl: artist.instagram_url,
+      sunoUrl: artist.suno_url,
+    },
+  });
+});
+
 app.get('/api/artists/:id', async (req, res) => {
   const artistId = Number(req.params.id);
   const { data: artist } = await supabase.from('users').select('*').eq('id', artistId).maybeSingle();

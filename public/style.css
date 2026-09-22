@@ -145,6 +145,7 @@ textarea { resize: vertical; min-height: 64px; }
 
 .btn-back { background: none; border: none; color: var(--text-on-paper-dim); font-size: 0.9rem; cursor: pointer; padding: 0; margin-bottom: 24px; font-family: 'IBM Plex Sans', sans-serif; }
 .btn-back:hover { color: var(--text-on-paper); }
+#track-page-more h3 { font-family: 'Fraunces', serif; font-size: 1.2rem; margin-bottom: 16px; }
 .artist-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
 .artist-header h2 { font-size: clamp(1.8rem, 4vw, 2.6rem); }
 .artist-bio { margin-top: 10px; color: var(--text-on-paper-dim); max-width: 56ch; }
