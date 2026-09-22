@@ -47,6 +47,8 @@
   "dashboard.profile.spotify": "Spotify link",
   "dashboard.profile.apple": "Apple Music link",
   "dashboard.profile.soundcloud": "SoundCloud link",
+  "soundcloud.connectBtn": "🔗 Connect my SoundCloud account",
+  "soundcloud.notConfigured": "Direct SoundCloud connection isn't available yet — waiting on their approval.",
   "dashboard.profile.instagram": "Instagram link",
   "dashboard.profile.save": "Save profile",
   "dashboard.addTrack.title": "Publish a track",

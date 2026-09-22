@@ -1097,6 +1097,16 @@ async function shareUrl(url, textKey) {
   showShareQr(url);
 }
 
+document.getElementById('soundcloud-connect-btn').addEventListener('click', async () => {
+  const res = await fetch('/api/soundcloud/connect');
+  if (res.status === 503) {
+    showToast(t('soundcloud.notConfigured'));
+    return;
+  }
+  const data = await res.json();
+  if (data.authorizeUrl) window.location.href = data.authorizeUrl;
+});
+
 document.getElementById('share-page-btn').addEventListener('click', () => shareUrl(window.location.href));
 
 document.addEventListener('click', (e) => {

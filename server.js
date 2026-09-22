@@ -7,6 +7,7 @@ const path = require('path');
 const supabase = require('./supabaseClient');
 const labelgrid = require('./labelgrid');
 const stripeClient = require('./stripeClient');
+const soundcloudClient = require('./soundcloudClient');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-in-.env';
@@ -465,6 +466,18 @@ app.post('/api/webhooks/labelgrid', async (req, res) => {
 // le coût réel de LabelGrid une fois reporté sur les artistes.
 app.get('/api/payments/status', (req, res) => {
   res.json({ configured: stripeClient.isConfigured(), feeCents: stripeClient.DISTRIBUTION_FEE_CENTS });
+});
+
+// --- Connexion SoundCloud (en sommeil, voir soundcloudClient.js) ---
+app.get('/api/soundcloud/status', (req, res) => {
+  res.json({ configured: soundcloudClient.isConfigured() });
+});
+app.get('/api/soundcloud/connect', requireAuth, (req, res) => {
+  if (!soundcloudClient.isConfigured()) return res.status(503).json({ error: 'not_configured' });
+  // TODO une fois l'accès obtenu : rediriger vers l'URL d'autorisation
+  // OAuth de SoundCloud (voir leur documentation développeur à ce
+  // moment-là pour le flux exact).
+  res.status(501).json({ error: 'not_implemented' });
 });
 
 app.post('/api/tracks/:id/pay-distribution', requireAuth, async (req, res) => {
