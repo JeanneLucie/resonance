@@ -161,5 +161,6 @@
   "error.terms_not_accepted": "Please accept the terms of use to create an account.",
   "error.email_taken": "This email address is already in use.",
   "error.invalid_credentials": "Incorrect email or password.",
+  "error.too_many_attempts": "Too many attempts. Try again in 30 minutes.",
   "error.generic": "Something went wrong, please try again."
 }

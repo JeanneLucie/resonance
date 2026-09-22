@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
+const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
@@ -66,9 +67,35 @@ app.use(
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }, // 7 jours
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 jours
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      httpOnly: true,
+    },
   })
 );
+
+// Limite les tentatives de connexion/inscription en rafale (protection
+// contre les essais automatisés de mots de passe) — 15 essais par
+// quart d'heure et par adresse IP.
+const authLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'too_many_attempts' },
+});
+
+// Limite plus large pour les écoutes/signalements publics — évite qu'un
+// script gonfle artificiellement les statistiques d'écoute ou inonde
+// les signalements, sans gêner de vrais visiteurs.
+const publicActionLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'not_authenticated' });
@@ -102,6 +129,17 @@ function publicUser(u) {
   };
 }
 
+// Comme publicUser, mais sans l'e-mail — pour tout ce qu'un visiteur
+// non connecté peut voir (page artiste, "Découvrir"...). L'e-mail ne
+// doit apparaître que pour la personne elle-même (son propre compte)
+// ou pour l'administratrice.
+function publicArtist(u) {
+  const full = publicUser(u);
+  if (!full) return null;
+  const { email, ...rest } = full;
+  return rest;
+}
+
 function mapTrack(t, artistName) {
   return {
     id: t.id,
@@ -125,7 +163,7 @@ function mapTrack(t, artistName) {
 }
 
 // --- Auth ---
-app.post('/api/signup', async (req, res) => {
+app.post('/api/signup', authLimiter, async (req, res) => {
   const { artistName, email, password, acceptedTerms } = req.body;
   if (!artistName || !email || !password) return res.status(400).json({ error: 'missing_fields' });
   if (password.length < 8) return res.status(400).json({ error: 'password_too_short' });
@@ -155,7 +193,7 @@ app.post('/api/signup', async (req, res) => {
   res.json({ ok: true, user: publicUser(user) });
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
   const { data: user } = await supabase.from('users').select('*').ilike('email', email || '').maybeSingle();
   if (!user) return res.status(401).json({ error: 'invalid_credentials' });
@@ -305,7 +343,7 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
 // Enregistre une écoute réelle (déclenchée côté client après quelques
 // secondes de lecture, pas juste un clic) — accessible sans compte,
 // puisque n'importe quel visiteur peut écouter.
-app.post('/api/tracks/:id/register-play', async (req, res) => {
+app.post('/api/tracks/:id/register-play', publicActionLimiter, async (req, res) => {
   const { data: track } = await supabase.from('tracks').select('plays').eq('id', req.params.id).maybeSingle();
   if (!track) return res.status(404).json({ error: 'not_found' });
   await supabase.from('tracks').update({ plays: (track.plays || 0) + 1 }).eq('id', req.params.id);
@@ -313,7 +351,7 @@ app.post('/api/tracks/:id/register-play', async (req, res) => {
 });
 
 // --- Signalement d'un morceau (accessible à n'importe quel visiteur) ---
-app.post('/api/tracks/:id/report', async (req, res) => {
+app.post('/api/tracks/:id/report', publicActionLimiter, async (req, res) => {
   const { reason } = req.body || {};
   if (!reason || !reason.trim()) return res.status(400).json({ error: 'missing_reason' });
   const { data: track } = await supabase.from('tracks').select('id, title, user_id').eq('id', req.params.id).maybeSingle();
@@ -402,7 +440,7 @@ app.get('/api/artists/:id', async (req, res) => {
   const isFollowing = !!(me && (me.following_ids || []).includes(artistId));
 
   res.json({
-    artist: publicUser(artist),
+    artist: publicArtist(artist),
     tracks: (tracks || []).map((t) => ({
       ...mapTrack(t, artist.artist_name),
       donationLink: artist.donation_link,
