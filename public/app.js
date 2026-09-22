@@ -377,9 +377,9 @@ function renderTrackCard(tr) {
   const streamingLinks = [];
   if (tr.spotifyUrl) streamingLinks.push(linkPill(tr.spotifyUrl, t('link.spotify')));
   if (tr.appleUrl) streamingLinks.push(linkPill(tr.appleUrl, t('link.apple')));
-  if (tr.soundcloudUrl) streamingLinks.push(linkPill(tr.soundcloudUrl, t('link.soundcloud')));
 
   const otherLinks = [];
+  if (tr.soundcloudUrl) otherLinks.push(linkPill(tr.soundcloudUrl, t('link.soundcloud')));
   if (tr.instagramUrl) otherLinks.push(linkPill(tr.instagramUrl, t('link.instagram')));
   if (tr.sunoUrl) otherLinks.push(linkPill(tr.sunoUrl, t('link.suno')));
   if (tr.donationLink) otherLinks.push(linkPill(tr.donationLink, t('link.donate'), true));
