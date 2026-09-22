@@ -8,6 +8,7 @@ const supabase = require('./supabaseClient');
 const labelgrid = require('./labelgrid');
 const stripeClient = require('./stripeClient');
 const soundcloudClient = require('./soundcloudClient');
+const resendClient = require('./resendClient');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-in-.env';
@@ -150,6 +151,7 @@ app.post('/api/signup', async (req, res) => {
 
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   req.session.userId = user.id;
+  if (role === 'artist') resendClient.notifyNewSignup(artistName, email);
   res.json({ ok: true, user: publicUser(user) });
 });
 

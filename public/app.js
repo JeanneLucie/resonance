@@ -175,9 +175,9 @@ function fillProfileForm(user) {
   document.getElementById('profile-sunoUrl').value = user.sunoUrl || '';
 
   const avatarPreview = document.getElementById('profile-avatar-preview');
-  if (user.avatarUrl) { avatarPreview.src = user.avatarUrl; avatarPreview.hidden = false; } else { avatarPreview.hidden = true; }
+  if (user.avatarUrl) { avatarPreview.src = user.avatarUrl; avatarPreview.hidden = false; } else { avatarPreview.hidden = true; avatarPreview.src = ''; }
   const bannerPreview = document.getElementById('profile-banner-preview');
-  if (user.bannerUrl) { bannerPreview.src = user.bannerUrl; bannerPreview.hidden = false; } else { bannerPreview.hidden = true; }
+  if (user.bannerUrl) { bannerPreview.src = user.bannerUrl; bannerPreview.hidden = false; } else { bannerPreview.hidden = true; bannerPreview.src = ''; }
 }
 
 document.getElementById('profile-form').addEventListener('submit', async (e) => {
