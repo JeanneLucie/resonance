@@ -35,5 +35,6 @@ create table if not exists tracks (
   spotify_url text default '',
   apple_url text default '',
   distribution jsonb,
+  distribution_paid boolean default false,
   created_at bigint not null
 );

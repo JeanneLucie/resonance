@@ -6,6 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const supabase = require('./supabaseClient');
 const labelgrid = require('./labelgrid');
+const stripeClient = require('./stripeClient');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-in-.env';
@@ -397,6 +398,47 @@ app.post('/api/webhooks/labelgrid', async (req, res) => {
         .from('tracks')
         .update({ distribution: { ...track.distribution, status, updatedAt: Date.now() } })
         .eq('id', track.id);
+    }
+  }
+  res.json({ received: true });
+});
+
+// --- Paiement (Stripe) pour débloquer la distribution — reste inactif
+// tant qu'aucune clé Stripe n'est renseignée dans .env. Sert à couvrir
+// le coût réel de LabelGrid une fois reporté sur les artistes.
+app.get('/api/payments/status', (req, res) => {
+  res.json({ configured: stripeClient.isConfigured(), feeCents: stripeClient.DISTRIBUTION_FEE_CENTS });
+});
+
+app.post('/api/tracks/:id/pay-distribution', requireAuth, async (req, res) => {
+  if (!stripeClient.isConfigured()) return res.status(503).json({ error: 'not_configured' });
+  const { data: track } = await supabase.from('tracks').select('*').eq('id', req.params.id).eq('user_id', req.session.userId).maybeSingle();
+  if (!track) return res.status(404).json({ error: 'not_found' });
+
+  try {
+    const origin = req.headers.origin || 'https://' + req.headers.host;
+    const session = await stripeClient.createDistributionCheckout({
+      trackId: track.id,
+      trackTitle: track.title,
+      successUrl: origin + '/#espace?payment=success',
+      cancelUrl: origin + '/#espace?payment=cancelled',
+    });
+    res.json({ ok: true, checkoutUrl: session.url });
+  } catch (err) {
+    res.status(502).json({ error: 'payment_error', message: err.message });
+  }
+});
+
+// Reçoit la confirmation de paiement de Stripe. NOTE : pour une vraie mise
+// en production, il faut vérifier la signature du webhook avec le secret
+// fourni par Stripe (voir leur documentation "Webhooks") avant de faire
+// confiance à ce contenu — laissé simple ici tant que ce n'est pas activé.
+app.post('/api/webhooks/stripe', async (req, res) => {
+  const event = req.body;
+  if (event && event.type === 'checkout.session.completed') {
+    const trackId = event.data && event.data.object && event.data.object.metadata && event.data.object.metadata.trackId;
+    if (trackId) {
+      await supabase.from('tracks').update({ distribution_paid: true }).eq('id', Number(trackId));
     }
   }
   res.json({ received: true });

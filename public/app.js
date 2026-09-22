@@ -284,12 +284,14 @@ async function loadMyTracks() {
       } else {
         distHtml = '<button class="mini-btn dist-only-btn" data-dist-id="' + tr.id + '">' + t('dist.button') + '</button>';
       }
+      const payHtml = '<button class="mini-btn pay-dist-btn" data-pay-id="' + tr.id + '">' + t('pay.button') + '</button>';
       return (
         '<div class="my-track-row"><span class="title">' +
         escapeHtml(tr.title) +
         '<span class="my-track-date">' + formatDate(tr.createdAt) + '</span>' +
-        '</span><div style="display:flex; gap:10px; align-items:center;">' +
+        '</span><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">' +
         distHtml +
+        payHtml +
         '<button class="mini-btn edit-only-btn" data-edit-id="' +
         tr.id +
         '">' +
@@ -328,6 +330,19 @@ async function loadMyTracks() {
         return;
       }
       loadMyTracks();
+    });
+  });
+  list.querySelectorAll('.pay-dist-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.textContent = '…';
+      const res = await fetch('/api/tracks/' + btn.getAttribute('data-pay-id') + '/pay-distribution', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error === 'not_configured' ? t('pay.notConfigured') : t('error.generic'));
+        btn.textContent = t('pay.button');
+        return;
+      }
+      window.location.href = data.checkoutUrl;
     });
   });
   list.querySelectorAll('.del-btn').forEach((btn) => {

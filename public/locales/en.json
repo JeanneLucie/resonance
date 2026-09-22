@@ -98,6 +98,8 @@
   "dist.status.processing": "Processing",
   "dist.status.live": "Live on platforms",
   "dist.status.rejected": "Rejected — check LabelGrid",
+  "pay.button": "💳 Pay to distribute",
+  "pay.notConfigured": "Payment for distribution isn't set up yet.",
   "discover.title": "Discover",
   "discover.lede": "New tracks land every week — here, your music finds its place more easily than anywhere else.",
   "discover.empty": "No tracks published yet — be the first.",
