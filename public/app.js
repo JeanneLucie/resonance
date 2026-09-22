@@ -135,7 +135,9 @@ function showRateLimitCountdown(statusEl, retryAfterSeconds) {
 document.getElementById('signup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const status = document.getElementById('signup-status');
-  status.textContent = '';
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  status.textContent = '…';
+  submitBtn.disabled = true;
   const body = {
     artistName: document.getElementById('signup-artistName').value.trim(),
     email: document.getElementById('signup-email').value.trim(),
@@ -147,6 +149,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  submitBtn.disabled = false;
   if (res.status === 429) {
     const retryAfter = Number(res.headers.get('Retry-After')) || 1800;
     showRateLimitCountdown(status, retryAfter);
@@ -157,6 +160,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     status.textContent = t('error.' + data.error) || t('error.generic');
     return;
   }
+  status.textContent = '';
   await refreshMe();
   showToast('👋');
 });
@@ -165,7 +169,9 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const status = document.getElementById('login-status');
-  status.textContent = '';
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  status.textContent = '…';
+  submitBtn.disabled = true;
   const body = {
     email: document.getElementById('login-email').value.trim(),
     password: document.getElementById('login-password').value,
@@ -175,6 +181,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  submitBtn.disabled = false;
   if (res.status === 429) {
     const retryAfter = Number(res.headers.get('Retry-After')) || 1800;
     showRateLimitCountdown(status, retryAfter);
@@ -185,6 +192,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     status.textContent = t('error.' + data.error) || t('error.generic');
     return;
   }
+  status.textContent = '';
   await refreshMe();
 });
 
