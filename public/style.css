@@ -69,6 +69,7 @@ section.on-paper h2, section.on-paper h3 { color: var(--text-on-paper); }
 .section-head h2 { font-size: clamp(1.6rem, 3.2vw, 2.2rem); }
 .section-head p { margin-top: 12px; color: var(--text-on-ink-dim); font-size: 1rem; }
 .on-paper .section-head p { color: var(--text-on-paper-dim); }
+#shuffle-play-btn { margin-top: 18px; }
 
 .discover-controls { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
 .discover-controls input, .discover-controls select {

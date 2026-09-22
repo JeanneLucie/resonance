@@ -36,5 +36,6 @@ create table if not exists tracks (
   apple_url text default '',
   distribution jsonb,
   distribution_paid boolean default false,
+  plays integer default 0,
   created_at bigint not null
 );

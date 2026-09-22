@@ -115,6 +115,7 @@ function mapTrack(t, artistName) {
     explicit: !!t.explicit,
     spotifyUrl: t.spotify_url || '',
     appleUrl: t.apple_url || '',
+    plays: t.plays || 0,
     distribution: t.distribution,
     createdAt: Number(t.created_at),
     artistName,
@@ -296,6 +297,16 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
   const { data: updated, error } = await supabase.from('tracks').update(fields).eq('id', track.id).select().single();
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   res.json({ ok: true, track: mapTrack(updated) });
+});
+
+// Enregistre une écoute réelle (déclenchée côté client après quelques
+// secondes de lecture, pas juste un clic) — accessible sans compte,
+// puisque n'importe quel visiteur peut écouter.
+app.post('/api/tracks/:id/register-play', async (req, res) => {
+  const { data: track } = await supabase.from('tracks').select('plays').eq('id', req.params.id).maybeSingle();
+  if (!track) return res.status(404).json({ error: 'not_found' });
+  await supabase.from('tracks').update({ plays: (track.plays || 0) + 1 }).eq('id', req.params.id);
+  res.json({ ok: true });
 });
 
 app.delete('/api/tracks/:id', requireAuth, async (req, res) => {

@@ -288,7 +288,7 @@ async function loadMyTracks() {
       return (
         '<div class="my-track-row"><span class="title">' +
         escapeHtml(tr.title) +
-        '<span class="my-track-date">' + formatDate(tr.createdAt) + '</span>' +
+        '<span class="my-track-date">' + formatDate(tr.createdAt) + ' · ' + (tr.plays === 1 ? t('track.playsOne') : t('track.playsMany').replace('{n}', tr.plays)) + '</span>' +
         '</span><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">' +
         distHtml +
         payHtml +
@@ -435,6 +435,8 @@ function renderTrackCard(tr) {
     t('track.publishedOn') +
     ' ' +
     formatDate(tr.createdAt) +
+    ' · ' +
+    (tr.plays === 1 ? t('track.playsOne') : t('track.playsMany').replace('{n}', tr.plays)) +
     '</div>' +
     (tr.genesis
       ? '<details class="genesis"><summary>' + t('track.genesisToggle') + '</summary><p>' + escapeHtml(tr.genesis) + '</p></details>'
@@ -1036,11 +1038,21 @@ function findTrackById(id) {
   return ALL_TRACKS.find((t) => t.id === id) || (MY_TRACKS || []).find((t) => t.id === id) || null;
 }
 
+let playCountTimer = null;
+
 function playTrackById(id, audioUrl, title, artist, coverUrl, coverFallback, queue) {
   currentQueueRef = queue || currentDiscoverQueue;
   currentTrackId = id;
   globalAudio.src = audioUrl;
   globalAudio.play().catch(() => {});
+
+  // Une écoute ne compte qu'après 15 secondes de lecture réelle, pour
+  // éviter qu'un simple clic accidentel gonfle les chiffres — comme le
+  // font les vraies plateformes de streaming.
+  if (playCountTimer) clearTimeout(playCountTimer);
+  playCountTimer = setTimeout(() => {
+    fetch('/api/tracks/' + id + '/register-play', { method: 'POST' }).catch(() => {});
+  }, 15000);
 
   document.getElementById('player-title').textContent = title;
   document.getElementById('player-artist').textContent = artist;
@@ -1136,6 +1148,12 @@ globalAudio.addEventListener('ended', () => {
   } else {
     refreshPlayButtons();
   }
+});
+
+document.getElementById('shuffle-play-btn').addEventListener('click', () => {
+  if (ALL_TRACKS.length === 0) return;
+  const pick = ALL_TRACKS[Math.floor(Math.random() * ALL_TRACKS.length)];
+  playTrackById(pick.id, pick.audioUrl, pick.title, pick.artistName, pick.coverUrl, (pick.title || '?').trim().charAt(0).toUpperCase(), ALL_TRACKS);
 });
 
 // --- Init ---
