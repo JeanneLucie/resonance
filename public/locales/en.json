@@ -55,7 +55,7 @@
   "dashboard.addTrack.trackTitle": "Track title",
   "dashboard.addTrack.genre": "Genre",
   "dashboard.addTrack.collaborators": "Other artists on this track (optional)",
-  "dashboard.addTrack.collaboratorsPh": "Sacha Aftalion, …",
+  "dashboard.addTrack.collaboratorsPh": "Enter the name of a second artist, if there is one…",
   "dashboard.addTrack.audio": "Audio file (mp3, wav…)",
   "dashboard.addTrack.cover": "Cover art (optional — auto-generated otherwise)",
   "dashboard.addTrack.aiLevel": "Was this track made with the help of AI?",
