@@ -133,6 +133,7 @@ function publicUser(u) {
     artistName: u.artist_name,
     email: u.email,
     emailVerified: u.email_verified === true || !resendClient.isConfigured(),
+    exportExpiresAt: u.export_expires_at || null,
     bio: u.bio,
     donationLink: u.donation_link,
     spotifyUrl: u.spotify_url,
@@ -650,6 +651,103 @@ app.get('/api/admin/overview', requireAdmin, async (req, res) => {
       return { ...mapTrack(t, artist ? artist.artist_name : 'Artiste supprimé'), artistEmail: artist ? artist.email : '' };
     }),
   });
+});
+
+// --- Export des données personnelles (droit RGPD) ---
+// L'artiste demande, l'administratrice active une fenêtre limitée
+// pendant laquelle le téléchargement devient possible — reste
+// cohérent avec la promesse déjà faite dans les CGU ("écris-nous pour
+// demander tes données"), juste automatisé plutôt que manuel.
+const EXPORT_WINDOW_HOURS = 48;
+
+app.post('/api/me/request-export', requireAuth, async (req, res) => {
+  const { data: me } = await supabase.from('users').select('artist_name, email').eq('id', req.session.userId).maybeSingle();
+  if (!me) return res.status(404).json({ error: 'not_found' });
+  await resendClient.notifyExportRequest(me.artist_name, me.email);
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/users/:id/enable-export', requireAdmin, async (req, res) => {
+  const expiresAt = Date.now() + EXPORT_WINDOW_HOURS * 60 * 60 * 1000;
+  await supabase.from('users').update({ export_expires_at: expiresAt }).eq('id', req.params.id);
+  res.json({ ok: true, expiresAt });
+});
+
+app.get('/api/me/export', requireAuth, async (req, res) => {
+  const { data: me } = await supabase.from('users').select('*').eq('id', req.session.userId).maybeSingle();
+  if (!me || !me.export_expires_at || me.export_expires_at < Date.now()) {
+    return res.status(403).json({ error: 'export_not_available' });
+  }
+  const { data: tracks } = await supabase.from('tracks').select('*').eq('user_id', req.session.userId);
+  const exportData = {
+    profil: publicUser(me),
+    morceaux: (tracks || []).map((t) => mapTrack(t, me.artist_name)),
+    genereLe: new Date().toISOString(),
+  };
+  res.setHeader('Content-Disposition', 'attachment; filename="resonance-mes-donnees.json"');
+  res.setHeader('Content-Type', 'application/json');
+  res.send(JSON.stringify(exportData, null, 2));
+});
+
+// --- Messagerie discrète (un visiteur écrit à un artiste sans jamais
+// voir son adresse e-mail réelle ; l'artiste répond depuis le site,
+// jamais depuis sa messagerie personnelle, pour la même raison) ---
+app.post('/api/artists/:id/message', publicActionLimiter, async (req, res) => {
+  const { name, email, message } = req.body || {};
+  if (!email || !message || !message.trim()) return res.status(400).json({ error: 'missing_fields' });
+  const artistId = Number(req.params.id);
+  const { data: artist } = await supabase.from('users').select('id, artist_name, email').eq('id', artistId).maybeSingle();
+  if (!artist) return res.status(404).json({ error: 'not_found' });
+
+  const { error } = await supabase.from('messages').insert({
+    to_user_id: artistId,
+    from_name: (name || '').trim(),
+    from_email: email.trim(),
+    body: message.trim(),
+    read: false,
+    replied: false,
+    created_at: Date.now(),
+  });
+  if (error) return res.status(500).json({ error: 'server_error', message: error.message });
+
+  resendClient.notifyNewMessage(artist.email, artist.artist_name, (name || '').trim(), email.trim(), message.trim());
+  res.json({ ok: true });
+});
+
+app.get('/api/me/messages', requireAuth, async (req, res) => {
+  const { data: messages } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('to_user_id', req.session.userId)
+    .order('created_at', { ascending: false });
+  res.json({
+    messages: (messages || []).map((m) => ({
+      id: m.id,
+      fromName: m.from_name || '',
+      fromEmail: m.from_email,
+      body: m.body,
+      read: !!m.read,
+      replied: !!m.replied,
+      createdAt: m.created_at,
+    })),
+  });
+});
+
+app.post('/api/me/messages/:id/read', requireAuth, async (req, res) => {
+  await supabase.from('messages').update({ read: true }).eq('id', req.params.id).eq('to_user_id', req.session.userId);
+  res.json({ ok: true });
+});
+
+app.post('/api/me/messages/:id/reply', requireAuth, async (req, res) => {
+  const { reply } = req.body || {};
+  if (!reply || !reply.trim()) return res.status(400).json({ error: 'missing_reply' });
+  const { data: message } = await supabase.from('messages').select('*').eq('id', req.params.id).eq('to_user_id', req.session.userId).maybeSingle();
+  if (!message) return res.status(404).json({ error: 'not_found' });
+  const { data: me } = await supabase.from('users').select('artist_name').eq('id', req.session.userId).single();
+
+  await resendClient.sendReplyToVisitor(message.from_email, me.artist_name, reply.trim());
+  await supabase.from('messages').update({ replied: true, read: true }).eq('id', message.id);
+  res.json({ ok: true });
 });
 
 app.delete('/api/admin/tracks/:id', requireAdmin, async (req, res) => {

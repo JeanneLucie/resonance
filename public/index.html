@@ -200,6 +200,19 @@
         <ul id="onboarding-list" class="onboarding-list"></ul>
       </div>
 
+      <div class="panel" id="export-panel" style="margin-top:24px;">
+        <h3 data-i18n="export.title">Mes données</h3>
+        <p class="field-hint" data-i18n="export.hint">Tu peux demander une copie de toutes tes données (profil, morceaux). Une fois la demande traitée, tu auras 48h pour la télécharger.</p>
+        <button type="button" class="mini-btn" id="request-export-btn" data-i18n="export.request">Demander l'export de mes données</button>
+        <a href="/api/me/export" class="mini-btn" id="download-export-btn" hidden data-i18n="export.download">📥 Télécharger mes données</a>
+        <p class="field-hint" id="export-countdown" hidden></p>
+      </div>
+
+      <div class="panel" id="messages-panel" style="margin-top:24px;">
+        <h3 data-i18n="messages.title">Mes messages</h3>
+        <div id="messages-list"></div>
+      </div>
+
       <div class="panel">
         <h3 data-i18n="dashboard.profile.title">Mon profil</h3>
         <form id="profile-form">
@@ -358,8 +371,25 @@
       <div class="artist-follow">
         <span id="artist-follower-count" class="follower-count"></span>
         <button class="btn btn-primary" id="follow-btn" hidden></button>
+        <button type="button" class="mini-btn" id="contact-artist-btn" data-i18n="contact.button">✉️ Contacter</button>
       </div>
     </div>
+
+    <div class="contact-form-block" id="contact-form-block" hidden>
+      <h3 id="contact-form-title"></h3>
+      <p class="field-hint" data-i18n="contact.privacyNote">Ton message arrivera à l'artiste sans jamais lui montrer ton adresse — et sa réponse, elle, t'arrivera sans jamais te montrer la sienne.</p>
+      <label data-i18n="contact.name" for="contact-name">Ton nom (optionnel)</label>
+      <input type="text" id="contact-name">
+      <label data-i18n="contact.email" for="contact-email">Ton adresse e-mail (pour recevoir la réponse)</label>
+      <input type="email" id="contact-email" required>
+      <label data-i18n="contact.message" for="contact-message">Ton message</label>
+      <textarea id="contact-message" required></textarea>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="contact-send-btn" data-i18n="contact.send">Envoyer</button>
+        <span class="form-note" id="contact-status" aria-live="polite"></span>
+      </div>
+    </div>
+
     <button type="button" class="btn btn-primary" id="artist-shuffle-play-btn" data-i18n="discover.shufflePlay" style="margin-top:24px;">🔀 Lecture aléatoire</button>
     <div class="feed" id="artist-page-tracks" style="margin-top:28px;"></div>
   </div>

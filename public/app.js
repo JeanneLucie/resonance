@@ -71,6 +71,7 @@ async function refreshMe() {
   if (currentUser) {
     fillProfileForm(currentUser);
     loadMyTracks();
+    loadMessages();
   }
 }
 
@@ -305,8 +306,36 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
 
 let MY_TRACKS = [];
 
+function refreshExportPanel() {
+  const requestBtn = document.getElementById('request-export-btn');
+  const downloadBtn = document.getElementById('download-export-btn');
+  const countdown = document.getElementById('export-countdown');
+  const remaining = (currentUser.exportExpiresAt || 0) - Date.now();
+  if (remaining > 0) {
+    requestBtn.hidden = true;
+    downloadBtn.hidden = false;
+    countdown.hidden = false;
+    const hours = Math.floor(remaining / 3600000);
+    const mins = Math.floor((remaining % 3600000) / 60000);
+    countdown.textContent = t('export.expiresIn').replace('{time}', hours + 'h' + mins.toString().padStart(2, '0'));
+  } else {
+    requestBtn.hidden = false;
+    downloadBtn.hidden = true;
+    countdown.hidden = true;
+  }
+}
+
+document.getElementById('request-export-btn').addEventListener('click', async (e) => {
+  const btn = e.target;
+  btn.disabled = true;
+  await fetch('/api/me/request-export', { method: 'POST' });
+  showToast(t('export.requested'));
+  setTimeout(() => (btn.disabled = false), 3000);
+});
+
 function refreshOnboarding() {
   if (!currentUser) return;
+  refreshExportPanel();
   const banner = document.getElementById('verify-email-banner');
   banner.hidden = currentUser.emailVerified !== false;
   const publishBlock = document.getElementById('verify-blocks-publish');
@@ -366,6 +395,63 @@ async function loadStats() {
         '%"></div></div></div>'
     )
     .join('');
+}
+
+async function loadMessages() {
+  const res = await fetch('/api/me/messages');
+  if (!res.ok) return;
+  const { messages } = await res.json();
+  const list = document.getElementById('messages-list');
+  if (messages.length === 0) {
+    list.innerHTML = '<p class="empty-state">' + t('messages.empty') + '</p>';
+    return;
+  }
+  list.innerHTML = messages
+    .map(
+      (m) =>
+        '<div class="message-row' + (m.read ? '' : ' unread') + '" data-message-id="' + m.id + '">' +
+        '<div class="msg-meta">' +
+        (m.fromName ? escapeHtml(m.fromName) + ' · ' : '') +
+        escapeHtml(m.fromEmail) +
+        ' · ' +
+        formatDate(m.createdAt) +
+        (m.replied ? ' · ' + t('messages.replied') : '') +
+        '</div>' +
+        '<div class="msg-body">' + escapeHtml(m.body) + '</div>' +
+        (m.replied
+          ? ''
+          : '<textarea class="msg-reply-input" placeholder="' + t('messages.replyPh') + '"></textarea>' +
+            '<button type="button" class="mini-btn msg-reply-btn">' + t('messages.replyBtn') + '</button>' +
+            '<span class="form-note msg-reply-status"></span>') +
+        '</div>'
+    )
+    .join('');
+
+  list.querySelectorAll('.message-row.unread').forEach((row) => {
+    fetch('/api/me/messages/' + row.getAttribute('data-message-id') + '/read', { method: 'POST' });
+  });
+
+  list.querySelectorAll('.msg-reply-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('.message-row');
+      const textarea = row.querySelector('.msg-reply-input');
+      const status = row.querySelector('.msg-reply-status');
+      const reply = textarea.value.trim();
+      if (!reply) return;
+      status.textContent = '…';
+      const res = await fetch('/api/me/messages/' + row.getAttribute('data-message-id') + '/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reply }),
+      });
+      if (!res.ok) {
+        status.textContent = t('error.generic');
+        return;
+      }
+      showToast(t('messages.replySent'));
+      loadMessages();
+    });
+  });
 }
 
 async function loadMyTracks() {
@@ -972,8 +1058,9 @@ async function loadAdminOverview() {
 
   const usersList = document.getElementById('admin-users-list');
   usersList.innerHTML = users
-    .map(
-      (u) =>
+    .map((u) => {
+      const exportActive = (u.exportExpiresAt || 0) > Date.now();
+      return (
         '<div class="admin-row"><div class="who"><span>' +
         escapeHtml(u.artistName) +
         (u.role === 'admin' ? ' · admin' : '') +
@@ -982,9 +1069,17 @@ async function loadAdminOverview() {
         '</span></div>' +
         (u.role === 'admin'
           ? ''
-          : '<button class="del-btn" data-user-id="' + u.id + '">' + t('admin.remove') + '</button>') +
+          : '<button class="mini-btn" data-enable-export-id="' +
+            u.id +
+            '"' +
+            (exportActive ? ' disabled' : '') +
+            '>' +
+            (exportActive ? t('admin.exportActive') : t('admin.enableExport')) +
+            '</button>' +
+            '<button class="del-btn" data-user-id="' + u.id + '">' + t('admin.remove') + '</button>') +
         '</div>'
-    )
+      );
+    })
     .join('');
   usersList.querySelectorAll('[data-user-id]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -992,6 +1087,13 @@ async function loadAdminOverview() {
       await fetch('/api/admin/users/' + btn.getAttribute('data-user-id'), { method: 'DELETE' });
       loadAdminOverview();
       loadFeed();
+    });
+  });
+  usersList.querySelectorAll('[data-enable-export-id]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await fetch('/api/admin/users/' + btn.getAttribute('data-enable-export-id') + '/enable-export', { method: 'POST' });
+      showToast(t('admin.exportEnabled'));
+      loadAdminOverview();
     });
   });
 
@@ -1026,6 +1128,37 @@ document.getElementById('back-to-discover').addEventListener('click', () => {
   window.location.hash = '#decouvrir';
 });
 
+document.getElementById('contact-artist-btn').addEventListener('click', () => {
+  const block = document.getElementById('contact-form-block');
+  block.hidden = !block.hidden;
+});
+
+document.getElementById('contact-send-btn').addEventListener('click', async () => {
+  const status = document.getElementById('contact-status');
+  const artistId = document.getElementById('contact-artist-btn').getAttribute('data-artist-id');
+  const name = document.getElementById('contact-name').value.trim();
+  const email = document.getElementById('contact-email').value.trim();
+  const message = document.getElementById('contact-message').value.trim();
+  if (!email || !message) {
+    status.textContent = t('error.missing_fields');
+    return;
+  }
+  status.textContent = '…';
+  const res = await fetch('/api/artists/' + artistId + '/message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, message }),
+  });
+  if (!res.ok) {
+    status.textContent = t('error.generic');
+    return;
+  }
+  status.textContent = t('contact.sent');
+  document.getElementById('contact-name').value = '';
+  document.getElementById('contact-email').value = '';
+  document.getElementById('contact-message').value = '';
+});
+
 async function loadArtistPage(artistId) {
   const res = await fetch('/api/artists/' + artistId);
   if (!res.ok) {
@@ -1037,6 +1170,10 @@ async function loadArtistPage(artistId) {
   document.getElementById('artist-page-name').textContent = artist.artistName;
   document.getElementById('artist-page-bio').textContent = artist.bio || '';
   document.getElementById('artist-page-bio').hidden = !artist.bio;
+
+  document.getElementById('contact-form-block').hidden = true;
+  document.getElementById('contact-artist-btn').setAttribute('data-artist-id', artistId);
+  document.getElementById('contact-form-title').textContent = t('contact.formTitle').replace('{artist}', artist.artistName);
 
   const banner = document.getElementById('artist-page-banner');
   if (artist.bannerUrl) { banner.src = artist.bannerUrl; banner.hidden = false; } else { banner.hidden = true; }

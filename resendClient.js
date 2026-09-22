@@ -66,4 +66,73 @@ async function sendVerificationEmail(email, artistName, token, siteUrl) {
   }
 }
 
-module.exports = { isConfigured, notifyNewSignup, sendVerificationEmail };
+module.exports = { isConfigured, notifyNewSignup, sendVerificationEmail, notifyExportRequest, notifyNewMessage, sendReplyToVisitor };
+
+async function notifyNewMessage(artistEmail, artistName, visitorName, visitorEmail, messageBody) {
+  if (!isConfigured()) return;
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: artistEmail,
+        subject: 'Nouveau message sur ta page Résonance',
+        text:
+          (visitorName ? visitorName : 'Quelqu\'un') + ' t\'a écrit sur Résonance :\n\n"' + messageBody + '"\n\n' +
+          'Connecte-toi sur Résonance, dans "Mon espace" → "Mes messages", pour lire et répondre directement depuis le site (ta réponse partira sans jamais révéler ton adresse e-mail à cette personne).',
+      }),
+    });
+  } catch (err) {
+    // Silencieux.
+  }
+}
+
+async function sendReplyToVisitor(visitorEmail, artistName, replyBody) {
+  if (!isConfigured()) return;
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: visitorEmail,
+        subject: 'Réponse de ' + artistName + ' — Résonance',
+        text:
+          artistName + ' t\'a répondu sur Résonance :\n\n"' + replyBody + '"\n\n' +
+          '— Ce message a été envoyé via Résonance, pour préserver la vie privée de l\'artiste.',
+      }),
+    });
+  } catch (err) {
+    // Silencieux.
+  }
+}
+
+async function notifyExportRequest(artistName, email) {
+  if (!isConfigured()) return;
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: ADMIN_EMAIL,
+        subject: 'Demande d\'export de données — Résonance',
+        text:
+          artistName + ' (' + email + ') a demandé à récupérer ses données sur Résonance.\n\n' +
+          'Va dans Administration → Artistes inscrits pour activer une fenêtre de téléchargement de 48h pour ce compte.',
+      }),
+    });
+  } catch (err) {
+    // Silencieux.
+  }
+}

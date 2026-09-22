@@ -18,6 +18,7 @@ create table if not exists users (
   role text default 'artist',
   email_verified boolean default false,
   verification_token text,
+  export_expires_at bigint,
   following_ids jsonb default '[]'::jsonb,
   created_at bigint not null
 );
@@ -49,5 +50,16 @@ create table if not exists reports (
   track_id bigint not null references tracks(id) on delete cascade,
   reason text not null,
   resolved boolean default false,
+  created_at bigint not null
+);
+
+create table if not exists messages (
+  id bigint generated always as identity primary key,
+  to_user_id bigint not null references users(id) on delete cascade,
+  from_name text default '',
+  from_email text not null,
+  body text not null,
+  read boolean default false,
+  replied boolean default false,
   created_at bigint not null
 );
