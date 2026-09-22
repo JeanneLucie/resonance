@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
 const supabase = require('./supabaseClient');
+const crypto = require('crypto');
 const labelgrid = require('./labelgrid');
 const stripeClient = require('./stripeClient');
 const soundcloudClient = require('./soundcloudClient');
@@ -115,6 +116,7 @@ function publicUser(u) {
     id: u.id,
     artistName: u.artist_name,
     email: u.email,
+    emailVerified: u.email_verified === true || !resendClient.isConfigured(),
     bio: u.bio,
     donationLink: u.donation_link,
     spotifyUrl: u.spotify_url,
@@ -174,6 +176,7 @@ app.post('/api/signup', authLimiter, async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 10);
   const role = email.toLowerCase() === ADMIN_EMAIL ? 'admin' : 'artist';
+  const verificationToken = crypto.randomBytes(24).toString('hex');
 
   const { data: user, error } = await supabase
     .from('users')
@@ -182,6 +185,8 @@ app.post('/api/signup', authLimiter, async (req, res) => {
       email,
       password_hash: passwordHash,
       role,
+      email_verified: false,
+      verification_token: verificationToken,
       created_at: Date.now(),
     })
     .select()
@@ -189,7 +194,11 @@ app.post('/api/signup', authLimiter, async (req, res) => {
 
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   req.session.userId = user.id;
-  if (role === 'artist') resendClient.notifyNewSignup(artistName, email);
+  if (role === 'artist') {
+    resendClient.notifyNewSignup(artistName, email);
+    const siteUrl = req.headers.origin || 'https://' + req.headers.host;
+    resendClient.sendVerificationEmail(email, artistName, verificationToken, siteUrl);
+  }
   res.json({ ok: true, user: publicUser(user) });
 });
 
@@ -205,6 +214,26 @@ app.post('/api/login', authLimiter, async (req, res) => {
 
 app.post('/api/logout', (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
+});
+
+// Lien cliqué depuis l'e-mail de confirmation.
+app.get('/api/verify-email', async (req, res) => {
+  const token = req.query.token;
+  if (!token) return res.redirect('/#espace?verified=0');
+  const { data: user } = await supabase.from('users').select('id').eq('verification_token', token).maybeSingle();
+  if (!user) return res.redirect('/#espace?verified=0');
+  await supabase.from('users').update({ email_verified: true, verification_token: null }).eq('id', user.id);
+  res.redirect('/#espace?verified=1');
+});
+
+app.post('/api/resend-verification', requireAuth, authLimiter, async (req, res) => {
+  const { data: user } = await supabase.from('users').select('*').eq('id', req.session.userId).maybeSingle();
+  if (!user || user.email_verified) return res.json({ ok: true });
+  const token = user.verification_token || crypto.randomBytes(24).toString('hex');
+  if (!user.verification_token) await supabase.from('users').update({ verification_token: token }).eq('id', user.id);
+  const siteUrl = req.headers.origin || 'https://' + req.headers.host;
+  resendClient.sendVerificationEmail(user.email, user.artist_name, token, siteUrl);
+  res.json({ ok: true });
 });
 
 app.get('/api/me', async (req, res) => {
@@ -286,6 +315,22 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
   const audioFile = req.files && req.files.audio && req.files.audio[0];
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (!title || !audioFile) return res.status(400).json({ error: 'missing_fields' });
+
+  // Un premier morceau est autorisé sans confirmation d'e-mail (pour ne
+  // pas bloquer la découverte du site), mais le suivant exige que
+  // l'adresse ait bien été confirmée — évite qu'un compte créé avec
+  // une adresse qui n'appartient pas vraiment à la personne publie en
+  // continu.
+  if (resendClient.isConfigured()) {
+    const { data: me } = await supabase.from('users').select('email_verified').eq('id', req.session.userId).single();
+    const { count: existingCount } = await supabase
+      .from('tracks')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', req.session.userId);
+    if (!me.email_verified && (existingCount || 0) >= 1) {
+      return res.status(403).json({ error: 'email_not_verified' });
+    }
+  }
 
   const audioUrl = await uploadToStorage(audioFile);
   const coverUrl = coverFile ? await uploadToStorage(coverFile) : '';

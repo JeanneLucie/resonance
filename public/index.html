@@ -178,6 +178,11 @@
         <h2 data-i18n="dashboard.title">Mon espace</h2>
       </div>
 
+      <div class="verify-banner" id="verify-email-banner" hidden>
+        <span data-i18n="verify.notice">Confirme ton adresse e-mail pour sécuriser ton compte.</span>
+        <button type="button" id="resend-verification-btn" data-i18n="verify.resend">Renvoyer l'e-mail</button>
+      </div>
+
       <div class="panel onboarding-panel" id="onboarding-panel" hidden>
         <h3 data-i18n="onboarding.title">Pour bien démarrer</h3>
         <div id="onboarding-progress-text" class="onboarding-progress-text"></div>
@@ -224,6 +229,10 @@
 
       <div class="panel" style="margin-top:24px;">
         <h3 data-i18n="dashboard.addTrack.title">Publier un morceau</h3>
+        <div class="verify-banner verify-banner-strong" id="verify-blocks-publish" hidden>
+          <span data-i18n="verify.blocksPublish">Tu ne peux plus publier de nouveau morceau tant que ton adresse e-mail n'est pas confirmée. Tu peux préparer ce formulaire, mais la publication restera bloquée jusque-là.</span>
+          <button type="button" id="resend-verification-btn-2" data-i18n="verify.resend">Renvoyer l'e-mail</button>
+        </div>
         <form id="track-form">
           <label data-i18n="dashboard.addTrack.trackTitle">Titre du morceau</label>
           <input type="text" id="track-title" required>

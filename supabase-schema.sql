@@ -16,6 +16,8 @@ create table if not exists users (
   avatar_url text default '',
   banner_url text default '',
   role text default 'artist',
+  email_verified boolean default false,
+  verification_token text,
   following_ids jsonb default '[]'::jsonb,
   created_at bigint not null
 );

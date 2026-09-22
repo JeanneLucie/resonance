@@ -36,4 +36,34 @@ async function notifyNewSignup(artistName, email) {
   }
 }
 
-module.exports = { isConfigured, notifyNewSignup };
+// Envoie le lien de confirmation d'adresse e-mail à un artiste qui
+// vient de s'inscrire (ou qui en redemande un). Si Resend n'est pas
+// configuré, on ne peut pas vérifier les adresses — dans ce cas
+// l'appelant doit traiter le compte comme automatiquement "vérifié"
+// plutôt que de bloquer indéfiniment quelqu'un sans solution.
+async function sendVerificationEmail(email, artistName, token, siteUrl) {
+  if (!isConfigured()) return;
+  const verifyUrl = siteUrl + '/api/verify-email?token=' + token;
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: email,
+        subject: 'Confirme ton adresse e-mail — Résonance',
+        text:
+          'Salut ' + artistName + ' !\n\nPour confirmer que cette adresse e-mail t\'appartient bien, clique sur ce lien :\n' +
+          verifyUrl +
+          '\n\nSi tu n\'es pas à l\'origine de cette inscription, ignore simplement ce message.',
+      }),
+    });
+  } catch (err) {
+    // Silencieux, même logique que pour la notification admin.
+  }
+}
+
+module.exports = { isConfigured, notifyNewSignup, sendVerificationEmail };

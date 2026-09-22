@@ -263,7 +263,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   const res = await fetch('/api/tracks', { method: 'POST', body: formData });
   const data = await res.json();
   if (!res.ok) {
-    status.textContent = data.message || t('error.generic');
+    status.textContent = data.error === 'email_not_verified' ? t('verify.blocksPublishShort') : data.message || t('error.generic');
     return;
   }
   status.textContent = '';
@@ -280,6 +280,10 @@ let MY_TRACKS = [];
 
 function refreshOnboarding() {
   if (!currentUser) return;
+  const banner = document.getElementById('verify-email-banner');
+  banner.hidden = currentUser.emailVerified !== false;
+  const publishBlock = document.getElementById('verify-blocks-publish');
+  publishBlock.hidden = !(currentUser.emailVerified === false && MY_TRACKS.length >= 1);
   const steps = [
     { done: !!currentUser.avatarUrl, key: 'onboarding.step.avatar' },
     { done: !!(currentUser.bio && currentUser.bio.trim()), key: 'onboarding.step.bio' },
@@ -1174,6 +1178,22 @@ document.querySelectorAll('.password-toggle').forEach((btn) => {
   });
 });
 
+document.getElementById('resend-verification-btn').addEventListener('click', async (e) => {
+  const btn = e.target;
+  btn.disabled = true;
+  await fetch('/api/resend-verification', { method: 'POST' });
+  showToast(t('verify.resent'));
+  setTimeout(() => (btn.disabled = false), 3000);
+});
+
+document.getElementById('resend-verification-btn-2').addEventListener('click', async (e) => {
+  const btn = e.target;
+  btn.disabled = true;
+  await fetch('/api/resend-verification', { method: 'POST' });
+  showToast(t('verify.resent'));
+  setTimeout(() => (btn.disabled = false), 3000);
+});
+
 document.getElementById('share-page-btn').addEventListener('click', () => shareUrl(window.location.href));
 
 document.addEventListener('click', (e) => {
@@ -1362,6 +1382,12 @@ document.getElementById('artist-shuffle-play-btn').addEventListener('click', () 
 
 // --- Init ---
 (async function init() {
+  // Confirmation d'e-mail : le lien envoyé par e-mail revient sur
+  // #espace?verified=1 (ou 0 en cas d'échec) — on le détecte avant de
+  // nettoyer l'ancre, puis on informe la personne une fois chargé.
+  const verifiedMatch = window.location.hash.match(/[?&]verified=(\d)/);
+  const verifiedResult = verifiedMatch ? verifiedMatch[1] : null;
+
   // Si l'adresse garde une ancienne ancre (#decouvrir, etc.) sans être une
   // vraie page artiste, on revient en haut plutôt que de suivre le saut
   // automatique du navigateur vers cette section.
@@ -1373,4 +1399,6 @@ document.getElementById('artist-shuffle-play-btn').addEventListener('click', () 
   await loadFeed();
   handleRoute();
   window.scrollTo(0, 0);
+  if (verifiedResult === '1') showToast(t('verify.success'));
+  else if (verifiedResult === '0') showToast(t('verify.failed'));
 })();
