@@ -1239,6 +1239,10 @@ document.addEventListener('click', (e) => {
 });
 
 playerPlaypause.addEventListener('click', () => {
+  if (!currentTrackId) {
+    showToast(t('player.pickTrackFirst'));
+    return;
+  }
   if (globalAudio.paused) globalAudio.play().catch(() => {});
   else globalAudio.pause();
   refreshPlayButtons();

@@ -122,6 +122,7 @@
   "dist.status.rejected": "Refusé — voir LabelGrid",
   "pay.button": "💳 Payer pour distribuer",
   "pay.notConfigured": "Le paiement pour la distribution n'est pas encore activé.",
+  "player.pickTrackFirst": "Choisis d'abord un morceau à écouter, en cliquant sur ▶ sur une carte.",
   "discover.title": "Découvrir",
   "discover.lede": "De nouveaux morceaux arrivent chaque semaine — ici, ta musique trouve sa place plus facilement qu'ailleurs.",
   "discover.shufflePlay": "🔀 Lecture aléatoire",

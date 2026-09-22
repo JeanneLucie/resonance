@@ -122,6 +122,7 @@
   "dist.status.rejected": "Rejected — check LabelGrid",
   "pay.button": "💳 Pay to distribute",
   "pay.notConfigured": "Payment for distribution isn't set up yet.",
+  "player.pickTrackFirst": "Pick a track to listen to first, by clicking ▶ on a card.",
   "discover.title": "Discover",
   "discover.lede": "New tracks land every week — here, your music finds its place more easily than anywhere else.",
   "discover.shufflePlay": "🔀 Shuffle play",
