@@ -16,6 +16,13 @@ const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-in-.env';
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').toLowerCase();
 
+// Indispensable derrière Render (et la plupart des hébergeurs) : le
+// HTTPS est géré par leur proxy, pas directement par notre serveur.
+// Sans ce réglage, Express ne reconnaît pas la connexion comme
+// sécurisée, et les cookies "secure" (voir plus bas) ne s'enregistrent
+// jamais vraiment — ce qui casse silencieusement toutes les connexions.
+app.set('trust proxy', 1);
+
 // --- Config upload (audio, pochettes, avatars, bannières) ---
 // Les fichiers sont stockés sur Supabase Storage (bucket "media"),
 // permanent — contrairement à un dossier local sur Render, qui peut être
