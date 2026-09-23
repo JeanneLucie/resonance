@@ -41,6 +41,7 @@ const AUDIO_TYPES_BY_EXTENSION = {
   '.wave': 'audio/wav',
   '.mp3': 'audio/mpeg',
   '.m4a': 'audio/mp4',
+  '.mp4': 'audio/mp4', // certaines applis exportent l'audio seul en .mp4
   '.aac': 'audio/aac',
   '.flac': 'audio/flac',
   '.ogg': 'audio/ogg',

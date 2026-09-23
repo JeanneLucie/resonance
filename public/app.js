@@ -293,6 +293,20 @@ window.addEventListener('beforeunload', (e) => {
 
 // --- Fichier audio : vérifications immédiates, avant l'envoi ---
 const MAX_UPLOAD_MB = 50; // identique à MAX_UPLOAD_MB dans server.js
+// Même liste que AUDIO_TYPES_BY_EXTENSION dans server.js.
+const AUDIO_EXTENSIONS = ['.wav', '.wave', '.mp3', '.m4a', '.mp4', '.aac', '.flac', '.ogg', '.aif', '.aiff'];
+
+function fileExtension(name) {
+  const match = /\.[^.]+$/.exec(name || '');
+  return match ? match[0].toLowerCase() : '';
+}
+
+// Le champ n'impose plus de filtre au téléphone (l'iPhone grisait parfois
+// des fichiers valides) : c'est donc ici qu'on vérifie que c'est bien de
+// l'audio, avec un message clair si ce n'est pas le cas.
+function isAudioFile(file) {
+  return (file.type || '').startsWith('audio/') || AUDIO_EXTENSIONS.includes(fileExtension(file.name));
+}
 
 function fileSizeMb(file) {
   return Math.round((file.size / (1024 * 1024)) * 10) / 10;
@@ -310,6 +324,12 @@ document.getElementById('track-audio').addEventListener('change', () => {
     return;
   }
   const size = fileSizeMb(file);
+  if (!isAudioFile(file)) {
+    info.textContent = t('upload.notAudio').replace('{name}', file.name);
+    info.classList.add('upload-info-error');
+    info.classList.remove('upload-info-ok');
+    return;
+  }
   if (size > MAX_UPLOAD_MB) {
     info.textContent = t('upload.tooLargeDetail').replace('{name}', file.name).replace('{size}', size).replace('{max}', MAX_UPLOAD_MB);
     info.classList.add('upload-info-error');
@@ -353,6 +373,10 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   const fileInput = document.getElementById('track-audio');
   if (!fileInput.files[0]) {
     status.textContent = t('upload.noFile');
+    return;
+  }
+  if (!isAudioFile(fileInput.files[0])) {
+    status.textContent = t('upload.notAudio').replace('{name}', fileInput.files[0].name);
     return;
   }
   if (fileSizeMb(fileInput.files[0]) > MAX_UPLOAD_MB) {

@@ -307,7 +307,7 @@
   "admin.announce.until": "hasta el {date}",
   "admin.announce.confirmRemove": "¿Retirar este anuncio ahora?",
   "admin.announce.tableMissing": "Esta función aún no está activa: falta el paso de Supabase (migration-annonces.sql).",
-  "upload.hint": "Formatos aceptados: WAV, MP3, M4A, FLAC… hasta 50 MB. Un archivo WAV pesa mucho (unos 10 MB por minuto, a veces más): si el tuyo supera los 50 MB, sube mejor la versión MP3 de tu tema.",
+  "upload.hint": "Formatos aceptados: MP3, WAV, M4A, FLAC… hasta 50 MB. Un archivo WAV pesa mucho (unos 10 MB por minuto, a veces más): si el tuyo supera los 50 MB, sube mejor la versión MP3 de tu tema.",
   "upload.selected": "✓ Archivo elegido: {name} ({size} MB)",
   "upload.tooLargeDetail": "Este archivo ({name}) pesa {size} MB y el límite es de {max} MB. Sube mejor la versión MP3 de tu tema, mucho más ligera.",
   "upload.tooLarge": "Tu archivo supera los {max} MB. Sube mejor la versión MP3 de tu tema, mucho más ligera.",
@@ -316,5 +316,6 @@
   "upload.processing": "Ya casi está, guardando tu tema…",
   "upload.badType": "Este archivo no se reconoce como audio. Prueba con un archivo WAV o MP3.",
   "upload.storageError": "No se pudo completar el envío. Vuelve a intentarlo en un momento; si vuelve a pasar, escríbenos a resonance.contact.equipe@proton.me.",
-  "upload.network": "La conexión se cortó durante el envío. Comprueba tu red (el Wi-Fi es más seguro para archivos grandes) y vuelve a intentarlo."
+  "upload.network": "La conexión se cortó durante el envío. Comprueba tu red (el Wi-Fi es más seguro para archivos grandes) y vuelve a intentarlo.",
+  "upload.notAudio": "«{name}» no parece un archivo de audio. Elige un archivo MP3, WAV o M4A. (Un vídeo no funciona, aunque contenga tu música.)"
 }
