@@ -8,7 +8,7 @@ const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').toLowerCase();
 // Adresse d'expéditeur de test fournie par Resend, fonctionne sans nom
 // de domaine à toi. Le jour où tu as un domaine, remplace-la par une
 // adresse "contact@tondomaine.fr" (à vérifier dans Resend au préalable).
-const FROM_ADDRESS = process.env.RESEND_FROM || 'Résonance <onboarding@resend.dev>';
+const FROM_ADDRESS = process.env.RESEND_FROM || 'Risuona <onboarding@resend.dev>';
 
 function isConfigured() {
   return !!(API_KEY && ADMIN_EMAIL);
@@ -26,8 +26,8 @@ async function notifyNewSignup(artistName, email) {
       body: JSON.stringify({
         from: FROM_ADDRESS,
         to: ADMIN_EMAIL,
-        subject: 'Nouvel artiste inscrit sur Résonance',
-        text: 'Un nouvel artiste vient de créer un compte sur Résonance :\n\nNom d\'artiste : ' + artistName + '\nE-mail : ' + email,
+        subject: 'Nouvel artiste inscrit sur Risuona',
+        text: 'Un nouvel artiste vient de créer un compte sur Risuona :\n\nNom d\'artiste : ' + artistName + '\nE-mail : ' + email,
       }),
     });
   } catch (err) {
@@ -54,7 +54,7 @@ async function sendVerificationEmail(email, artistName, token, siteUrl) {
       body: JSON.stringify({
         from: FROM_ADDRESS,
         to: email,
-        subject: 'Confirme ton adresse e-mail sur Résonance',
+        subject: 'Confirme ton adresse e-mail sur Risuona',
         text:
           'Salut ' + artistName + ' !\n\nPour confirmer que cette adresse e-mail t\'appartient bien, clique sur ce lien :\n' +
           verifyUrl +
@@ -80,9 +80,9 @@ async function notifySuspiciousLogin(email) {
       body: JSON.stringify({
         from: FROM_ADDRESS,
         to: email,
-        subject: 'Plusieurs tentatives de connexion sur ton compte Résonance',
+        subject: 'Plusieurs tentatives de connexion sur ton compte Risuona',
         text:
-          'Plusieurs tentatives de connexion ratées ont eu lieu sur ton compte Résonance, ce qui a temporairement bloqué les connexions pendant 30 minutes.\n\n' +
+          'Plusieurs tentatives de connexion ratées ont eu lieu sur ton compte Risuona, ce qui a temporairement bloqué les connexions pendant 30 minutes.\n\n' +
           'Si c\'était bien toi (mot de passe oublié, faute de frappe), pas d\'inquiétude, tu pourras réessayer une fois ce délai passé.\n\n' +
           'Si ce n\'était pas toi, ton mot de passe n\'a pas été compromis (aucune tentative n\'a réussi), mais tu peux le changer par précaution une fois reconnectée.',
       }),
@@ -104,10 +104,10 @@ async function notifyNewMessage(artistEmail, artistName, visitorName, visitorEma
       body: JSON.stringify({
         from: FROM_ADDRESS,
         to: artistEmail,
-        subject: 'Nouveau message sur ta page Résonance',
+        subject: 'Nouveau message sur ta page Risuona',
         text:
-          (visitorName ? visitorName : 'Quelqu\'un') + ' t\'a écrit sur Résonance :\n\n"' + messageBody + '"\n\n' +
-          'Connecte-toi sur Résonance, dans "Mon espace" → "Mes messages", pour lire et répondre directement depuis le site (ta réponse partira sans jamais révéler ton adresse e-mail à cette personne).',
+          (visitorName ? visitorName : 'Quelqu\'un') + ' t\'a écrit sur Risuona :\n\n"' + messageBody + '"\n\n' +
+          'Connecte-toi sur Risuona, dans "Mon espace" → "Mes messages", pour lire et répondre directement depuis le site (ta réponse partira sans jamais révéler ton adresse e-mail à cette personne).',
       }),
     });
   } catch (err) {
@@ -127,10 +127,10 @@ async function sendReplyToVisitor(visitorEmail, artistName, replyBody) {
       body: JSON.stringify({
         from: FROM_ADDRESS,
         to: visitorEmail,
-        subject: artistName + ' t\'a répondu sur Résonance',
+        subject: artistName + ' t\'a répondu sur Risuona',
         text:
-          artistName + ' t\'a répondu sur Résonance :\n\n"' + replyBody + '"\n\n' +
-          'Ce message t\'a été transmis par Résonance, pour préserver la vie privée de l\'artiste.',
+          artistName + ' t\'a répondu sur Risuona :\n\n"' + replyBody + '"\n\n' +
+          'Ce message t\'a été transmis par Risuona, pour préserver la vie privée de l\'artiste.',
       }),
     });
   } catch (err) {
@@ -150,9 +150,9 @@ async function notifyExportRequest(artistName, email) {
       body: JSON.stringify({
         from: FROM_ADDRESS,
         to: ADMIN_EMAIL,
-        subject: 'Demande d\'export de données sur Résonance',
+        subject: 'Demande d\'export de données sur Risuona',
         text:
-          artistName + ' (' + email + ') a demandé à récupérer ses données sur Résonance.\n\n' +
+          artistName + ' (' + email + ') a demandé à récupérer ses données sur Risuona.\n\n' +
           'Va dans Administration → Artistes inscrits pour activer une fenêtre de téléchargement de 48h pour ce compte.',
       }),
     });

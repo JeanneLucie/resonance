@@ -1432,9 +1432,9 @@ async function generatePromoVisual(trackId) {
   ctx.fillStyle = '#D98F3D';
   ctx.font = '600 30px Fraunces, serif';
   ctx.textAlign = 'left';
-  ctx.fillText('Résonance', 44, SIZE - 30);
+  ctx.fillText('Risuona', 44, SIZE - 30);
 
-  // QR code vers la page de l'artiste sur Résonance
+  // QR code vers la page de l'artiste sur Risuona
   const qrSize = 108;
   const qrTargetUrl = window.location.origin + '/#/artiste/' + tr.userId;
   const qr = qrcode(0, 'M');
@@ -1464,7 +1464,7 @@ async function generatePromoVisual(trackId) {
   const file = new File([blob], fileName, { type: 'image/png' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: tr.title || 'Résonance' });
+      await navigator.share({ files: [file], title: tr.title || 'Risuona' });
       return;
     } catch (err) {
       if (err && err.name === 'AbortError') return; // l'artiste a annulé le partage
@@ -2126,7 +2126,7 @@ async function loadTrackPage(trackId) {
   const { track } = await res.json();
   container.innerHTML = renderTrackCard(track);
   currentDiscoverQueue = [track];
-  document.title = track.title + ' · ' + track.artistName + ' | Résonance';
+  document.title = track.title + ' · ' + track.artistName + ' | Risuona';
 
   // "Plus de cet artiste" — quelques autres morceaux, pour continuer la découverte
   const artistRes = await fetch('/api/artists/' + track.userId);
@@ -2185,7 +2185,7 @@ installBtn.addEventListener('click', async () => {
 async function shareUrl(url, textKey) {
   if (navigator.share) {
     try {
-      await navigator.share({ title: 'Résonance', text: t(textKey || 'nav.shareText'), url });
+      await navigator.share({ title: 'Risuona', text: t(textKey || 'nav.shareText'), url });
       return;
     } catch (err) {
       if (err && err.name === 'AbortError') return;
@@ -2412,7 +2412,7 @@ globalAudio.addEventListener('pause', () => {
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 });
 
-// --- Déclarer Résonance comme un vrai lecteur de musique au téléphone ---
+// --- Déclarer Risuona comme un vrai lecteur de musique au téléphone ---
 // (Media Session). C'est ce qui permet à iPhone et Android de :
 //  - mettre la musique en pause proprement quand autre chose prend le son
 //    (micro de dictée, appel, autre appli), au lieu de la couper en silence
@@ -2426,7 +2426,7 @@ function updateMediaSession(title, artist, coverUrl) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: title || '',
       artist: artist || '',
-      album: 'Résonance',
+      album: 'Risuona',
       artwork: [{ src: coverUrl || '/icons/icon-512.png', sizes: '512x512' }],
     });
   } catch (err) {

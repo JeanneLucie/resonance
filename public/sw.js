@@ -1,11 +1,11 @@
-// Service worker minimal : suffisant pour rendre Résonance installable
+// Service worker minimal : suffisant pour rendre Risuona installable
 // (critère technique des navigateurs), avec un petit confort hors-ligne
 // pour la coquille de l'application. Les données (morceaux, profils)
 // viennent toujours du réseau — on ne met en cache que les fichiers
 // statiques (HTML, CSS, JS, icônes), jamais les morceaux audio ni les
 // réponses de l'API.
 
-const CACHE_NAME = 'resonance-shell-v18';
+const CACHE_NAME = 'resonance-shell-v19';
 const SHELL_FILES = [
   '/',
   '/style.css',

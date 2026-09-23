@@ -10,15 +10,15 @@ du contenu sur la plateforme.
 **Propriété des contenus**
 
 Chaque artiste conserve l'intégralité des droits sur les morceaux qu'il
-publie sur Résonance. La publication d'un morceau sur la plateforme ne
-constitue en aucun cas une cession de droits à Résonance ni à un autre
+publie sur Risuona. La publication d'un morceau sur la plateforme ne
+constitue en aucun cas une cession de droits à Risuona ni à un autre
 utilisateur.
 
 Toute reproduction, réutilisation, extraction ou exploitation commerciale
-d'un morceau publié sur Résonance, sans l'autorisation explicite de son
+d'un morceau publié sur Risuona, sans l'autorisation explicite de son
 auteur, est interdite.
 
-Résonance affiche la date de première publication de chaque morceau à
+Risuona affiche la date de première publication de chaque morceau à
 titre de preuve d'antériorité, sans que cela ne remplace un dépôt
 officiel (SACEM, APP) si l'artiste souhaite une protection renforcée.
 

@@ -1,4 +1,4 @@
-# Résonance
+# Risuona
 
 Plateforme indépendante d'hébergement, de découverte et de soutien pour
 artistes musicaux — y compris ceux qui composent avec l'aide de l'IA
@@ -73,10 +73,10 @@ accordé par Spotify/Apple/Amazon eux-mêmes, après des années
 d'activité prouvée). Le champ "outil utilisé" (Suno, Udio, etc.) sert
 à la transparence et au tri interne.
 
-Pour la diffusion réelle, Résonance se connecte à **LabelGrid** via
+Pour la diffusion réelle, Risuona se connecte à **LabelGrid** via
 son API (voir `labelgrid.js` et le bouton "Distribuer vers
 Spotify/Apple" sur le tableau de bord artiste) — invisible pour
-l'artiste, qui ne quitte jamais Résonance. Il suffit d'activer un plan
+l'artiste, qui ne quitte jamais Risuona. Il suffit d'activer un plan
 API chez LabelGrid et de renseigner `LABELGRID_API_TOKEN` dans `.env`
 pour que ça fonctionne (voir plus haut dans ce fichier).
 

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://resonance-726l.onrender.com/sitemap.xml
+Sitemap: https://risuona.com/sitemap.xml

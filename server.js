@@ -378,7 +378,7 @@ async function releaseAdvice(userId, releaseAt, excludeTrackId) {
   }
 
   if (releaseAt && !isFridayInParis(releaseAt)) {
-    tips.push({ code: 'friday', level: 'info', text: "Petit repère : dans la musique, les nouveautés sortent traditionnellement le vendredi. Ce n'est pas une obligation sur Résonance." });
+    tips.push({ code: 'friday', level: 'info', text: "Petit repère : dans la musique, les nouveautés sortent traditionnellement le vendredi. Ce n'est pas une obligation sur Risuona." });
   }
   return tips;
 }
@@ -1176,5 +1176,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Résonance écoute sur http://localhost:${PORT}`);
+  console.log(`Risuona écoute sur http://localhost:${PORT}`);
 });
