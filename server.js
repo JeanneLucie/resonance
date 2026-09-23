@@ -77,15 +77,28 @@ app.use(
   })
 );
 
+// Comptes exemptés des deux limites ci-dessous (les tiennes) — utile
+// pour ne jamais te bloquer toi-même en pleine session de travail,
+// pendant que la protection reste stricte pour tout le monde d'autre.
+const RATE_LIMIT_EXEMPT_EMAILS = (process.env.RATE_LIMIT_EXEMPT_EMAILS || '')
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+function isExemptFromRateLimit(req) {
+  const email = req.body && req.body.email ? req.body.email.toLowerCase() : '';
+  return RATE_LIMIT_EXEMPT_EMAILS.includes(email);
+}
+
 // Limite les tentatives de connexion/inscription en rafale (protection
-// contre les essais automatisés de mots de passe) — 15 essais par
-// quart d'heure et par adresse IP.
+// contre les essais automatisés de mots de passe) — 8 essais par
+// demi-heure et par adresse IP, tous comptes confondus.
 const authLimiter = rateLimit({
   windowMs: 30 * 60 * 1000,
-  max: 5,
+  max: 8,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'too_many_attempts' },
+  skip: isExemptFromRateLimit,
 });
 
 // Deuxième protection, cette fois basée sur le COMPTE visé (son
@@ -102,6 +115,7 @@ const loginEmailLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => (req.body && req.body.email ? req.body.email.toLowerCase() : 'unknown'),
   message: { error: 'too_many_attempts' },
+  skip: isExemptFromRateLimit,
 });
 
 // Limite plus large pour les écoutes/signalements publics — évite qu'un
@@ -144,6 +158,7 @@ function publicUser(u) {
     avatarUrl: u.avatar_url || '',
     bannerUrl: u.banner_url || '',
     role: u.role,
+    accountType: u.account_type || 'artist',
     followingIds: u.following_ids || [],
   };
 }
@@ -185,7 +200,7 @@ function mapTrack(t, artistName) {
 
 // --- Auth ---
 app.post('/api/signup', authLimiter, async (req, res) => {
-  const { artistName, email, password, acceptedTerms } = req.body;
+  const { artistName, email, password, acceptedTerms, accountType } = req.body;
   if (!artistName || !email || !password) return res.status(400).json({ error: 'missing_fields' });
   if (password.length < 8) return res.status(400).json({ error: 'password_too_short' });
   if (!acceptedTerms) return res.status(400).json({ error: 'terms_not_accepted' });
@@ -204,6 +219,7 @@ app.post('/api/signup', authLimiter, async (req, res) => {
       email,
       password_hash: passwordHash,
       role,
+      account_type: accountType === 'fan' ? 'fan' : 'artist',
       email_verified: false,
       verification_token: verificationToken,
       created_at: Date.now(),
@@ -233,6 +249,15 @@ app.post('/api/login', authLimiter, loginEmailLimiter, async (req, res) => {
 
 app.post('/api/logout', (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
+});
+
+// Un compte "juste fan" peut décider à tout moment de devenir un
+// compte artiste complet — jamais l'inverse (pour éviter de perdre
+// l'accès à des morceaux déjà publiés par erreur).
+app.post('/api/me/upgrade-to-artist', requireAuth, async (req, res) => {
+  await supabase.from('users').update({ account_type: 'artist' }).eq('id', req.session.userId);
+  const { data: user } = await supabase.from('users').select('*').eq('id', req.session.userId).single();
+  res.json({ ok: true, user: publicUser(user) });
 });
 
 // Lien cliqué depuis l'e-mail de confirmation.
@@ -334,6 +359,11 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
   const audioFile = req.files && req.files.audio && req.files.audio[0];
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (!title || !audioFile) return res.status(400).json({ error: 'missing_fields' });
+
+  const { data: meAccount } = await supabase.from('users').select('account_type').eq('id', req.session.userId).single();
+  if (meAccount && meAccount.account_type === 'fan') {
+    return res.status(403).json({ error: 'fan_account' });
+  }
 
   // Un premier morceau est autorisé sans confirmation d'e-mail (pour ne
   // pas bloquer la découverte du site), mais le suivant exige que

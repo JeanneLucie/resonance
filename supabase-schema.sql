@@ -16,6 +16,7 @@ create table if not exists users (
   avatar_url text default '',
   banner_url text default '',
   role text default 'artist',
+  account_type text default 'artist',
   email_verified boolean default false,
   verification_token text,
   export_expires_at bigint,

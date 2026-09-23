@@ -132,6 +132,13 @@ function showRateLimitCountdown(statusEl, retryAfterSeconds) {
   }, 1000);
 }
 
+document.querySelectorAll('input[name="account-type"]').forEach((radio) => {
+  radio.addEventListener('change', () => {
+    const label = document.getElementById('signup-name-label');
+    label.textContent = document.querySelector('input[name="account-type"]:checked').value === 'fan' ? t('auth.userName') : t('auth.artistName');
+  });
+});
+
 document.getElementById('signup-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const status = document.getElementById('signup-status');
@@ -143,6 +150,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     email: document.getElementById('signup-email').value.trim(),
     password: document.getElementById('signup-password').value,
     acceptedTerms: document.getElementById('signup-terms').checked,
+    accountType: document.querySelector('input[name="account-type"]:checked').value,
   };
   const res = await fetch('/api/signup', {
     method: 'POST',
@@ -300,7 +308,12 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   const res = await fetch('/api/tracks', { method: 'POST', body: formData });
   const data = await res.json();
   if (!res.ok) {
-    status.textContent = data.error === 'email_not_verified' ? t('verify.blocksPublishShort') : data.message || t('error.generic');
+    status.textContent =
+      data.error === 'email_not_verified'
+        ? t('verify.blocksPublishShort')
+        : data.error === 'fan_account'
+        ? t('fan.cannotPublish')
+        : data.message || t('error.generic');
     return;
   }
   status.textContent = '';
@@ -341,13 +354,36 @@ document.getElementById('request-export-btn').addEventListener('click', async (e
   setTimeout(() => (btn.disabled = false), 3000);
 });
 
+function applyAccountTypeUI() {
+  if (!currentUser) return;
+  const isFan = currentUser.accountType === 'fan';
+  ['onboarding-panel', 'publish-panel', 'my-tracks-panel', 'stats-panel', 'messages-panel'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = isFan;
+  });
+  document.getElementById('fan-notice-panel').hidden = !isFan;
+}
+
+document.getElementById('upgrade-to-artist-btn').addEventListener('click', async () => {
+  const res = await fetch('/api/me/upgrade-to-artist', { method: 'POST' });
+  if (!res.ok) return;
+  const data = await res.json();
+  currentUser = data.user;
+  applyAccountTypeUI();
+  loadStats();
+  refreshOnboarding();
+  showToast('🎵');
+});
+
 function refreshOnboarding() {
   if (!currentUser) return;
+  applyAccountTypeUI();
   refreshExportPanel();
   const banner = document.getElementById('verify-email-banner');
   banner.hidden = currentUser.emailVerified !== false;
   const publishBlock = document.getElementById('verify-blocks-publish');
   publishBlock.hidden = !(currentUser.emailVerified === false && MY_TRACKS.length >= 1);
+  if (currentUser.accountType === 'fan') return;
   const steps = [
     { done: !!currentUser.avatarUrl, key: 'onboarding.step.avatar' },
     { done: !!(currentUser.bio && currentUser.bio.trim()), key: 'onboarding.step.bio' },

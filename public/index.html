@@ -157,7 +157,14 @@
         <div id="signup-form-wrap" hidden>
           <h3 data-i18n="auth.signup.title">Créer mon compte</h3>
           <form id="signup-form">
-            <label data-i18n="auth.artistName" for="signup-artistName">Nom d'artiste</label>
+            <fieldset class="radio-fieldset">
+            <legend data-i18n="auth.accountType">Tu viens pour…</legend>
+            <div class="radio-group">
+              <label class="radio-option"><input type="radio" name="account-type" value="artist" checked> <span data-i18n="auth.accountType.artist">Publier ma musique</span></label>
+              <label class="radio-option"><input type="radio" name="account-type" value="fan"> <span data-i18n="auth.accountType.fan">Juste écouter et suivre des artistes</span></label>
+            </div>
+            </fieldset>
+            <label data-i18n="auth.artistName" for="signup-artistName" id="signup-name-label">Nom d'artiste</label>
             <input type="text" id="signup-artistName" required>
             <label data-i18n="auth.email" for="signup-email">Adresse e-mail</label>
             <input type="email" id="signup-email" required>
@@ -250,7 +257,7 @@
         </form>
       </div>
 
-      <div class="panel" style="margin-top:24px;">
+      <div class="panel" id="publish-panel" style="margin-top:24px;">
         <h3 data-i18n="dashboard.addTrack.title">Publier un morceau</h3>
         <div class="verify-banner verify-banner-strong" id="verify-blocks-publish" hidden>
           <span data-i18n="verify.blocksPublish">Tu ne peux plus publier de nouveau morceau tant que ton adresse e-mail n'est pas confirmée. Tu peux préparer ce formulaire, mais la publication restera bloquée jusque-là.</span>
@@ -311,7 +318,7 @@
         </form>
       </div>
 
-      <div class="panel stats-panel" style="margin-top:24px;">
+      <div class="panel stats-panel" id="stats-panel" style="margin-top:24px;">
         <h3 data-i18n="stats.title">Statistiques</h3>
         <div class="stats-summary">
           <div class="stats-number-block">
@@ -326,9 +333,15 @@
         <div id="stats-tracks-list" class="stats-tracks-list"></div>
       </div>
 
-      <div style="margin-top:36px;">
+      <div style="margin-top:36px;" id="my-tracks-panel">
         <h3 data-i18n="dashboard.myTracks.title">Mes morceaux</h3>
         <div id="my-tracks-list"></div>
+      </div>
+
+      <div class="panel" id="fan-notice-panel" hidden style="margin-top:24px;">
+        <h3 data-i18n="fan.title">Ton compte</h3>
+        <p class="field-hint" data-i18n="fan.notice">Tu es inscrite pour écouter et suivre des artistes. Tu peux à tout moment décider de publier ta propre musique.</p>
+        <button type="button" class="mini-btn" id="upgrade-to-artist-btn" data-i18n="fan.upgrade">Je veux aussi publier ma musique</button>
       </div>
     </div>
 
