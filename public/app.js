@@ -70,7 +70,8 @@ async function refreshMe() {
   currentUser = data.user;
   updateAuthUI();
   updateAdminUI();
-  if (currentUser) {
+  // Le compte admin n'a pas d'espace artiste : rien à charger de ce côté.
+  if (currentUser && currentUser.role !== 'admin') {
     fillProfileForm(currentUser);
     loadMyTracks();
     loadMessages();
@@ -85,11 +86,12 @@ function updateAuthUI() {
   const navDashboard = document.getElementById('nav-dashboard');
 
   if (currentUser) {
+    const isAdmin = currentUser.role === 'admin';
     authBlock.hidden = true;
-    dashboardBlock.hidden = false;
+    dashboardBlock.hidden = isAdmin;
     navLogin.hidden = true;
     navLogout.hidden = false;
-    navDashboard.hidden = false;
+    navDashboard.hidden = isAdmin;
   } else {
     authBlock.hidden = false;
     dashboardBlock.hidden = true;
@@ -1160,39 +1162,42 @@ function fitText(ctx, text, x, y, maxWidth, baseSize, weight, family) {
 }
 
 // --- Administration ---
+let ADMIN_USERS = [];
+let ADMIN_TRACKS = [];
+let ADMIN_REPORTS = [];
+
+function adminTypeLabel(u) {
+  if (u.role === 'admin') return 'admin';
+  return u.accountType === 'fan' ? t('admin.type.listener') : t('admin.type.artist');
+}
+
 async function loadAdminReports() {
   const res = await fetch('/api/admin/reports');
   if (!res.ok) return;
   const { reports } = await res.json();
+  ADMIN_REPORTS = reports;
   const list = document.getElementById('admin-reports-list');
   if (reports.length === 0) {
     list.innerHTML = '<p class="empty-state">' + t('admin.reports.empty') + '</p>';
-    return;
-  }
-  list.innerHTML = reports
-    .map(
-      (r) =>
-        '<div class="admin-row"><div class="who"><span>' +
-        escapeHtml(r.trackTitle) +
-        ', de ' +
-        escapeHtml(r.artistName) +
-        '</span><span class="sub">' +
-        escapeHtml(r.reason) +
-        ' · ' +
-        formatDate(r.createdAt) +
-        '</span></div><button class="del-btn" data-resolve-id="' +
-        r.id +
-        '">' +
-        t('admin.reports.resolve') +
-        '</button></div>'
-    )
-    .join('');
-  list.querySelectorAll('[data-resolve-id]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      await fetch('/api/admin/reports/' + btn.getAttribute('data-resolve-id') + '/resolve', { method: 'POST' });
-      loadAdminReports();
+  } else {
+    list.innerHTML = reports
+      .map(
+        (r) =>
+          '<div class="admin-row"><div class="who"><span>' +
+          escapeHtml(r.trackTitle) + ' ' + t('admin.reports.by') + ' ' + escapeHtml(r.artistName) +
+          '</span><span class="sub">' + escapeHtml(r.reason) + ' · ' + formatDate(r.createdAt) +
+          '</span></div><button class="del-btn" data-resolve-id="' + r.id + '">' + t('admin.reports.resolve') + '</button></div>'
+      )
+      .join('');
+    list.querySelectorAll('[data-resolve-id]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        await fetch('/api/admin/reports/' + btn.getAttribute('data-resolve-id') + '/resolve', { method: 'POST' });
+        loadAdminReports();
+      });
     });
-  });
+  }
+  renderAdminStats();
+  renderAdminTodo();
 }
 
 function updateAdminUI() {
@@ -1206,31 +1211,95 @@ async function loadAdminOverview() {
   const res = await fetch('/api/admin/overview');
   if (!res.ok) return;
   const { users, tracks } = await res.json();
-  loadAdminReports();
+  ADMIN_USERS = users;
+  ADMIN_TRACKS = tracks;
+  renderAdminUsers();
+  renderAdminTracks();
+  loadAdminReports(); // met aussi à jour les chiffres et "À traiter"
+}
 
+// --- Chiffres clés ---
+function renderAdminStats() {
+  const members = ADMIN_USERS.filter((u) => u.role !== 'admin');
+  const blocks = [
+    { n: members.filter((u) => u.accountType !== 'fan').length, key: 'admin.stats.artists' },
+    { n: members.filter((u) => u.accountType === 'fan').length, key: 'admin.stats.listeners' },
+    { n: ADMIN_TRACKS.length, key: 'admin.stats.tracks' },
+    { n: ADMIN_REPORTS.length, key: 'admin.stats.reports' },
+  ];
+  document.getElementById('admin-stats').innerHTML = blocks
+    .map((b) => '<div class="admin-stat"><div class="admin-stat-number">' + b.n + '</div><div class="admin-stat-label">' + t(b.key) + '</div></div>')
+    .join('');
+}
+
+// --- À traiter : tout ce qui demande une action, au même endroit ---
+function renderAdminTodo() {
+  const list = document.getElementById('admin-todo-list');
+  const toVerify = ADMIN_USERS.filter((u) => u.role !== 'admin' && !u.emailVerified);
+  let html = '';
+
+  if (toVerify.length) {
+    html +=
+      '<div class="admin-todo-section"><h4>' + t('admin.todo.emailsTitle') + ' (' + toVerify.length + ')</h4>' +
+      '<p class="field-hint">' + t('admin.todo.emailsHint') + '</p>' +
+      toVerify
+        .map(
+          (u) =>
+            '<div class="admin-row"><div class="who"><span>' + escapeHtml(u.artistName) + ' · ' + adminTypeLabel(u) + '</span>' +
+            '<span class="sub">' + escapeHtml(u.email) + (u.createdAt ? ' · ' + t('admin.users.joined').replace('{date}', formatDate(u.createdAt)) : '') + '</span></div>' +
+            '<button class="mini-btn" data-manual-verify-id="' + u.id + '">' + t('admin.todo.confirm') + '</button></div>'
+        )
+        .join('') +
+      '</div>';
+  }
+
+  if (ADMIN_REPORTS.length) {
+    html +=
+      '<div class="admin-todo-section"><h4>' + t('admin.todo.reports').replace('{n}', ADMIN_REPORTS.length) + '</h4>' +
+      '<button type="button" class="mini-btn" id="admin-see-reports">' + t('admin.todo.seeReports') + '</button></div>';
+  }
+
+  list.innerHTML = html || '<p class="admin-todo-empty">' + t('admin.todo.nothing') + '</p>';
+
+  list.querySelectorAll('[data-manual-verify-id]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      await fetch('/api/admin/users/' + btn.getAttribute('data-manual-verify-id') + '/manual-verify', { method: 'POST' });
+      showToast(t('admin.manualVerified'));
+      loadAdminOverview();
+    });
+  });
+  const seeReports = document.getElementById('admin-see-reports');
+  if (seeReports) {
+    seeReports.addEventListener('click', () => document.getElementById('admin-reports-panel').scrollIntoView({ behavior: 'smooth' }));
+  }
+}
+
+// --- Comptes inscrits, avec recherche ---
+function renderAdminUsers() {
+  const query = document.getElementById('admin-users-search').value.trim().toLowerCase();
+  const users = ADMIN_USERS.filter(
+    (u) => !query || (u.artistName || '').toLowerCase().includes(query) || (u.email || '').toLowerCase().includes(query)
+  );
   const usersList = document.getElementById('admin-users-list');
+  if (users.length === 0) {
+    usersList.innerHTML = '<p class="empty-state">' + t('admin.users.none') + '</p>';
+    return;
+  }
   usersList.innerHTML = users
     .map((u) => {
       const exportActive = (u.exportExpiresAt || 0) > Date.now();
       return (
-        '<div class="admin-row"><div class="who"><span>' +
-        escapeHtml(u.artistName) +
-        (u.role === 'admin' ? ' · admin' : u.accountType === 'fan' ? ' · ' + t('admin.type.listener') : ' · ' + t('admin.type.artist')) +
-        '</span><span class="sub">' +
-        escapeHtml(u.email) +
+        '<div class="admin-row"><div class="who"><span>' + escapeHtml(u.artistName) + ' · ' + adminTypeLabel(u) +
+        (u.role !== 'admin' && !u.emailVerified ? ' <span class="admin-badge">' + t('admin.users.unverified') + '</span>' : '') +
+        '</span><span class="sub">' + escapeHtml(u.email) +
+        (u.createdAt ? ' · ' + t('admin.users.joined').replace('{date}', formatDate(u.createdAt)) : '') +
         '</span></div>' +
         (u.role === 'admin'
           ? ''
-          : '<button class="mini-btn" data-enable-export-id="' +
-            u.id +
-            '"' +
-            (exportActive ? ' disabled' : '') +
-            '>' +
-            (exportActive ? t('admin.exportActive') : t('admin.enableExport')) +
-            '</button>' +
-            (u.emailVerified
-              ? ''
-              : '<button class="mini-btn" data-manual-verify-id="' + u.id + '">' + t('admin.manualVerify') + '</button>') +
+          : '<button class="mini-btn" data-enable-export-id="' + u.id + '"' + (exportActive ? ' disabled' : '') + '>' +
+            (exportActive ? t('admin.exportActive') : t('admin.enableExport')) + '</button>' +
+            (u.emailVerified ? '' : '<button class="mini-btn" data-manual-verify-id="' + u.id + '">' + t('admin.todo.confirm') + '</button>') +
             '<button class="del-btn" data-user-id="' + u.id + '">' + t('admin.remove') + '</button>') +
         '</div>'
       );
@@ -1253,26 +1322,32 @@ async function loadAdminOverview() {
   });
   usersList.querySelectorAll('[data-manual-verify-id]').forEach((btn) => {
     btn.addEventListener('click', async () => {
+      btn.disabled = true;
       await fetch('/api/admin/users/' + btn.getAttribute('data-manual-verify-id') + '/manual-verify', { method: 'POST' });
       showToast(t('admin.manualVerified'));
       loadAdminOverview();
     });
   });
+}
 
+// --- Tous les morceaux, avec recherche ---
+function renderAdminTracks() {
+  const query = document.getElementById('admin-tracks-search').value.trim().toLowerCase();
+  const tracks = ADMIN_TRACKS.filter(
+    (tr) => !query || (tr.title || '').toLowerCase().includes(query) || (tr.artistName || '').toLowerCase().includes(query)
+  );
   const tracksList = document.getElementById('admin-tracks-list');
+  if (tracks.length === 0) {
+    tracksList.innerHTML = '<p class="empty-state">' + t('admin.tracks.none') + '</p>';
+    return;
+  }
   tracksList.innerHTML = tracks
     .map(
       (tr) =>
-        '<div class="admin-row"><div class="who"><span>' +
-        escapeHtml(tr.title) +
-        '</span><span class="sub">' +
-        escapeHtml(tr.artistName) +
-        '</span></div>' +
-        '<button class="del-btn" data-track-id="' +
-        tr.id +
-        '">' +
-        t('admin.remove') +
-        '</button></div>'
+        '<div class="admin-row"><div class="who"><span>' + escapeHtml(tr.title) +
+        (tr.isScheduled ? ' <span class="admin-badge">' + t('release.scheduledOn').replace('{date}', formatDateTime(tr.releaseAt)) + '</span>' : '') +
+        '</span><span class="sub">' + escapeHtml(tr.artistName) + '</span></div>' +
+        '<button class="del-btn" data-track-id="' + tr.id + '">' + t('admin.remove') + '</button></div>'
     )
     .join('');
   tracksList.querySelectorAll('[data-track-id]').forEach((btn) => {
@@ -1284,6 +1359,9 @@ async function loadAdminOverview() {
     });
   });
 }
+
+document.getElementById('admin-users-search').addEventListener('input', renderAdminUsers);
+document.getElementById('admin-tracks-search').addEventListener('input', renderAdminTracks);
 
 // --- Page artiste publique ---
 document.getElementById('back-to-discover').addEventListener('click', () => {

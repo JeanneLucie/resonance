@@ -371,21 +371,37 @@
     </div>
 
     <!-- ADMINISTRATION (visible uniquement pour le compte admin) -->
-    <div id="admin-block" hidden style="margin-top:48px;">
+    <!-- Le compte admin ne voit QUE cet espace : pas de "Publier un
+         morceau", pas de statistiques d'artiste. Tout ce qui demande une
+         action est regroupé en haut, dans "À traiter". -->
+    <div id="admin-block" hidden>
       <div class="section-head">
         <h2 data-i18n="admin.title">Administration</h2>
         <p data-i18n="admin.lede">Vue réservée à l'administratrice de la plateforme.</p>
       </div>
-      <div class="panel">
+
+      <div class="admin-stats" id="admin-stats"></div>
+
+      <div class="panel admin-todo" id="admin-todo-panel">
+        <h3 data-i18n="admin.todo.title">À traiter</h3>
+        <div id="admin-todo-list"></div>
+        <p class="field-hint admin-export-hint" data-i18n="admin.todo.exportHint">Tu as reçu par e-mail une demande d'export de données ? Cherche la personne dans « Comptes inscrits » plus bas, puis clique sur « Activer l'export (48h) ».</p>
+      </div>
+
+      <div class="panel" id="admin-reports-panel" style="margin-top:24px;">
         <h3 data-i18n="admin.reports.title">Signalements</h3>
         <div id="admin-reports-list"></div>
       </div>
+
       <div class="panel" style="margin-top:24px;">
-        <h3 data-i18n="admin.users.title">Artistes inscrits</h3>
+        <h3 data-i18n="admin.users.title">Comptes inscrits</h3>
+        <input type="text" id="admin-users-search" class="admin-search" data-i18n-placeholder="admin.users.searchPh" placeholder="Chercher un nom ou une adresse e-mail…">
         <div id="admin-users-list"></div>
       </div>
+
       <div class="panel" style="margin-top:24px;">
         <h3 data-i18n="admin.tracks.title">Tous les morceaux</h3>
+        <input type="text" id="admin-tracks-search" class="admin-search" data-i18n-placeholder="admin.tracks.searchPh" placeholder="Chercher un titre ou un artiste…">
         <div id="admin-tracks-list"></div>
       </div>
     </div>

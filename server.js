@@ -790,7 +790,9 @@ app.get('/api/admin/overview', requireAdmin, async (req, res) => {
   const { data: tracks } = await supabase.from('tracks').select('*').order('created_at', { ascending: false });
   const byId = Object.fromEntries((users || []).map((u) => [u.id, u]));
   res.json({
-    users: (users || []).map(publicUser),
+    users: (users || [])
+      .map((u) => ({ ...publicUser(u), createdAt: Number(u.created_at) || null }))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
     tracks: (tracks || []).map((t) => {
       const artist = byId[t.user_id];
       return { ...mapTrack(t, artist ? artist.artist_name : 'Artiste supprimé'), artistEmail: artist ? artist.email : '' };

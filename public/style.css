@@ -329,3 +329,17 @@ body.has-player .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); 
 .distrib-answer { margin-top: 14px; }
 .distrib-answer .btn { margin-top: 6px; }
 .distrib-answer a:not(.btn) { color: var(--brass-deep); }
+
+/* --- Espace administration --- */
+.admin-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+@media (max-width: 600px) { .admin-stats { grid-template-columns: repeat(2, 1fr); } }
+.admin-stat { background: var(--paper-soft); border: 1px solid var(--line-paper); border-radius: 4px; padding: 14px 16px; }
+.admin-stat-number { font-family: 'Fraunces', serif; font-size: 1.7rem; color: var(--text-on-paper); }
+.admin-stat-label { font-size: 0.8rem; color: var(--text-on-paper-dim); }
+.admin-todo { border-left: 4px solid var(--brass); }
+.admin-todo-section + .admin-todo-section { margin-top: 22px; }
+.admin-todo-section h4 { font-size: 0.95rem; color: var(--text-on-paper); margin: 12px 0 4px; font-weight: 600; }
+.admin-todo-empty { margin: 12px 0 0; color: var(--text-on-paper-dim); font-size: 0.92rem; }
+.admin-export-hint { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line-paper); }
+.admin-search { margin: 10px 0 6px; }
+.admin-badge { display: inline-block; font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--brass-deep); color: var(--brass-deep); margin-left: 6px; vertical-align: middle; }
