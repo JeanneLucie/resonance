@@ -132,7 +132,10 @@ const loginEmailLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => (req.body && req.body.email ? req.body.email.toLowerCase() : 'unknown'),
-  skip: isExemptFromRateLimit,
+  // PAS d'exemption ici (volontairement) : exempter un e-mail de la
+  // limite "par compte" revenait à laisser ce compte-là — le tien, donc
+  // le compte admin — sans aucune protection contre les essais de mots
+  // de passe en rafale. Tu restes exemptée de la limite par IP.
   handler: (req, res, next, options) => {
     const email = req.body && req.body.email ? req.body.email.toLowerCase() : '';
     if (email && shouldAlertSuspiciousLogin(email)) {
@@ -219,9 +222,73 @@ function mapTrack(t, artistName) {
     plays: t.plays || 0,
     distribution: t.distribution,
     createdAt: Number(t.created_at),
+    releaseAt: t.release_at ? Number(t.release_at) : null,
+    isScheduled: !!(t.release_at && Number(t.release_at) > Date.now()),
     artistName,
   };
 }
+
+// --- Sorties programmées ---
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Transforme ce qu'envoie le formulaire (date ISO ou timestamp) en
+// timestamp. Vide, invalide ou déjà passé => publication immédiate (null).
+// Limité à un an d'avance pour éviter les fautes de frappe (2062...).
+function parseReleaseAt(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const ms = /^\d+$/.test(String(value)) ? Number(value) : Date.parse(value);
+  if (!Number.isFinite(ms) || ms <= Date.now()) return null;
+  if (ms > Date.now() + 365 * DAY_MS) return 'too_far';
+  return ms;
+}
+
+// Filtre Supabase : ne montre au public que ce qui est déjà sorti.
+function onlyReleased(query) {
+  return query.or('release_at.is.null,release_at.lte.' + Date.now());
+}
+
+function isFridayInParis(ms) {
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Europe/Paris' }).format(new Date(ms)) === 'Fri';
+}
+
+// Conseils affichés dans la bulle au moment de choisir une date. Ce ne
+// sont QUE des conseils : rien n'est jamais bloqué.
+async function releaseAdvice(userId, releaseAt, excludeTrackId) {
+  const target = releaseAt || Date.now();
+  const { data: mine } = await supabase.from('tracks').select('id, created_at, release_at').eq('user_id', userId);
+  const dates = (mine || [])
+    .filter((t) => String(t.id) !== String(excludeTrackId || ''))
+    .map((t) => Number(t.release_at || t.created_at));
+  const tips = [];
+
+  const sameMonth = dates.filter((d) => Math.abs(d - target) <= 15 * DAY_MS).length;
+  if (sameMonth >= 2) {
+    tips.push({ code: 'crowded', level: 'warning', text: "Ça fait beaucoup de sorties sur le même mois. Ton public risque de ne pas tout écouter : garde quelques titres en réserve pour les semaines suivantes." });
+  } else if (dates.some((d) => Math.abs(d - target) < 14 * DAY_MS)) {
+    tips.push({ code: 'spacing', level: 'tip', text: "Tu as déjà une sortie à moins de 2 semaines de cette date. Espacer tes titres de 3 à 6 semaines laisse à chacun le temps d'être découvert et partagé." });
+  }
+
+  if (releaseAt && releaseAt - Date.now() < 7 * DAY_MS) {
+    tips.push({ code: 'short_notice', level: 'tip', text: "Si tu peux, prévois 1 à 3 semaines avant la sortie pour l'annoncer (pochette, extrait, date). Et si tu sors aussi ce titre sur Spotify, il faut au moins 7 jours d'avance pour le proposer à leurs playlists éditoriales." });
+  }
+
+  if (!releaseAt && tips.length === 0) {
+    tips.push({ code: 'can_schedule', level: 'info', text: "Astuce : tu peux aussi programmer la sortie à une date précise, pour avoir le temps de l'annoncer avant." });
+  }
+
+  if (releaseAt && !isFridayInParis(releaseAt)) {
+    tips.push({ code: 'friday', level: 'info', text: "Petit repère : dans la musique, les nouveautés sortent traditionnellement le vendredi. Ce n'est pas une obligation sur Résonance." });
+  }
+  return tips;
+}
+
+// La bulle de conseils peut interroger cette route dès que l'artiste
+// change la date dans le formulaire, avant même de valider.
+app.get('/api/me/release-advice', requireAuth, async (req, res) => {
+  const releaseAt = parseReleaseAt(req.query.releaseAt);
+  if (releaseAt === 'too_far') return res.json({ tips: [{ code: 'too_far', level: 'warning', text: "Les sorties se programment jusqu'à un an à l'avance maximum." }] });
+  res.json({ tips: await releaseAdvice(req.session.userId, releaseAt, req.query.trackId) });
+});
 
 // --- Auth ---
 app.post('/api/signup', authLimiter, async (req, res) => {
@@ -350,10 +417,10 @@ app.put(
 
 // --- Morceaux ---
 app.get('/api/tracks', async (req, res) => {
-  const { data: tracks } = await supabase.from('tracks').select('*').order('created_at', { ascending: false }).limit(200);
+  const { data: tracks } = await onlyReleased(supabase.from('tracks').select('*')).order('created_at', { ascending: false }).limit(200);
   const userIds = [...new Set((tracks || []).map((t) => t.user_id))];
   const { data: users } = userIds.length
-    ? await supabase.from('users').select('id, artist_name, donation_link, spotify_url, apple_url, soundcloud_url, instagram_url, suno_url').in('id', userIds)
+    ? await supabase.from('users').select('id, artist_name, donation_link, spotify_url, apple_url, soundcloud_url, instagram_url, suno_url, bandcamp_url').in('id', userIds)
     : { data: [] };
   const byId = Object.fromEntries((users || []).map((u) => [u.id, u]));
 
@@ -383,6 +450,8 @@ app.get('/api/me/tracks', requireAuth, async (req, res) => {
 
 app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req, res) => {
   const { title, genre, aiLyrics, aiMusic, aiVocals, aiTool, collaborators, genesis, explicit, spotifyUrl, appleUrl } = req.body;
+  const releaseAt = parseReleaseAt(req.body.releaseAt);
+  if (releaseAt === 'too_far') return res.status(400).json({ error: 'release_too_far' });
   const audioFile = req.files && req.files.audio && req.files.audio[0];
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (!title || !audioFile) return res.status(400).json({ error: 'missing_fields' });
@@ -428,13 +497,17 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
       explicit: explicit === 'true' || explicit === true,
       spotify_url: spotifyUrl || '',
       apple_url: appleUrl || '',
+      release_at: releaseAt,
+      // created_at reste la date d'upload réelle : c'est elle qui sert de
+      // preuve d'antériorité (CGU), même si la sortie publique est plus tard.
       created_at: Date.now(),
     })
     .select()
     .single();
 
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
-  res.json({ ok: true, track: mapTrack(track) });
+  const advice = await releaseAdvice(req.session.userId, releaseAt, track.id);
+  res.json({ ok: true, track: mapTrack(track), advice });
 });
 
 app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount: 1 }]), async (req, res) => {
@@ -453,6 +526,15 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
   if (req.body.explicit !== undefined) fields.explicit = req.body.explicit === 'true' || req.body.explicit === true;
   if (req.body.spotifyUrl !== undefined) fields.spotify_url = req.body.spotifyUrl;
   if (req.body.appleUrl !== undefined) fields.apple_url = req.body.appleUrl;
+  if (req.body.releaseAt !== undefined) {
+    // Vide = "publier maintenant". Un titre déjà sorti ne peut pas être
+    // "re-caché" en le reprogrammant (ses écoutes et liens partagés restent).
+    const alreadyOut = !track.release_at || Number(track.release_at) <= Date.now();
+    const releaseAt = parseReleaseAt(req.body.releaseAt);
+    if (releaseAt === 'too_far') return res.status(400).json({ error: 'release_too_far' });
+    if (alreadyOut && releaseAt) return res.status(400).json({ error: 'already_released' });
+    fields.release_at = releaseAt;
+  }
 
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (coverFile) {
@@ -469,8 +551,9 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
 // secondes de lecture, pas juste un clic) — accessible sans compte,
 // puisque n'importe quel visiteur peut écouter.
 app.post('/api/tracks/:id/register-play', publicActionLimiter, async (req, res) => {
-  const { data: track } = await supabase.from('tracks').select('plays').eq('id', req.params.id).maybeSingle();
+  const { data: track } = await supabase.from('tracks').select('plays, release_at').eq('id', req.params.id).maybeSingle();
   if (!track) return res.status(404).json({ error: 'not_found' });
+  if (track.release_at && Number(track.release_at) > Date.now()) return res.json({ ok: true });
   await supabase.from('tracks').update({ plays: (track.plays || 0) + 1 }).eq('id', req.params.id);
   res.json({ ok: true });
 });
@@ -534,6 +617,8 @@ app.delete('/api/tracks/:id', requireAuth, async (req, res) => {
 app.get('/api/tracks/:id', async (req, res) => {
   const { data: track } = await supabase.from('tracks').select('*').eq('id', req.params.id).maybeSingle();
   if (!track) return res.status(404).json({ error: 'not_found' });
+  const notYetOut = track.release_at && Number(track.release_at) > Date.now();
+  if (notYetOut && track.user_id !== req.session.userId) return res.status(404).json({ error: 'not_found' });
   const { data: artist } = await supabase.from('users').select('*').eq('id', track.user_id).maybeSingle();
   if (!artist) return res.status(404).json({ error: 'not_found' });
 
@@ -554,11 +639,10 @@ app.get('/api/artists/:id', async (req, res) => {
   const { data: artist } = await supabase.from('users').select('*').eq('id', artistId).maybeSingle();
   if (!artist) return res.status(404).json({ error: 'not_found' });
 
-  const { data: tracks } = await supabase
-    .from('tracks')
-    .select('*')
-    .eq('user_id', artistId)
-    .order('created_at', { ascending: false });
+  const isOwner = req.session.userId === artistId;
+  let tracksQuery = supabase.from('tracks').select('*').eq('user_id', artistId);
+  if (!isOwner) tracksQuery = onlyReleased(tracksQuery);
+  const { data: tracks } = await tracksQuery.order('created_at', { ascending: false });
 
   const { data: allUsers } = await supabase.from('users').select('id, following_ids');
   const followerCount = (allUsers || []).filter((u) => (u.following_ids || []).includes(artistId)).length;
@@ -607,6 +691,8 @@ app.post('/api/tracks/:id/distribute', requireAuth, async (req, res) => {
   if (!labelgrid.isConfigured()) return res.status(503).json({ error: 'not_configured' });
   const { data: track } = await supabase.from('tracks').select('*').eq('id', req.params.id).eq('user_id', req.session.userId).maybeSingle();
   if (!track) return res.status(404).json({ error: 'not_found' });
+  // Sans ce contrôle, le bouton "Distribuer" marchait même sans avoir payé.
+  if (stripeClient.isConfigured() && !track.distribution_paid) return res.status(402).json({ error: 'payment_required' });
   const { data: artist } = await supabase.from('users').select('artist_name').eq('id', req.session.userId).single();
 
   try {
@@ -614,7 +700,7 @@ app.post('/api/tracks/:id/distribute', requireAuth, async (req, res) => {
     const release = await labelgrid.createRelease({
       title: track.title,
       artistId: lgArtist.id,
-      releaseDate: new Date().toISOString().slice(0, 10),
+      releaseDate: new Date(track.release_at && Number(track.release_at) > Date.now() ? Number(track.release_at) : Date.now()).toISOString().slice(0, 10),
     });
     await labelgrid.uploadTrackAudio({
       releaseId: release.id,

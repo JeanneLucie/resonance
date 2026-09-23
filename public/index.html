@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Résonance — ta musique, ta plateforme</title>
+<title>Résonance | Ta musique, ta plateforme</title>
 <meta name="description" content="Résonance héberge tes morceaux, te relie à tes plateformes de streaming et permet à ton public de te soutenir directement, sans commission. Une plateforme française qui accueille aussi les créations assistées par IA, en toute transparence.">
-<meta property="og:title" content="Résonance — ta musique, ta plateforme">
+<meta property="og:title" content="Résonance | Ta musique, ta plateforme">
 <meta property="og:description" content="Écoute et soutiens des artistes indépendants, musique humaine ou assistée par IA, sans commission sur les dons.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://resonance-726l.onrender.com">
@@ -55,7 +55,7 @@
       <h1 data-i18n="hero.title">Ta musique, ta plateforme, tes règles.</h1>
       <p class="lede" data-i18n="hero.lede">Résonance héberge tes morceaux, te relie à tes plateformes de streaming et permet à ton public de te soutenir directement.</p>
       <div class="cta-row">
-        <a href="#espace" class="btn btn-primary" data-i18n="hero.cta.signup">Créer mon espace artiste</a>
+        <a href="#espace" class="btn btn-primary" data-i18n="hero.cta.signup">Créer mon compte</a>
         <a href="#decouvrir" class="btn btn-ghost" data-i18n="hero.cta.discover">Découvrir des artistes</a>
       </div>
       <p class="install-note" data-i18n="hero.installNote">📲 Installable comme une application sur ton téléphone (bouton en haut de la page). Sur iPhone : bouton Partager → "Sur l'écran d'accueil", en deux étapes.</p>
@@ -134,7 +134,7 @@
     <!-- AUTH (visible si déconnecté) -->
     <div id="auth-block">
       <div class="section-head">
-        <h2 data-i18n="auth.title">Espace artiste</h2>
+        <h2 data-i18n="auth.title">Rejoindre Résonance</h2>
       </div>
       <div class="panel auth-panel">
         <div id="login-form-wrap">
@@ -152,7 +152,7 @@
               <span class="form-note" id="login-status" aria-live="polite"></span>
             </div>
           </form>
-          <p class="switch-link"><a href="#" id="show-signup" data-i18n="auth.switchToSignup">Pas encore de compte ?</a></p>
+          <p class="switch-link"><a href="#" id="show-signup" data-i18n="auth.switchToSignup">Pas encore de compte ? Créer un compte (pour écouter ou pour publier)</a></p>
         </div>
         <div id="signup-form-wrap" hidden>
           <h3 data-i18n="auth.signup.title">Créer mon compte</h3>
@@ -161,7 +161,7 @@
             <legend data-i18n="auth.accountType">Tu viens pour…</legend>
             <div class="radio-group">
               <label class="radio-option"><input type="radio" name="account-type" value="artist" checked> <span data-i18n="auth.accountType.artist">Publier ma musique</span></label>
-              <label class="radio-option"><input type="radio" name="account-type" value="fan"> <span data-i18n="auth.accountType.fan">Juste écouter et suivre des artistes</span></label>
+              <label class="radio-option"><input type="radio" name="account-type" value="fan"> <span data-i18n="auth.accountType.fan">Écouter, découvrir et suivre des artistes</span></label>
             </div>
             </fieldset>
             <label data-i18n="auth.artistName" for="signup-artistName" id="signup-name-label">Nom d'artiste</label>
@@ -242,6 +242,7 @@
               <label data-i18n="dashboard.profile.soundcloud" for="profile-soundcloudUrl">Lien SoundCloud</label>
               <input type="url" id="profile-soundcloudUrl">
               <button type="button" class="mini-btn" id="soundcloud-connect-btn" data-i18n="soundcloud.connectBtn" style="margin-top:6px;">🔗 Connecter mon compte SoundCloud</button>
+              <p class="field-hint" data-i18n="soundcloud.aiNote">Bon à savoir : SoundCloud accepte la publication de titres créés avec Suno, mais ne permet pas de les rémunérer ni de les distribuer via SoundCloud for Artists.</p>
             </div>
             <div>
               <label data-i18n="dashboard.profile.instagram" for="profile-instagramUrl">Lien Instagram</label>
@@ -287,6 +288,11 @@
           <label data-i18n="dashboard.addTrack.cover" for="track-cover">Pochette (optionnelle, sinon générée automatiquement)</label>
           <input type="file" id="track-cover" accept="image/*">
 
+          <label data-i18n="release.label" for="track-releaseAt">Date de sortie (optionnel)</label>
+          <input type="datetime-local" id="track-releaseAt">
+          <p class="field-hint" data-i18n="release.hint">Laisse vide pour publier tout de suite. Sinon, ton morceau restera invisible pour le public jusqu'à cette date.</p>
+          <div class="advice-bubble" id="track-release-advice" hidden aria-live="polite"></div>
+
           <fieldset class="radio-fieldset">
           <legend data-i18n="dashboard.addTrack.aiLevel">Quelles parties de ce morceau ont été faites avec l'aide de l'IA ?</legend>
           <div class="radio-group">
@@ -320,6 +326,23 @@
         </form>
       </div>
 
+      <div class="panel" id="distrib-guide-panel" style="margin-top:24px;">
+        <h3 data-i18n="distguide.title">Mettre ma musique sur Spotify et Apple Music</h3>
+        <p class="field-hint" data-i18n="distguide.question">Quel service utilises-tu (ou veux-tu utiliser) pour envoyer ta musique vers Spotify et Apple Music ?</p>
+        <div class="radio-group">
+          <label class="radio-option"><input type="radio" name="distrib-choice" value="distrokid"> <span data-i18n="distguide.distrokid">DistroKid</span></label>
+          <label class="radio-option"><input type="radio" name="distrib-choice" value="other"> <span data-i18n="distguide.other">Un autre service</span></label>
+          <label class="radio-option"><input type="radio" name="distrib-choice" value="unsure"> <span data-i18n="distguide.unsure">Je ne sais pas encore</span></label>
+        </div>
+        <div class="distrib-answer" id="distrib-answer-guide" hidden>
+          <p class="field-hint" data-i18n="distguide.guideIntro">Voici le chemin que nous avons testé du début à la fin, étape par étape, sans jargon.</p>
+          <a href="/guide.html" class="btn btn-primary" data-i18n="distguide.openGuide">📖 Ouvrir le guide pas à pas</a>
+        </div>
+        <div class="distrib-answer" id="distrib-answer-other" hidden>
+          <p class="field-hint" data-i18n="distguide.otherText">Pour l'instant, nous n'avons un guide pas à pas que pour DistroKid, le seul service que nous avons pu tester du début à la fin. Tu peux bien sûr en utiliser un autre : ta page Résonance n'en dépend pas. Une fois ton morceau en ligne, colle simplement son lien Spotify ou Apple Music dans "Modifier" sur ce morceau. Une question ? Écris-nous : <a href="mailto:resonance.contact.equipe@proton.me">resonance.contact.equipe@proton.me</a></p>
+        </div>
+      </div>
+
       <div class="panel stats-panel" id="stats-panel" style="margin-top:24px;">
         <h3 data-i18n="stats.title">Statistiques</h3>
         <div class="stats-summary">
@@ -342,7 +365,7 @@
 
       <div class="panel" id="fan-notice-panel" hidden style="margin-top:24px;">
         <h3 data-i18n="fan.title">Ton compte</h3>
-        <p class="field-hint" data-i18n="fan.notice">Tu es inscrite pour écouter et suivre des artistes. Tu peux à tout moment décider de publier ta propre musique.</p>
+        <p class="field-hint" data-i18n="fan.notice">Ton compte te permet d'écouter, de découvrir et de suivre des artistes. Tu peux à tout moment décider de publier ta propre musique.</p>
         <button type="button" class="mini-btn" id="upgrade-to-artist-btn" data-i18n="fan.upgrade">Je veux aussi publier ma musique</button>
       </div>
     </div>
@@ -392,7 +415,7 @@
 
     <div class="contact-form-block" id="contact-form-block" hidden>
       <h3 id="contact-form-title"></h3>
-      <p class="field-hint" data-i18n="contact.privacyNote">Ton message arrivera à l'artiste sans jamais lui montrer ton adresse — et sa réponse, elle, t'arrivera sans jamais te montrer la sienne.</p>
+      <p class="field-hint" data-i18n="contact.privacyNote">Ton message arrivera à l'artiste sans jamais lui montrer ton adresse, et sa réponse, elle, t'arrivera sans jamais te montrer la sienne.</p>
       <label data-i18n="contact.name" for="contact-name">Ton nom (optionnel)</label>
       <input type="text" id="contact-name">
       <label data-i18n="contact.email" for="contact-email">Ton adresse e-mail (pour recevoir la réponse)</label>
@@ -417,6 +440,8 @@
     <div id="track-page-more" style="margin-top:44px;"></div>
   </div>
 </section>
+
+<div id="page-reader" hidden></div>
 
 <footer>
   <div class="wrap">

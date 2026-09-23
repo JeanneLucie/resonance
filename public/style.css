@@ -169,7 +169,7 @@ section.on-paper h2, section.on-paper h3 { color: var(--text-on-paper); }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 600px) { .field-row { grid-template-columns: 1fr; } }
 label { display: block; font-size: 0.83rem; color: var(--text-on-paper-dim); margin: 14px 0 6px; }
-input[type="text"], input[type="url"], input[type="email"], input[type="password"], input[type="file"], textarea {
+input[type="text"], input[type="url"], input[type="email"], input[type="password"], input[type="file"], input[type="datetime-local"], textarea {
   width: 100%; padding: 10px 12px; border-radius: 3px; border: 1px solid var(--line-paper);
   background: var(--paper); color: var(--text-on-paper); font-family: 'IBM Plex Sans', sans-serif; font-size: 0.94rem;
 }
@@ -274,7 +274,16 @@ img.cover-art { object-fit: contain; background: var(--ink); }
 footer { padding: 40px 0 56px; border-top: 1px solid var(--line); }
 footer p { font-size: 0.83rem; color: var(--text-on-ink-dim); max-width: 60ch; }
 
-.toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(10px); background: var(--brass); color: #1E1A2E; padding: 12px 22px; border-radius: 4px; font-size: 0.88rem; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 40; }
+.toast { position: fixed; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%) translateY(10px); background: var(--brass); color: #1E1A2E; padding: 12px 22px; border-radius: 4px; font-size: 0.88rem; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 70; width: max-content; max-width: calc(100% - 32px); text-align: center; line-height: 1.45; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+/* Quand le lecteur fixe est affiché : la bulle passe AU-DESSUS de lui
+   (avant, elle s'affichait dessous et restait cachée ou coupée), et le
+   bas de page est décalé pour que rien ne se retrouve sous le lecteur. */
+body.has-player { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+body.has-player .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 600px) {
+  body.has-player { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  body.has-player .toast { bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
+}
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 .player-bar {
@@ -307,3 +316,16 @@ footer p { font-size: 0.83rem; color: var(--text-on-ink-dim); max-width: 60ch; }
   .player-info { max-width: 90px; }
   .player-bar { gap: 10px; padding-left: 12px; padding-right: 12px; }
 }
+
+/* --- Sorties programmées : bulle de conseils --- */
+.advice-bubble { position: relative; margin-top: 12px; padding: 12px 14px; border-radius: 8px; background: #FBF0D9; border: 1px solid #E0C68A; color: #6B5423; font-size: 0.86rem; line-height: 1.55; }
+.advice-bubble::before { content: ''; position: absolute; top: -7px; left: 22px; width: 12px; height: 12px; background: #FBF0D9; border-left: 1px solid #E0C68A; border-top: 1px solid #E0C68A; transform: rotate(45deg); }
+.advice-bubble p { margin: 0; }
+.advice-bubble p + p { margin-top: 8px; }
+.advice-bubble .advice-warning { font-weight: 500; }
+.scheduled-badge { color: var(--brass-deep); font-weight: 500; }
+
+/* --- Guide de distribution --- */
+.distrib-answer { margin-top: 14px; }
+.distrib-answer .btn { margin-top: 6px; }
+.distrib-answer a:not(.btn) { color: var(--brass-deep); }

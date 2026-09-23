@@ -34,7 +34,9 @@ function showToast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2600);
+  // Un message long reste affiché plus longtemps, pour avoir le temps de le lire.
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => el.classList.remove('show'), Math.max(2600, String(msg).length * 60));
 }
 
 // --- Decorative waveform ---
@@ -302,6 +304,8 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   formData.append('aiMusic', document.getElementById('track-ai-music').checked);
   formData.append('aiVocals', document.getElementById('track-ai-vocals').checked);
   formData.append('aiTool', document.getElementById('track-aiTool').value.trim());
+  const releaseValue = document.getElementById('track-releaseAt').value;
+  if (releaseValue) formData.append('releaseAt', String(new Date(releaseValue).getTime()));
   formData.append('audio', fileInput.files[0]);
   const coverInput = document.getElementById('track-cover');
   if (coverInput.files[0]) formData.append('cover', coverInput.files[0]);
@@ -315,6 +319,8 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
         ? t('verify.blocksPublishShort')
         : data.error === 'fan_account'
         ? t('fan.cannotPublish')
+        : data.error === 'release_too_far'
+        ? t('release.advice.too_far')
         : data.message || t('error.generic');
     return;
   }
@@ -322,12 +328,85 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   document.getElementById('track-form').reset();
   trackFormDirty = false;
   document.getElementById('ai-detail-block').hidden = true;
-  showToast('✓');
+  document.getElementById('track-release-advice').hidden = true;
+  if (data.track && data.track.isScheduled) {
+    showToast(t('release.scheduledToast').replace('{date}', formatDateTime(data.track.releaseAt)));
+  } else {
+    showToast('✓');
+  }
   loadMyTracks();
   loadFeed();
 });
 
 let MY_TRACKS = [];
+
+// --- Sorties programmées ---
+function toLocalInputValue(ms) {
+  const d = new Date(ms);
+  const pad = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function formatDateTime(ts) {
+  const localeMap = { fr: 'fr-FR', en: 'en-GB', es: 'es-ES' };
+  return new Date(ts).toLocaleString(localeMap[CURRENT_LANG] || 'fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// Affiche les conseils du serveur dans la petite bulle. Les textes sont
+// traduits côté site (clé release.advice.<code>) ; à défaut, on garde le
+// texte français envoyé par le serveur.
+function renderReleaseAdvice(bubble, tips) {
+  if (!tips || tips.length === 0) {
+    bubble.hidden = true;
+    return;
+  }
+  const icons = { warning: '⚠️', tip: '💡', info: 'ℹ️' };
+  bubble.innerHTML = tips
+    .map((tp) => {
+      const key = 'release.advice.' + tp.code;
+      const text = STR[key] || tp.text;
+      return '<p class="advice-' + tp.level + '">' + (icons[tp.level] || '💡') + ' ' + escapeHtml(text) + '</p>';
+    })
+    .join('');
+  bubble.hidden = false;
+}
+
+async function refreshReleaseAdvice(input, bubble, trackId) {
+  const params = new URLSearchParams();
+  if (input.value) params.set('releaseAt', String(new Date(input.value).getTime()));
+  if (trackId) params.set('trackId', trackId);
+  try {
+    const res = await fetch('/api/me/release-advice?' + params.toString());
+    if (!res.ok) {
+      bubble.hidden = true;
+      return;
+    }
+    const { tips } = await res.json();
+    renderReleaseAdvice(bubble, tips);
+  } catch (err) {
+    bubble.hidden = true;
+  }
+}
+
+(function setupReleaseField() {
+  const input = document.getElementById('track-releaseAt');
+  const bubble = document.getElementById('track-release-advice');
+  // On ne peut pas choisir une date déjà passée.
+  input.addEventListener('focus', () => {
+    input.min = toLocalInputValue(Date.now());
+    refreshReleaseAdvice(input, bubble);
+  });
+  input.addEventListener('change', () => refreshReleaseAdvice(input, bubble));
+})();
+
+// --- Guide de distribution : choix du service ---
+document.querySelectorAll('input[name="distrib-choice"]').forEach((radio) => {
+  radio.addEventListener('change', () => {
+    const choice = document.querySelector('input[name="distrib-choice"]:checked').value;
+    document.getElementById('distrib-answer-guide').hidden = choice === 'other';
+    document.getElementById('distrib-answer-other').hidden = choice !== 'other';
+  });
+});
 
 function refreshExportPanel() {
   const requestBtn = document.getElementById('request-export-btn');
@@ -359,7 +438,7 @@ document.getElementById('request-export-btn').addEventListener('click', async (e
 function applyAccountTypeUI() {
   if (!currentUser) return;
   const isFan = currentUser.accountType === 'fan';
-  ['onboarding-panel', 'publish-panel', 'my-tracks-panel', 'stats-panel', 'messages-panel'].forEach((id) => {
+  ['onboarding-panel', 'publish-panel', 'my-tracks-panel', 'stats-panel', 'messages-panel', 'distrib-guide-panel'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.hidden = isFan;
   });
@@ -525,7 +604,9 @@ async function loadMyTracks() {
       return (
         '<div class="my-track-row"><span class="title">' +
         escapeHtml(tr.title) +
-        '<span class="my-track-date">' + formatDate(tr.createdAt) + ' · ' + (tr.plays === 1 ? t('track.playsOne') : t('track.playsMany').replace('{n}', tr.plays)) + '</span>' +
+        (tr.isScheduled
+          ? '<span class="my-track-date scheduled-badge">' + t('release.scheduledOn').replace('{date}', formatDateTime(tr.releaseAt)) + '</span>'
+          : '<span class="my-track-date">' + formatDate(tr.releaseAt || tr.createdAt) + ' · ' + (tr.plays === 1 ? t('track.playsOne') : t('track.playsMany').replace('{n}', tr.plays)) + '</span>') +
         '</span><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">' +
         distHtml +
         payHtml +
@@ -562,7 +643,13 @@ async function loadMyTracks() {
       const res = await fetch('/api/tracks/' + btn.getAttribute('data-dist-id') + '/distribute', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) {
-        showToast(data.error === 'not_configured' ? t('dist.notConfigured') : t('error.generic'));
+        showToast(
+          data.error === 'not_configured'
+            ? t('dist.notConfigured')
+            : data.error === 'payment_required'
+            ? t('dist.paymentRequired')
+            : t('error.generic')
+        );
         btn.textContent = t('dist.button');
         return;
       }
@@ -631,7 +718,7 @@ function renderTrackCard(tr) {
     tags.push('<span class="tag ai">' + t('ai.tagPrefix') + ' ' + aiParts.join(', ') + (tr.aiTool ? ' · ' + escapeHtml(tr.aiTool) : '') + '</span>');
   }
   if (tr.explicit) tags.push('<span class="tag explicit">' + t('tag.explicit') + '</span>');
-  if (Date.now() - tr.createdAt < 7 * 24 * 60 * 60 * 1000) tags.push('<span class="tag new">' + t('tag.new') + '</span>');
+  if (Date.now() - (tr.releaseAt || tr.createdAt) < 7 * 24 * 60 * 60 * 1000) tags.push('<span class="tag new">' + t('tag.new') + '</span>');
 
   const streamingLinks = [];
   if (tr.spotifyUrl) streamingLinks.push(linkPill(tr.spotifyUrl, t('link.spotify')));
@@ -681,7 +768,7 @@ function renderTrackCard(tr) {
     ' · ' +
     t('track.publishedOn') +
     ' ' +
-    formatDate(tr.createdAt) +
+    formatDate(tr.releaseAt || tr.createdAt) +
     ' · ' +
     (tr.plays === 1 ? t('track.playsOne') : t('track.playsMany').replace('{n}', tr.plays)) +
     '</div>' +
@@ -861,9 +948,22 @@ function toggleEditPanel(trackId) {
     '<input type="text" class="edit-aitool" value="' + escapeHtml(tr.aiTool || '') + '">' +
     '<label>' + t('dashboard.addTrack.cover') + '</label>' +
     '<input type="file" class="edit-cover" accept="image/*">' +
+    (tr.isScheduled
+      ? '<label>' + t('release.label') + '</label>' +
+        '<input type="datetime-local" class="edit-release" value="' + toLocalInputValue(tr.releaseAt) + '">' +
+        '<p class="field-hint">' + t('release.publishNowHint') + '</p>' +
+        '<div class="advice-bubble edit-release-advice" hidden aria-live="polite"></div>'
+      : '') +
     '<div class="form-actions"><button type="button" class="btn btn-primary edit-save">' + t('dashboard.myTracks.save') + '</button>' +
     '<span class="form-note edit-status"></span></div>';
   panel.hidden = false;
+
+  const editRelease = panel.querySelector('.edit-release');
+  if (editRelease) {
+    const bubble = panel.querySelector('.edit-release-advice');
+    editRelease.addEventListener('focus', () => (editRelease.min = toLocalInputValue(Date.now())));
+    editRelease.addEventListener('change', () => refreshReleaseAdvice(editRelease, bubble, trackId));
+  }
 
   panel.querySelector('.edit-save').addEventListener('click', async () => {
     const status = panel.querySelector('.edit-status');
@@ -881,11 +981,16 @@ function toggleEditPanel(trackId) {
     formData.append('aiTool', panel.querySelector('.edit-aitool').value.trim());
     const coverFile = panel.querySelector('.edit-cover').files[0];
     if (coverFile) formData.append('cover', coverFile);
+    if (editRelease) {
+      // Champ vidé = publier tout de suite.
+      formData.append('releaseAt', editRelease.value ? String(new Date(editRelease.value).getTime()) : '');
+    }
 
     status.textContent = '…';
     const res = await fetch('/api/tracks/' + trackId, { method: 'PUT', body: formData });
     if (!res.ok) {
-      status.textContent = t('error.generic');
+      const err = await res.json().catch(() => ({}));
+      status.textContent = err.error === 'release_too_far' ? t('release.advice.too_far') : t('error.generic');
       return;
     }
     showToast('✓');
@@ -1069,7 +1174,7 @@ async function loadAdminReports() {
       (r) =>
         '<div class="admin-row"><div class="who"><span>' +
         escapeHtml(r.trackTitle) +
-        ' — ' +
+        ', de ' +
         escapeHtml(r.artistName) +
         '</span><span class="sub">' +
         escapeHtml(r.reason) +
@@ -1110,7 +1215,7 @@ async function loadAdminOverview() {
       return (
         '<div class="admin-row"><div class="who"><span>' +
         escapeHtml(u.artistName) +
-        (u.role === 'admin' ? ' · admin' : u.accountType === 'fan' ? ' · fan' : ' · artiste') +
+        (u.role === 'admin' ? ' · admin' : u.accountType === 'fan' ? ' · ' + t('admin.type.listener') : ' · ' + t('admin.type.artist')) +
         '</span><span class="sub">' +
         escapeHtml(u.email) +
         '</span></div>' +
@@ -1277,12 +1382,29 @@ async function loadArtistPage(artistId) {
   refreshPlayButtons();
 }
 
+const DEFAULT_TITLE = document.title;
+
 function handleRoute() {
   const artistMatch = window.location.hash.match(/^#\/artiste\/(\d+)$/);
   const trackMatch = window.location.hash.match(/^#\/morceau\/(\d+)$/);
+  const pageMatch = window.location.hash.match(/^#\/page\/(roadmap|cgu|guide)$/);
   const artistSection = document.getElementById('artiste');
   const trackSection = document.getElementById('morceau');
+  const readerSection = document.getElementById('page-reader');
   const mainViews = document.querySelectorAll('.main-view');
+  if (pageMatch) {
+    mainViews.forEach((el) => (el.hidden = true));
+    artistSection.hidden = true;
+    trackSection.hidden = true;
+    readerSection.hidden = false;
+    loadPageReader(pageMatch[1]);
+    window.scrollTo(0, 0);
+    return;
+  }
+  readerSection.hidden = true;
+  const returnScroll = readerReturnScroll;
+  readerReturnScroll = null;
+  if (!artistMatch && !trackMatch) document.title = DEFAULT_TITLE;
   if (artistMatch) {
     mainViews.forEach((el) => (el.hidden = true));
     artistSection.hidden = false;
@@ -1299,9 +1421,77 @@ function handleRoute() {
     mainViews.forEach((el) => (el.hidden = false));
     artistSection.hidden = true;
     trackSection.hidden = true;
+    if (returnScroll !== null) requestAnimationFrame(() => window.scrollTo(0, returnScroll));
   }
 }
 window.addEventListener('hashchange', handleRoute);
+
+// --- Pages annexes (feuille de route, CGU, guide) lues SANS quitter le site ---
+// Avant, cliquer sur "Feuille de route" chargeait une toute nouvelle page :
+// le lecteur était détruit et la musique s'arrêtait (et, sur iPhone, elle
+// pouvait se retrouver dans un état bizarre au retour). On affiche donc
+// désormais le contenu de ces pages à l'intérieur du site : la musique
+// continue pendant la lecture.
+const READER_PAGES = { roadmap: '/roadmap.html', cgu: '/cgu.html', guide: '/guide.html' };
+const READER_BY_PATH = { '/roadmap.html': 'roadmap', '/cgu.html': 'cgu', '/guide.html': 'guide' };
+let readerReturnScroll = null;
+let readerOpenedInApp = false;
+
+function closePageReader() {
+  if (readerOpenedInApp) {
+    readerOpenedInApp = false;
+    history.back();
+  } else {
+    window.location.hash = '';
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('a[href]');
+  if (!link) return;
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const url = new URL(link.getAttribute('href'), window.location.href);
+  if (url.origin !== window.location.origin) return;
+  const page = READER_BY_PATH[url.pathname];
+  if (page) {
+    e.preventDefault();
+    if (!window.location.hash.startsWith('#/page/')) {
+      readerReturnScroll = window.scrollY;
+      readerOpenedInApp = true;
+    }
+    window.location.hash = '#/page/' + page;
+  } else if (url.pathname === '/' && !url.hash && link.closest('#page-reader')) {
+    // Liens "← Retour à l'accueil" et logo, à l'intérieur de la page lue.
+    e.preventDefault();
+    closePageReader();
+  }
+});
+
+async function loadPageReader(name) {
+  const reader = document.getElementById('page-reader');
+  reader.innerHTML = '<section class="on-paper"><div class="wrap"><p class="empty-state">…</p></div></section>';
+  try {
+    const res = await fetch(READER_PAGES[name]);
+    if (!res.ok) throw new Error('not_found');
+    const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+    const section = doc.querySelector('section');
+    if (!section) throw new Error('empty');
+    const styles = Array.from(doc.querySelectorAll('style')).map((st) => st.outerHTML).join('');
+    reader.innerHTML = styles + section.outerHTML;
+    const wrap = reader.querySelector('.wrap');
+    if (wrap) {
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'btn-back';
+      back.textContent = t('reader.back');
+      back.addEventListener('click', closePageReader);
+      wrap.prepend(back);
+    }
+    if (doc.title) document.title = doc.title;
+  } catch (err) {
+    reader.innerHTML = '<section class="on-paper"><div class="wrap"><p class="empty-state">' + t('reader.error') + '</p></div></section>';
+  }
+}
 
 document.getElementById('back-to-discover-from-track').addEventListener('click', () => {
   window.location.hash = '';
@@ -1320,7 +1510,7 @@ async function loadTrackPage(trackId) {
   const { track } = await res.json();
   container.innerHTML = renderTrackCard(track);
   currentDiscoverQueue = [track];
-  document.title = track.title + ' — ' + track.artistName + ' — Résonance';
+  document.title = track.title + ' · ' + track.artistName + ' | Résonance';
 
   // "Plus de cet artiste" — quelques autres morceaux, pour continuer la découverte
   const artistRes = await fetch('/api/artists/' + track.userId);
@@ -1519,6 +1709,8 @@ function playTrackById(id, audioUrl, title, artist, coverUrl, coverFallback, que
     fallback.textContent = coverFallback || '?';
   }
   playerBar.hidden = false;
+  document.body.classList.add('has-player');
+  updateMediaSession(title, artist, coverUrl);
   refreshPlayButtons();
 }
 
@@ -1591,11 +1783,112 @@ document.getElementById('player-close').addEventListener('click', () => {
   globalAudio.src = '';
   currentTrackId = null;
   playerBar.hidden = true;
+  document.body.classList.remove('has-player');
   refreshPlayButtons();
 });
 
-globalAudio.addEventListener('play', refreshPlayButtons);
-globalAudio.addEventListener('pause', refreshPlayButtons);
+globalAudio.addEventListener('play', () => {
+  refreshPlayButtons();
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+});
+globalAudio.addEventListener('pause', () => {
+  refreshPlayButtons();
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+});
+
+// --- Déclarer Résonance comme un vrai lecteur de musique au téléphone ---
+// (Media Session). C'est ce qui permet à iPhone et Android de :
+//  - mettre la musique en pause proprement quand autre chose prend le son
+//    (micro de dictée, appel, autre appli), au lieu de la couper en silence
+//    pendant qu'elle continue de défiler ;
+//  - afficher titre, artiste, pochette et les boutons ⏯ ⏭ ⏮ sur l'écran
+//    de verrouillage et dans le centre de contrôle, pour relancer la
+//    lecture sans rouvrir l'appli.
+function updateMediaSession(title, artist, coverUrl) {
+  if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: title || '',
+      artist: artist || '',
+      album: 'Résonance',
+      artwork: [{ src: coverUrl || '/icons/icon-512.png', sizes: '512x512' }],
+    });
+  } catch (err) {
+    /* navigateur ancien : sans conséquence */
+  }
+}
+
+function playNeighbour(offset) {
+  const idx = currentQueueRef.findIndex((tr) => tr.id === currentTrackId);
+  const target = idx > -1 ? currentQueueRef[idx + offset] : null;
+  if (!target) return;
+  playTrackById(target.id, target.audioUrl, target.title, target.artistName, target.coverUrl, (target.title || '?').trim().charAt(0).toUpperCase(), currentQueueRef);
+}
+
+if ('mediaSession' in navigator) {
+  const setHandler = (action, handler) => {
+    try {
+      navigator.mediaSession.setActionHandler(action, handler);
+    } catch (err) {
+      /* action non prise en charge sur cet appareil */
+    }
+  };
+  setHandler('play', () => globalAudio.play().catch(() => {}));
+  setHandler('pause', () => globalAudio.pause());
+  setHandler('nexttrack', () => playNeighbour(1));
+  setHandler('previoustrack', () => {
+    if (globalAudio.currentTime > 3) globalAudio.currentTime = 0;
+    else playNeighbour(-1);
+  });
+  setHandler('seekto', (details) => {
+    if (details && typeof details.seekTime === 'number') globalAudio.currentTime = details.seekTime;
+  });
+}
+
+// Sur les iPhone récents, Safari signale en plus quand le son est
+// "interrompu" (micro, appel...). Quand ce signal existe, on met en
+// pause au bon endroit, puis on relance quand l'interruption se termine.
+// Sur les appareils qui ne le proposent pas, ce bloc ne fait rien.
+let pausedByInterruption = false;
+let interruptedAt = null; // { trackId, time } : où en était la chanson
+if (navigator.audioSession) {
+  try {
+    navigator.audioSession.type = 'playback';
+  } catch (err) {
+    /* non pris en charge */
+  }
+  try {
+    navigator.audioSession.addEventListener('statechange', () => {
+      const state = navigator.audioSession.state;
+      if (state === 'interrupted') {
+        if (!globalAudio.paused) {
+          pausedByInterruption = true;
+          interruptedAt = { trackId: currentTrackId, time: globalAudio.currentTime };
+          globalAudio.pause();
+        }
+      } else if (pausedByInterruption) {
+        pausedByInterruption = false;
+        // Petit délai : laisse au téléphone le temps de rendre le son.
+        setTimeout(() => {
+          if (navigator.audioSession.state === 'interrupted') return;
+          // Si la chanson a continué de défiler en silence, on revient
+          // exactement là où elle en était au moment de l'interruption.
+          if (interruptedAt && interruptedAt.trackId === currentTrackId) globalAudio.currentTime = interruptedAt.time;
+          interruptedAt = null;
+          globalAudio.play().catch(() => {});
+        }, 800);
+      }
+    });
+  } catch (err) {
+    /* non pris en charge */
+  }
+}
+
+// Retour sur une page restaurée depuis le cache du navigateur : on
+// resynchronise l'affichage du lecteur avec son état réel.
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) refreshPlayButtons();
+});
 
 globalAudio.addEventListener('loadedmetadata', () => {
   playerSeek.max = globalAudio.duration || 0;
@@ -1713,7 +2006,7 @@ document.getElementById('artist-shuffle-play-btn').addEventListener('click', () 
   // Si l'adresse garde une ancienne ancre (#decouvrir, etc.) sans être une
   // vraie page artiste, on revient en haut plutôt que de suivre le saut
   // automatique du navigateur vers cette section.
-  if (window.location.hash && !window.location.hash.match(/^#\/artiste\/\d+$/) && !window.location.hash.match(/^#\/morceau\/\d+$/)) {
+  if (window.location.hash && !window.location.hash.match(/^#\/artiste\/\d+$/) && !window.location.hash.match(/^#\/morceau\/\d+$/) && !window.location.hash.match(/^#\/page\/(roadmap|cgu|guide)$/)) {
     history.replaceState(null, '', window.location.pathname + window.location.search);
   }
   await loadLang(CURRENT_LANG);

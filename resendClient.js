@@ -54,7 +54,7 @@ async function sendVerificationEmail(email, artistName, token, siteUrl) {
       body: JSON.stringify({
         from: FROM_ADDRESS,
         to: email,
-        subject: 'Confirme ton adresse e-mail — Résonance',
+        subject: 'Confirme ton adresse e-mail sur Résonance',
         text:
           'Salut ' + artistName + ' !\n\nPour confirmer que cette adresse e-mail t\'appartient bien, clique sur ce lien :\n' +
           verifyUrl +
@@ -127,10 +127,10 @@ async function sendReplyToVisitor(visitorEmail, artistName, replyBody) {
       body: JSON.stringify({
         from: FROM_ADDRESS,
         to: visitorEmail,
-        subject: 'Réponse de ' + artistName + ' — Résonance',
+        subject: artistName + ' t\'a répondu sur Résonance',
         text:
           artistName + ' t\'a répondu sur Résonance :\n\n"' + replyBody + '"\n\n' +
-          '— Ce message a été envoyé via Résonance, pour préserver la vie privée de l\'artiste.',
+          'Ce message t\'a été transmis par Résonance, pour préserver la vie privée de l\'artiste.',
       }),
     });
   } catch (err) {
@@ -150,7 +150,7 @@ async function notifyExportRequest(artistName, email) {
       body: JSON.stringify({
         from: FROM_ADDRESS,
         to: ADMIN_EMAIL,
-        subject: 'Demande d\'export de données — Résonance',
+        subject: 'Demande d\'export de données sur Résonance',
         text:
           artistName + ' (' + email + ') a demandé à récupérer ses données sur Résonance.\n\n' +
           'Va dans Administration → Artistes inscrits pour activer une fenêtre de téléchargement de 48h pour ce compte.',
