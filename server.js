@@ -155,6 +155,7 @@ function publicUser(u) {
     soundcloudUrl: u.soundcloud_url,
     instagramUrl: u.instagram_url,
     sunoUrl: u.suno_url || '',
+    bandcampUrl: u.bandcamp_url || '',
     avatarUrl: u.avatar_url || '',
     bannerUrl: u.banner_url || '',
     role: u.role,
@@ -302,6 +303,7 @@ app.put(
       soundcloud_url: req.body.soundcloudUrl,
       instagram_url: req.body.instagramUrl,
       suno_url: req.body.sunoUrl,
+      bandcamp_url: req.body.bandcampUrl,
     };
     Object.keys(fields).forEach((k) => fields[k] === undefined && delete fields[k]);
 
@@ -339,6 +341,7 @@ app.get('/api/tracks', async (req, res) => {
       soundcloudUrl: u ? u.soundcloud_url : '',
       instagramUrl: u ? u.instagram_url : '',
       sunoUrl: u ? u.suno_url : '',
+      bandcampUrl: u ? u.bandcamp_url : '',
     };
   });
   res.json({ tracks: enriched });
@@ -517,6 +520,7 @@ app.get('/api/tracks/:id', async (req, res) => {
       soundcloudUrl: artist.soundcloud_url,
       instagramUrl: artist.instagram_url,
       sunoUrl: artist.suno_url,
+      bandcampUrl: artist.bandcamp_url,
     },
   });
 });
@@ -545,6 +549,7 @@ app.get('/api/artists/:id', async (req, res) => {
       soundcloudUrl: artist.soundcloud_url,
       instagramUrl: artist.instagram_url,
       sunoUrl: artist.suno_url,
+      bandcampUrl: artist.bandcamp_url,
     })),
     followerCount,
     isFollowing,

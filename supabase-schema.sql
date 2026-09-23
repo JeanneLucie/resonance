@@ -13,6 +13,7 @@ create table if not exists users (
   soundcloud_url text default '',
   instagram_url text default '',
   suno_url text default '',
+  bandcamp_url text default '',
   avatar_url text default '',
   banner_url text default '',
   role text default 'artist',

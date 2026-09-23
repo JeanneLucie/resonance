@@ -222,6 +222,7 @@ function fillProfileForm(user) {
   document.getElementById('profile-soundcloudUrl').value = user.soundcloudUrl || '';
   document.getElementById('profile-instagramUrl').value = user.instagramUrl || '';
   document.getElementById('profile-sunoUrl').value = user.sunoUrl || '';
+  document.getElementById('profile-bandcampUrl').value = user.bandcampUrl || '';
 
   const avatarPreview = document.getElementById('profile-avatar-preview');
   if (user.avatarUrl) { avatarPreview.src = user.avatarUrl; avatarPreview.hidden = false; } else { avatarPreview.hidden = true; avatarPreview.src = ''; }
@@ -239,6 +240,7 @@ document.getElementById('profile-form').addEventListener('submit', async (e) => 
   formData.append('soundcloudUrl', document.getElementById('profile-soundcloudUrl').value.trim());
   formData.append('instagramUrl', document.getElementById('profile-instagramUrl').value.trim());
   formData.append('sunoUrl', document.getElementById('profile-sunoUrl').value.trim());
+  formData.append('bandcampUrl', document.getElementById('profile-bandcampUrl').value.trim());
   const avatarFile = document.getElementById('profile-avatar').files[0];
   if (avatarFile) formData.append('avatar', avatarFile);
   const bannerFile = document.getElementById('profile-banner').files[0];
@@ -388,7 +390,7 @@ function refreshOnboarding() {
     { done: !!currentUser.avatarUrl, key: 'onboarding.step.avatar' },
     { done: !!(currentUser.bio && currentUser.bio.trim()), key: 'onboarding.step.bio' },
     { done: !!currentUser.donationLink, key: 'onboarding.step.donation' },
-    { done: !!(currentUser.soundcloudUrl || currentUser.instagramUrl || currentUser.sunoUrl), key: 'onboarding.step.social' },
+    { done: !!(currentUser.soundcloudUrl || currentUser.instagramUrl || currentUser.sunoUrl || currentUser.bandcampUrl), key: 'onboarding.step.social' },
     { done: MY_TRACKS.length > 0, key: 'onboarding.step.track' },
   ];
   const doneCount = steps.filter((s) => s.done).length;
@@ -639,6 +641,7 @@ function renderTrackCard(tr) {
   if (tr.soundcloudUrl) otherLinks.push(linkPill(tr.soundcloudUrl, t('link.soundcloud')));
   if (tr.instagramUrl) otherLinks.push(linkPill(tr.instagramUrl, t('link.instagram')));
   if (tr.sunoUrl) otherLinks.push(linkPill(tr.sunoUrl, t('link.suno')));
+  if (tr.bandcampUrl) otherLinks.push(linkPill(tr.bandcampUrl, t('link.bandcamp')));
   if (tr.donationLink) otherLinks.push(linkPill(tr.donationLink, t('link.donate'), true));
 
   return (
@@ -1228,6 +1231,7 @@ async function loadArtistPage(artistId) {
   if (artist.soundcloudUrl) links.push(linkPill(artist.soundcloudUrl, t('link.soundcloud')));
   if (artist.instagramUrl) links.push(linkPill(artist.instagramUrl, t('link.instagram')));
   if (artist.sunoUrl) links.push(linkPill(artist.sunoUrl, t('link.suno')));
+  if (artist.bandcampUrl) links.push(linkPill(artist.bandcampUrl, t('link.bandcamp')));
   if (artist.donationLink) links.push(linkPill(artist.donationLink, t('link.donate'), true));
   document.getElementById('artist-page-links').innerHTML = links.join('');
 
