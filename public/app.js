@@ -445,6 +445,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   document.getElementById('ai-detail-block').hidden = true;
   document.getElementById('track-release-advice').hidden = true;
   document.getElementById('track-album-new').hidden = true;
+  resetCoversPreview();
   loadMyAlbums();
   const audioInfo = document.getElementById('track-audio-info');
   audioInfo.textContent = t('upload.hint');
@@ -491,12 +492,74 @@ function albumLine(tr) {
   if (!tr.albumTitle) return '';
   return (
     '<div class="track-album">' +
-    (tr.albumCoverUrl
-      ? '<img class="track-album-cover" src="' + escapeHtml(tr.albumCoverUrl) + '" alt="">'
-      : '<span class="track-album-icon" aria-hidden="true">💿</span>') +
+    '<span class="track-album-icon" aria-hidden="true">💿</span>' +
     '<span>' + t('album.from').replace('{title}', escapeHtml(tr.albumTitle)) + '</span>' +
     '</div>'
   );
+}
+
+// Pochette du titre en grand + pochette de l'album en petit, dans le coin.
+function coverWithAlbum(tr) {
+  return (
+    '<div class="cover-wrap">' +
+    coverArt(tr) +
+    (tr.albumCoverUrl
+      ? '<img class="album-badge" src="' + escapeHtml(tr.albumCoverUrl) + '" alt="' + escapeHtml(t('album.from').replace('{title}', tr.albumTitle)) + '" title="' + escapeHtml(t('album.from').replace('{title}', tr.albumTitle)) + '">'
+      : '') +
+    '</div>'
+  );
+}
+
+// --- Aperçu des pochettes dans le formulaire de publication ---
+let trackCoverPreviewUrl = null;
+let albumCoverPreviewUrl = null;
+
+function objectUrlFor(input, previous) {
+  if (previous) URL.revokeObjectURL(previous);
+  const file = input.files[0];
+  return file && (file.type || '').startsWith('image/') ? URL.createObjectURL(file) : null;
+}
+
+function updateCoversPreview() {
+  const box = document.getElementById('covers-preview');
+  const wrap = document.getElementById('covers-preview-wrap');
+  const choice = document.getElementById('track-album').value;
+  let albumUrl = null;
+  if (choice === 'new') albumUrl = albumCoverPreviewUrl;
+  else if (choice) {
+    const album = MY_ALBUMS.find((a) => String(a.id) === choice);
+    albumUrl = album && album.coverUrl ? album.coverUrl : null;
+  }
+  if (!trackCoverPreviewUrl && !albumUrl) {
+    box.hidden = true;
+    wrap.innerHTML = '';
+    return;
+  }
+  const title = document.getElementById('track-title').value.trim() || '?';
+  wrap.innerHTML =
+    (trackCoverPreviewUrl
+      ? '<img class="cover-art" src="' + trackCoverPreviewUrl + '" alt="">'
+      : '<div class="cover-art" style="background:linear-gradient(145deg,#D98F3D,#B8721F)">' + escapeHtml(title.charAt(0).toUpperCase()) + '</div>') +
+    (albumUrl ? '<img class="album-badge" src="' + escapeHtml(albumUrl) + '" alt="">' : '');
+  box.hidden = false;
+}
+
+document.getElementById('track-cover').addEventListener('change', (e) => {
+  trackCoverPreviewUrl = objectUrlFor(e.target, trackCoverPreviewUrl);
+  updateCoversPreview();
+});
+document.getElementById('track-album-cover').addEventListener('change', (e) => {
+  albumCoverPreviewUrl = objectUrlFor(e.target, albumCoverPreviewUrl);
+  updateCoversPreview();
+});
+document.getElementById('track-album').addEventListener('change', updateCoversPreview);
+
+function resetCoversPreview() {
+  if (trackCoverPreviewUrl) URL.revokeObjectURL(trackCoverPreviewUrl);
+  if (albumCoverPreviewUrl) URL.revokeObjectURL(albumCoverPreviewUrl);
+  trackCoverPreviewUrl = null;
+  albumCoverPreviewUrl = null;
+  updateCoversPreview();
 }
 
 // --- Confirmation claire après publication ---
@@ -986,7 +1049,7 @@ function renderTrackCard(tr) {
 
   return (
     '<div class="track">' +
-    coverArt(tr) +
+    coverWithAlbum(tr) +
     '<div class="track-body">' +
     '<div class="meta"><h3>' +
     escapeHtml(tr.title) +

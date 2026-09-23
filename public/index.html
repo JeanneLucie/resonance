@@ -297,21 +297,36 @@
           <label data-i18n="dashboard.addTrack.audio" for="track-audio">Fichier audio</label>
           <input type="file" id="track-audio" required>
           <p class="field-hint" id="track-audio-info" data-i18n="upload.hint">Formats acceptés : MP3, WAV, M4A, FLAC… jusqu'à 50 Mo. Un fichier WAV est lourd (environ 10 Mo par minute, parfois plus) : si le tien dépasse 50 Mo, envoie plutôt la version MP3 de ton morceau.</p>
-          <label data-i18n="dashboard.addTrack.cover" for="track-cover">Pochette du titre (optionnelle, sinon générée automatiquement)</label>
-          <input type="file" id="track-cover" accept="image/*">
-
-          <label data-i18n="album.label" for="track-album">Ce titre fait partie d'un album ou d'un EP ? (optionnel)</label>
-          <select id="track-album" class="admin-select album-select">
-            <option value="" data-i18n="album.none">Non, c'est un titre seul (single)</option>
-            <option value="new" data-i18n="album.new">+ Nouvel album ou EP…</option>
-          </select>
-          <div id="track-album-new" class="album-new-block" hidden>
-            <label data-i18n="album.titleLabel" for="track-album-title">Nom de l'album ou de l'EP</label>
-            <input type="text" id="track-album-title" maxlength="200">
-            <label data-i18n="album.coverLabel" for="track-album-cover">Pochette de l'album (optionnelle)</label>
-            <input type="file" id="track-album-cover" accept="image/*">
-          </div>
-          <p class="field-hint" data-i18n="album.hint">La pochette du titre reste l'image principale. Celle de l'album s'affiche en plus petit, juste sous le nom de l'artiste. Tu ne crées l'album qu'une fois : pour les titres suivants, il suffit de le choisir dans la liste.</p>
+          <fieldset class="covers-fieldset">
+            <legend data-i18n="covers.legend">Pochettes</legend>
+            <div class="covers-grid">
+              <div class="cover-box">
+                <p class="cover-box-title" id="covers-track-label" data-i18n="covers.trackTitle">🎵 Pochette du titre</p>
+                <p class="field-hint" data-i18n="covers.trackHint">L'image principale, affichée en grand. Optionnelle : sans elle, une pochette est créée automatiquement.</p>
+                <input type="file" id="track-cover" accept="image/*" aria-labelledby="covers-track-label">
+              </div>
+              <div class="cover-box">
+                <p class="cover-box-title" data-i18n="covers.albumTitle">💿 Pochette de l'album ou de l'EP</p>
+                <p class="field-hint" data-i18n="covers.albumHint">Seulement si ce titre fait partie d'un album ou d'un EP. Elle s'affiche en petit, dans le coin de la pochette du titre.</p>
+                <label data-i18n="album.label" for="track-album">Ce titre fait partie de :</label>
+                <select id="track-album" class="admin-select album-select">
+                  <option value="" data-i18n="album.none">Aucun album, c'est un single</option>
+                  <option value="new" data-i18n="album.new">+ Créer un nouvel album ou EP</option>
+                </select>
+                <div id="track-album-new" class="album-new-block" hidden>
+                  <label data-i18n="album.titleLabel" for="track-album-title">Nom de l'album ou de l'EP</label>
+                  <input type="text" id="track-album-title" maxlength="200">
+                  <label data-i18n="album.coverLabel" for="track-album-cover">Pochette de l'album</label>
+                  <input type="file" id="track-album-cover" accept="image/*">
+                </div>
+                <p class="field-hint" data-i18n="album.onceHint">Tu ne crées l'album qu'une fois : pour ses autres titres, il suffit de le choisir dans la liste.</p>
+              </div>
+            </div>
+            <div class="covers-preview" id="covers-preview" hidden>
+              <div class="cover-wrap covers-preview-wrap" id="covers-preview-wrap"></div>
+              <p class="field-hint" data-i18n="covers.previewLabel">Aperçu : voilà comment tes pochettes apparaîtront sur Résonance.</p>
+            </div>
+          </fieldset>
 
           <label data-i18n="release.label" for="track-releaseAt">Date de sortie (optionnel)</label>
           <input type="datetime-local" id="track-releaseAt">
