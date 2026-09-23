@@ -75,6 +75,7 @@ async function refreshMe() {
   // Le compte admin n'a pas d'espace artiste : rien à charger de ce côté.
   if (currentUser && currentUser.role !== 'admin') {
     fillProfileForm(currentUser);
+    loadMyAlbums();
     loadMyTracks();
     loadMessages();
   }
@@ -401,6 +402,17 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   formData.append('audio', fileInput.files[0]);
   const coverInput = document.getElementById('track-cover');
   if (coverInput.files[0]) formData.append('cover', coverInput.files[0]);
+  const albumChoice = document.getElementById('track-album').value;
+  if (albumChoice === 'new' && !document.getElementById('track-album-title').value.trim()) {
+    status.textContent = t('album.titleMissing');
+    return;
+  }
+  formData.append('albumChoice', albumChoice);
+  if (albumChoice === 'new') {
+    formData.append('albumTitle', document.getElementById('track-album-title').value.trim());
+    const albumCover = document.getElementById('track-album-cover').files[0];
+    if (albumCover) formData.append('albumCover', albumCover);
+  }
 
   const submitBtn = e.target.querySelector('button[type="submit"]');
   submitBtn.disabled = true;
@@ -420,6 +432,9 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
       storage_error: t('upload.storageError'),
       network: t('upload.network'),
       missing_fields: t('upload.noFile'),
+      album_title_missing: t('album.titleMissing'),
+      album_not_found: t('error.generic'),
+      albums_table_missing: t('album.notReady'),
     };
     status.textContent = messages[data.error] || data.message || t('error.generic');
     return;
@@ -429,19 +444,96 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   trackFormDirty = false;
   document.getElementById('ai-detail-block').hidden = true;
   document.getElementById('track-release-advice').hidden = true;
+  document.getElementById('track-album-new').hidden = true;
+  loadMyAlbums();
   const audioInfo = document.getElementById('track-audio-info');
   audioInfo.textContent = t('upload.hint');
   audioInfo.classList.remove('upload-info-error', 'upload-info-ok');
-  if (data.track && data.track.isScheduled) {
-    showToast(t('release.scheduledToast').replace('{date}', formatDateTime(data.track.releaseAt)));
-  } else {
-    showToast('✓');
-  }
+  showPublishSuccess(data.track);
   loadMyTracks();
   loadFeed();
 });
 
 let MY_TRACKS = [];
+
+// --- Albums / EP ---
+let MY_ALBUMS = [];
+
+function albumOptionsHtml(selectedId) {
+  const sel = String(selectedId || '');
+  return (
+    '<option value=""' + (sel === '' ? ' selected' : '') + '>' + escapeHtml(t('album.none')) + '</option>' +
+    MY_ALBUMS.map((a) => '<option value="' + a.id + '"' + (String(a.id) === sel ? ' selected' : '') + '>💿 ' + escapeHtml(a.title) + '</option>').join('') +
+    '<option value="new">' + escapeHtml(t('album.new')) + '</option>'
+  );
+}
+
+async function loadMyAlbums() {
+  try {
+    const res = await fetch('/api/me/albums');
+    if (!res.ok) return;
+    MY_ALBUMS = (await res.json()).albums || [];
+  } catch (err) {
+    MY_ALBUMS = [];
+  }
+  const select = document.getElementById('track-album');
+  const current = select.value;
+  select.innerHTML = albumOptionsHtml(current === 'new' ? '' : current);
+  if (current === 'new') select.value = 'new';
+}
+
+document.getElementById('track-album').addEventListener('change', (e) => {
+  document.getElementById('track-album-new').hidden = e.target.value !== 'new';
+});
+
+// Petite ligne "Extrait de l'album…" avec la pochette de l'album en miniature.
+function albumLine(tr) {
+  if (!tr.albumTitle) return '';
+  return (
+    '<div class="track-album">' +
+    (tr.albumCoverUrl
+      ? '<img class="track-album-cover" src="' + escapeHtml(tr.albumCoverUrl) + '" alt="">'
+      : '<span class="track-album-icon" aria-hidden="true">💿</span>') +
+    '<span>' + t('album.from').replace('{title}', escapeHtml(tr.albumTitle)) + '</span>' +
+    '</div>'
+  );
+}
+
+// --- Confirmation claire après publication ---
+// Avant, seul un petit "✓" apparaissait deux secondes : on pouvait le
+// rater et se demander si le morceau était bien en ligne.
+function showPublishSuccess(track) {
+  const box = document.getElementById('publish-success');
+  if (!track) {
+    showToast('✓');
+    return;
+  }
+  const title = document.getElementById('publish-success-title');
+  const text = document.getElementById('publish-success-text');
+  const view = document.getElementById('publish-success-view');
+  const share = document.getElementById('publish-success-share');
+  const trackUrl = window.location.origin + '/#/morceau/' + track.id;
+  if (track.isScheduled) {
+    title.textContent = t('published.scheduledTitle');
+    text.textContent = t('published.scheduledText').replace('{title}', track.title).replace('{date}', formatDateTime(track.releaseAt));
+    share.hidden = true; // le lien ne marcherait pas pour les autres avant la sortie
+  } else {
+    title.textContent = t('published.title');
+    text.textContent = t('published.text').replace('{title}', track.title);
+    share.hidden = false;
+  }
+  view.href = '#/morceau/' + track.id;
+  share.onclick = () => shareUrl(trackUrl, 'nav.shareText');
+  document.getElementById('track-form').hidden = true;
+  box.hidden = false;
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+document.getElementById('publish-success-another').addEventListener('click', () => {
+  document.getElementById('publish-success').hidden = true;
+  document.getElementById('track-form').hidden = false;
+  document.getElementById('track-title').focus();
+});
 
 // --- Sorties programmées ---
 function toLocalInputValue(ms) {
@@ -707,7 +799,32 @@ async function loadMessages() {
   });
 }
 
+// L'envoi direct vers Spotify/Apple Music est-il déjà branché ? Tant que
+// ce n'est pas le cas, on n'affiche PAS les boutons "Distribuer" et
+// "Payer" (ils ne menaient qu'à un message d'erreur) : un seul bouton
+// emmène l'artiste vers le guide pas à pas.
+let DISTRIBUTION_STATUS = null;
+async function getDistributionStatus() {
+  if (DISTRIBUTION_STATUS) return DISTRIBUTION_STATUS;
+  try {
+    const res = await fetch('/api/distribution/status');
+    DISTRIBUTION_STATUS = await res.json();
+  } catch (err) {
+    DISTRIBUTION_STATUS = { configured: false, paymentRequired: false };
+  }
+  return DISTRIBUTION_STATUS;
+}
+
+function openDistributionGuide() {
+  const panel = document.getElementById('distrib-guide-panel');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  panel.classList.remove('panel-highlight');
+  void panel.offsetWidth; // relance l'animation si on reclique
+  panel.classList.add('panel-highlight');
+}
+
 async function loadMyTracks() {
+  const distStatus = await getDistributionStatus();
   const res = await fetch('/api/me/tracks');
   if (!res.ok) return;
   const { tracks } = await res.json();
@@ -722,13 +839,18 @@ async function loadMyTracks() {
   list.innerHTML = tracks
     .map((tr) => {
       const dist = tr.distribution;
-      let distHtml;
+      let distHtml = '';
+      let payHtml = '';
       if (dist) {
         distHtml = '<span class="dist-status">' + t('dist.status.' + dist.status) + '</span>';
+      } else if (!distStatus.configured) {
+        // Pas encore d'envoi direct : on guide l'artiste pas à pas.
+        distHtml = '<button type="button" class="mini-btn dist-guide-btn">' + t('dist.guideButton') + '</button>';
+      } else if (distStatus.paymentRequired && !tr.distributionPaid) {
+        payHtml = '<button class="mini-btn pay-dist-btn" data-pay-id="' + tr.id + '">' + t('pay.button') + '</button>';
       } else {
         distHtml = '<button class="mini-btn dist-only-btn" data-dist-id="' + tr.id + '">' + t('dist.button') + '</button>';
       }
-      const payHtml = '<button class="mini-btn pay-dist-btn" data-pay-id="' + tr.id + '">' + t('pay.button') + '</button>';
       return (
         '<div class="my-track-row"><span class="title">' +
         escapeHtml(tr.title) +
@@ -764,6 +886,9 @@ async function loadMyTracks() {
   });
   list.querySelectorAll('.promo-btn').forEach((btn) => {
     btn.addEventListener('click', () => generatePromoVisual(Number(btn.getAttribute('data-promo-id'))));
+  });
+  list.querySelectorAll('.dist-guide-btn').forEach((btn) => {
+    btn.addEventListener('click', openDistributionGuide);
   });
   list.querySelectorAll('.dist-only-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -871,7 +996,9 @@ function renderTrackCard(tr) {
     escapeHtml(tr.artistName) +
     '</a>' +
     (tr.collaborators ? '<span class="collab"> · ' + t('track.with') + ' ' + escapeHtml(tr.collaborators) + '</span>' : '') +
-    '</div><div class="tags">' +
+    '</div>' +
+    albumLine(tr) +
+    '<div class="tags">' +
     tags.join('') +
     '</div></div>' +
     '<button type="button" class="play-track-btn" aria-label="' +
@@ -1076,6 +1203,12 @@ function toggleEditPanel(trackId) {
     '<input type="text" class="edit-aitool" value="' + escapeHtml(tr.aiTool || '') + '">' +
     '<label>' + t('dashboard.addTrack.cover') + '</label>' +
     '<input type="file" class="edit-cover" accept="image/*">' +
+    '<label>' + t('album.label') + '</label>' +
+    '<select class="edit-album">' + albumOptionsHtml(tr.albumId) + '</select>' +
+    '<div class="edit-album-new album-new-block" hidden>' +
+    '<label>' + t('album.titleLabel') + '</label><input type="text" class="edit-album-title" maxlength="200">' +
+    '<label>' + t('album.coverLabel') + '</label><input type="file" class="edit-album-cover" accept="image/*">' +
+    '</div>' +
     (tr.isScheduled
       ? '<label>' + t('release.label') + '</label>' +
         '<input type="datetime-local" class="edit-release" value="' + toLocalInputValue(tr.releaseAt) + '">' +
@@ -1085,6 +1218,11 @@ function toggleEditPanel(trackId) {
     '<div class="form-actions"><button type="button" class="btn btn-primary edit-save">' + t('dashboard.myTracks.save') + '</button>' +
     '<span class="form-note edit-status"></span></div>';
   panel.hidden = false;
+
+  const editAlbum = panel.querySelector('.edit-album');
+  editAlbum.addEventListener('change', () => {
+    panel.querySelector('.edit-album-new').hidden = editAlbum.value !== 'new';
+  });
 
   const editRelease = panel.querySelector('.edit-release');
   if (editRelease) {
@@ -1109,6 +1247,20 @@ function toggleEditPanel(trackId) {
     formData.append('aiTool', panel.querySelector('.edit-aitool').value.trim());
     const coverFile = panel.querySelector('.edit-cover').files[0];
     if (coverFile) formData.append('cover', coverFile);
+    // On n'envoie l'album que s'il a changé (évite toute erreur si l'étape
+    // Supabase des albums n'a pas encore été faite).
+    if (editAlbum.value !== String(tr.albumId || '')) {
+      if (editAlbum.value === 'new' && !panel.querySelector('.edit-album-title').value.trim()) {
+        status.textContent = t('album.titleMissing');
+        return;
+      }
+      formData.append('albumChoice', editAlbum.value);
+      if (editAlbum.value === 'new') {
+        formData.append('albumTitle', panel.querySelector('.edit-album-title').value.trim());
+        const albumCoverFile = panel.querySelector('.edit-album-cover').files[0];
+        if (albumCoverFile) formData.append('albumCover', albumCoverFile);
+      }
+    }
     if (editRelease) {
       // Champ vidé = publier tout de suite.
       formData.append('releaseAt', editRelease.value ? String(new Date(editRelease.value).getTime()) : '');
@@ -1118,9 +1270,17 @@ function toggleEditPanel(trackId) {
     const res = await fetch('/api/tracks/' + trackId, { method: 'PUT', body: formData });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      status.textContent = err.error === 'release_too_far' ? t('release.advice.too_far') : t('error.generic');
+      status.textContent =
+        err.error === 'release_too_far'
+          ? t('release.advice.too_far')
+          : err.error === 'album_title_missing'
+          ? t('album.titleMissing')
+          : err.error === 'albums_table_missing'
+          ? t('album.notReady')
+          : t('error.generic');
       return;
     }
+    if (editAlbum.value === 'new') loadMyAlbums();
     showToast('✓');
     panel.hidden = true;
     loadMyTracks();

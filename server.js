@@ -57,7 +57,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'cover' || file.fieldname === 'avatar' || file.fieldname === 'banner') {
+    if (file.fieldname === 'cover' || file.fieldname === 'albumCover' || file.fieldname === 'avatar' || file.fieldname === 'banner') {
       if (!file.mimetype.startsWith('image/')) {
         return cb(new Error('Ce champ attend une image.'));
       }
@@ -250,9 +250,75 @@ function mapTrack(t, artistName) {
     createdAt: Number(t.created_at),
     releaseAt: t.release_at ? Number(t.release_at) : null,
     isScheduled: !!(t.release_at && Number(t.release_at) > Date.now()),
+    distributionPaid: !!t.distribution_paid,
+    albumId: t.album_id || null,
+    albumTitle: t._album ? t._album.title : '',
+    albumCoverUrl: t._album ? t._album.cover_url || '' : '',
     artistName,
   };
 }
+
+// --- Albums / EP ---
+// Un album appartient à un artiste (titre + pochette). Un morceau peut en
+// faire partie (tracks.album_id) : sa propre pochette reste l'image
+// principale, celle de l'album s'affiche en plus petit à côté.
+
+// Ajoute à chaque morceau les infos de son album (t._album), en une seule
+// requête. Si la table n'existe pas encore, les morceaux restent tels quels.
+async function attachAlbums(rows) {
+  const list = (rows || []).filter(Boolean);
+  const ids = [...new Set(list.map((t) => t.album_id).filter(Boolean))];
+  if (!ids.length) return list;
+  const { data: albums, error } = await supabase.from('albums').select('id, title, cover_url').in('id', ids);
+  if (error) return list;
+  const byId = Object.fromEntries((albums || []).map((a) => [a.id, a]));
+  list.forEach((t) => {
+    if (t.album_id) t._album = byId[t.album_id] || null;
+  });
+  return list;
+}
+
+// Lit le choix d'album envoyé par le formulaire :
+//  - absent        => on ne touche à rien ({ unchanged: true })
+//  - vide          => titre seul, sans album ({ albumId: null })
+//  - "new"         => crée l'album (titre obligatoire, pochette facultative)
+//  - un numéro     => album existant, qui doit appartenir à cet artiste
+async function resolveAlbumChoice(req, userId) {
+  const choice = req.body.albumChoice;
+  if (choice === undefined) return { unchanged: true };
+  if (!choice) return { albumId: null };
+  if (choice === 'new') {
+    const title = String(req.body.albumTitle || '').trim().slice(0, 200);
+    if (!title) return { error: 'album_title_missing' };
+    const coverFile = req.files && req.files.albumCover && req.files.albumCover[0];
+    let coverUrl = '';
+    try {
+      if (coverFile) coverUrl = await uploadToStorage(coverFile);
+    } catch (err) {
+      return { error: 'storage_error' };
+    }
+    const { data, error } = await supabase
+      .from('albums')
+      .insert({ user_id: userId, title, cover_url: coverUrl, created_at: Date.now() })
+      .select()
+      .single();
+    if (error) return { error: 'albums_table_missing' };
+    return { albumId: data.id };
+  }
+  const { data: album } = await supabase.from('albums').select('id').eq('id', Number(choice)).eq('user_id', userId).maybeSingle();
+  if (!album) return { error: 'album_not_found' };
+  return { albumId: album.id };
+}
+
+app.get('/api/me/albums', requireAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from('albums')
+    .select('id, title, cover_url')
+    .eq('user_id', req.session.userId)
+    .order('created_at', { ascending: false });
+  if (error) return res.json({ albums: [] });
+  res.json({ albums: (data || []).map((a) => ({ id: a.id, title: a.title, coverUrl: a.cover_url || '' })) });
+});
 
 // Nombre de morceaux qu'un artiste peut publier avant d'avoir confirmé
 // son adresse e-mail (le même chiffre est utilisé côté site, dans app.js).
@@ -448,6 +514,7 @@ app.put(
 // --- Morceaux ---
 app.get('/api/tracks', async (req, res) => {
   const { data: tracks } = await onlyReleased(supabase.from('tracks').select('*')).order('created_at', { ascending: false }).limit(200);
+  await attachAlbums(tracks);
   const userIds = [...new Set((tracks || []).map((t) => t.user_id))];
   const { data: users } = userIds.length
     ? await supabase.from('users').select('id, artist_name, donation_link, spotify_url, apple_url, soundcloud_url, instagram_url, suno_url, bandcamp_url').in('id', userIds)
@@ -475,10 +542,11 @@ app.get('/api/me/tracks', requireAuth, async (req, res) => {
     .select('*')
     .eq('user_id', req.session.userId)
     .order('created_at', { ascending: false });
+  await attachAlbums(tracks);
   res.json({ tracks: (tracks || []).map((t) => mapTrack(t, me ? me.artist_name : '')) });
 });
 
-app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), async (req, res) => {
+app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }, { name: 'albumCover', maxCount: 1 }]), async (req, res) => {
   const { title, genre, aiLyrics, aiMusic, aiVocals, aiTool, collaborators, genesis, explicit, spotifyUrl, appleUrl } = req.body;
   const releaseAt = parseReleaseAt(req.body.releaseAt);
   if (releaseAt === 'too_far') return res.status(400).json({ error: 'release_too_far' });
@@ -516,6 +584,9 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
     return res.status(tooBig ? 400 : 500).json({ error: tooBig ? 'file_too_large' : 'storage_error' });
   }
 
+  const album = await resolveAlbumChoice(req, req.session.userId);
+  if (album.error) return res.status(400).json({ error: album.error });
+
   const { data: track, error } = await supabase
     .from('tracks')
     .insert({
@@ -534,6 +605,9 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
       spotify_url: spotifyUrl || '',
       apple_url: appleUrl || '',
       release_at: releaseAt,
+      // album_id n'est envoyé que s'il y a un album : ainsi, publier un
+      // single marche même si l'étape Supabase des albums n'est pas faite.
+      ...(album.albumId ? { album_id: album.albumId } : {}),
       // created_at reste la date d'upload réelle : c'est elle qui sert de
       // preuve d'antériorité (CGU), même si la sortie publique est plus tard.
       created_at: Date.now(),
@@ -543,10 +617,11 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
 
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   const advice = await releaseAdvice(req.session.userId, releaseAt, track.id);
+  await attachAlbums([track]);
   res.json({ ok: true, track: mapTrack(track), advice });
 });
 
-app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount: 1 }]), async (req, res) => {
+app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount: 1 }, { name: 'albumCover', maxCount: 1 }]), async (req, res) => {
   const { data: track } = await supabase.from('tracks').select('*').eq('id', req.params.id).eq('user_id', req.session.userId).maybeSingle();
   if (!track) return res.status(404).json({ error: 'not_found' });
 
@@ -572,6 +647,10 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
     fields.release_at = releaseAt;
   }
 
+  const album = await resolveAlbumChoice(req, req.session.userId);
+  if (album.error) return res.status(400).json({ error: album.error });
+  if (!album.unchanged) fields.album_id = album.albumId;
+
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (coverFile) {
     fields.cover_url = await uploadToStorage(coverFile);
@@ -580,6 +659,7 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
 
   const { data: updated, error } = await supabase.from('tracks').update(fields).eq('id', track.id).select().single();
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
+  await attachAlbums([updated]);
   res.json({ ok: true, track: mapTrack(updated) });
 });
 
@@ -657,6 +737,7 @@ app.get('/api/tracks/:id', async (req, res) => {
   if (notYetOut && track.user_id !== req.session.userId) return res.status(404).json({ error: 'not_found' });
   const { data: artist } = await supabase.from('users').select('*').eq('id', track.user_id).maybeSingle();
   if (!artist) return res.status(404).json({ error: 'not_found' });
+  await attachAlbums([track]);
 
   res.json({
     track: {
@@ -679,6 +760,7 @@ app.get('/api/artists/:id', async (req, res) => {
   let tracksQuery = supabase.from('tracks').select('*').eq('user_id', artistId);
   if (!isOwner) tracksQuery = onlyReleased(tracksQuery);
   const { data: tracks } = await tracksQuery.order('created_at', { ascending: false });
+  await attachAlbums(tracks);
 
   const { data: allUsers } = await supabase.from('users').select('id, following_ids');
   const followerCount = (allUsers || []).filter((u) => (u.following_ids || []).includes(artistId)).length;
@@ -720,7 +802,9 @@ app.post('/api/artists/:id/unfollow', requireAuth, async (req, res) => {
 
 // --- Distribution externe (Spotify, Apple Music…) via LabelGrid ---
 app.get('/api/distribution/status', (req, res) => {
-  res.json({ configured: labelgrid.isConfigured() });
+  // configured : l'envoi direct vers Spotify/Apple est-il branché ?
+  // paymentRequired : faut-il payer avant (Stripe activé) ?
+  res.json({ configured: labelgrid.isConfigured(), paymentRequired: stripeClient.isConfigured() });
 });
 
 app.post('/api/tracks/:id/distribute', requireAuth, async (req, res) => {

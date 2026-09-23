@@ -268,6 +268,15 @@
           <span data-i18n="verify.blocksPublish">Tu ne peux plus publier de nouveau morceau tant que ton adresse e-mail n'est pas confirmée. Tu peux préparer ce formulaire, mais la publication restera bloquée jusque-là.</span>
           <button type="button" id="resend-verification-btn-2" data-i18n="verify.resend">Renvoyer l'e-mail</button>
         </div>
+        <div class="publish-success" id="publish-success" hidden aria-live="polite">
+          <p class="publish-success-title" id="publish-success-title"></p>
+          <p class="publish-success-text" id="publish-success-text"></p>
+          <div class="publish-success-actions">
+            <a href="#" class="btn btn-primary" id="publish-success-view" data-i18n="published.view">Voir sa page</a>
+            <button type="button" class="btn btn-ghost-paper" id="publish-success-share" data-i18n="published.share">🔗 Partager</button>
+            <button type="button" class="mini-btn" id="publish-success-another" data-i18n="published.another">Publier un autre morceau</button>
+          </div>
+        </div>
         <form id="track-form">
           <label data-i18n="dashboard.addTrack.trackTitle" for="track-title">Titre du morceau</label>
           <input type="text" id="track-title" required>
@@ -288,8 +297,21 @@
           <label data-i18n="dashboard.addTrack.audio" for="track-audio">Fichier audio</label>
           <input type="file" id="track-audio" required>
           <p class="field-hint" id="track-audio-info" data-i18n="upload.hint">Formats acceptés : MP3, WAV, M4A, FLAC… jusqu'à 50 Mo. Un fichier WAV est lourd (environ 10 Mo par minute, parfois plus) : si le tien dépasse 50 Mo, envoie plutôt la version MP3 de ton morceau.</p>
-          <label data-i18n="dashboard.addTrack.cover" for="track-cover">Pochette (optionnelle, sinon générée automatiquement)</label>
+          <label data-i18n="dashboard.addTrack.cover" for="track-cover">Pochette du titre (optionnelle, sinon générée automatiquement)</label>
           <input type="file" id="track-cover" accept="image/*">
+
+          <label data-i18n="album.label" for="track-album">Ce titre fait partie d'un album ou d'un EP ? (optionnel)</label>
+          <select id="track-album" class="admin-select album-select">
+            <option value="" data-i18n="album.none">Non, c'est un titre seul (single)</option>
+            <option value="new" data-i18n="album.new">+ Nouvel album ou EP…</option>
+          </select>
+          <div id="track-album-new" class="album-new-block" hidden>
+            <label data-i18n="album.titleLabel" for="track-album-title">Nom de l'album ou de l'EP</label>
+            <input type="text" id="track-album-title" maxlength="200">
+            <label data-i18n="album.coverLabel" for="track-album-cover">Pochette de l'album (optionnelle)</label>
+            <input type="file" id="track-album-cover" accept="image/*">
+          </div>
+          <p class="field-hint" data-i18n="album.hint">La pochette du titre reste l'image principale. Celle de l'album s'affiche en plus petit, juste sous le nom de l'artiste. Tu ne crées l'album qu'une fois : pour les titres suivants, il suffit de le choisir dans la liste.</p>
 
           <label data-i18n="release.label" for="track-releaseAt">Date de sortie (optionnel)</label>
           <input type="datetime-local" id="track-releaseAt">
@@ -331,6 +353,7 @@
 
       <div class="panel" id="distrib-guide-panel" style="margin-top:24px;">
         <h3 data-i18n="distguide.title">Mettre ma musique sur Spotify et Apple Music</h3>
+        <p class="field-hint" data-i18n="distguide.intro">Résonance ne peut pas encore envoyer ta musique directement vers Spotify et Apple Music : ce bouton arrivera plus tard. En attendant, tu passes par un service de distribution, et on t'explique comment faire. Une fois ton morceau en ligne sur Spotify ou Apple Music, colle son lien dans « Modifier » sur ce morceau : il apparaîtra sur ta page Résonance.</p>
         <p class="field-hint" data-i18n="distguide.question">Quel service utilises-tu (ou veux-tu utiliser) pour envoyer ta musique vers Spotify et Apple Music ?</p>
         <div class="radio-group">
           <label class="radio-option"><input type="radio" name="distrib-choice" value="distrokid"> <span data-i18n="distguide.distrokid">DistroKid</span></label>
