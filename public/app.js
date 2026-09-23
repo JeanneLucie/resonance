@@ -1123,6 +1123,9 @@ async function loadAdminOverview() {
             '>' +
             (exportActive ? t('admin.exportActive') : t('admin.enableExport')) +
             '</button>' +
+            (u.emailVerified
+              ? ''
+              : '<button class="mini-btn" data-manual-verify-id="' + u.id + '">' + t('admin.manualVerify') + '</button>') +
             '<button class="del-btn" data-user-id="' + u.id + '">' + t('admin.remove') + '</button>') +
         '</div>'
       );
@@ -1140,6 +1143,13 @@ async function loadAdminOverview() {
     btn.addEventListener('click', async () => {
       await fetch('/api/admin/users/' + btn.getAttribute('data-enable-export-id') + '/enable-export', { method: 'POST' });
       showToast(t('admin.exportEnabled'));
+      loadAdminOverview();
+    });
+  });
+  usersList.querySelectorAll('[data-manual-verify-id]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await fetch('/api/admin/users/' + btn.getAttribute('data-manual-verify-id') + '/manual-verify', { method: 'POST' });
+      showToast(t('admin.manualVerified'));
       loadAdminOverview();
     });
   });

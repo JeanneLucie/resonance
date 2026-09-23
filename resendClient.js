@@ -66,7 +66,31 @@ async function sendVerificationEmail(email, artistName, token, siteUrl) {
   }
 }
 
-module.exports = { isConfigured, notifyNewSignup, sendVerificationEmail, notifyExportRequest, notifyNewMessage, sendReplyToVisitor };
+module.exports = { isConfigured, notifyNewSignup, sendVerificationEmail, notifyExportRequest, notifyNewMessage, sendReplyToVisitor, notifySuspiciousLogin };
+
+async function notifySuspiciousLogin(email) {
+  if (!isConfigured()) return;
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: email,
+        subject: 'Plusieurs tentatives de connexion sur ton compte Résonance',
+        text:
+          'Plusieurs tentatives de connexion ratées ont eu lieu sur ton compte Résonance, ce qui a temporairement bloqué les connexions pendant 30 minutes.\n\n' +
+          'Si c\'était bien toi (mot de passe oublié, faute de frappe), pas d\'inquiétude, tu pourras réessayer une fois ce délai passé.\n\n' +
+          'Si ce n\'était pas toi, ton mot de passe n\'a pas été compromis (aucune tentative n\'a réussi), mais tu peux le changer par précaution une fois reconnectée.',
+      }),
+    });
+  } catch (err) {
+    // Silencieux.
+  }
+}
 
 async function notifyNewMessage(artistEmail, artistName, visitorName, visitorEmail, messageBody) {
   if (!isConfigured()) return;

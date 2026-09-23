@@ -115,14 +115,31 @@ const authLimiter = rateLimit({
 // (Wi-Fi, données mobiles...) tout en continuant de viser le même
 // compte. Avec les deux limites actives, le compte ciblé reste
 // protégé quel que soit le réseau utilisé pour l'attaquer.
+// Évite d'envoyer une alerte "tentatives suspectes" à chaque requête
+// bloquée (ça spammerait) — une seule alerte par compte toutes les 30
+// minutes maximum.
+const lastSuspiciousAlert = new Map();
+function shouldAlertSuspiciousLogin(email) {
+  const last = lastSuspiciousAlert.get(email);
+  if (last && Date.now() - last < 30 * 60 * 1000) return false;
+  lastSuspiciousAlert.set(email, Date.now());
+  return true;
+}
+
 const loginEmailLimiter = rateLimit({
   windowMs: 30 * 60 * 1000,
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => (req.body && req.body.email ? req.body.email.toLowerCase() : 'unknown'),
-  message: { error: 'too_many_attempts' },
   skip: isExemptFromRateLimit,
+  handler: (req, res, next, options) => {
+    const email = req.body && req.body.email ? req.body.email.toLowerCase() : '';
+    if (email && shouldAlertSuspiciousLogin(email)) {
+      resendClient.notifySuspiciousLogin(email);
+    }
+    res.status(429).json({ error: 'too_many_attempts' });
+  },
 });
 
 // Limite plus large pour les écoutes/signalements publics — évite qu'un
@@ -713,6 +730,15 @@ app.post('/api/admin/users/:id/enable-export', requireAdmin, async (req, res) =>
   const expiresAt = Date.now() + EXPORT_WINDOW_HOURS * 60 * 60 * 1000;
   await supabase.from('users').update({ export_expires_at: expiresAt }).eq('id', req.params.id);
   res.json({ ok: true, expiresAt });
+});
+
+// Solution de secours tant que Resend n'a pas de nom de domaine vérifié
+// (leur adresse de test ne peut envoyer qu'à l'adresse du compte
+// Resend lui-même) : permet de confirmer manuellement un artiste dont
+// on est sûre qu'il possède vraiment son adresse e-mail.
+app.post('/api/admin/users/:id/manual-verify', requireAdmin, async (req, res) => {
+  await supabase.from('users').update({ email_verified: true }).eq('id', req.params.id);
+  res.json({ ok: true });
 });
 
 app.get('/api/me/export', requireAuth, async (req, res) => {

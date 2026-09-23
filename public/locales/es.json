@@ -108,6 +108,8 @@
   "admin.enableExport": "Activar exportación (48h)",
   "admin.exportActive": "Exportación activada",
   "admin.exportEnabled": "Exportación activada por 48h.",
+  "admin.manualVerify": "Confirmar correo manualmente",
+  "admin.manualVerified": "Correo confirmado manualmente.",
   "contact.button": "✉️ Contactar",
   "contact.privacyNote": "Tu mensaje llegará al artista sin mostrarle nunca tu dirección, y su respuesta te llegará sin mostrarte nunca la suya.",
   "contact.name": "Tu nombre (opcional)",
