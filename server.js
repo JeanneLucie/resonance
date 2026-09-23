@@ -239,7 +239,10 @@ function mapTrack(t, artistName) {
     aiVocals: !!t.ai_vocals,
     aiTool: t.ai_tool,
     audioUrl: t.audio_url,
-    coverUrl: t.cover_url || '',
+    // Pas de pochette propre mais un album avec pochette : c'est celle de
+    // l'album qui devient l'image principale (comme sur Spotify).
+    coverUrl: t.cover_url || (t._album && t._album.cover_url) || '',
+    hasOwnCover: !!t.cover_url,
     collaborators: t.collaborators || '',
     genesis: t.genesis || '',
     explicit: !!t.explicit,
@@ -253,7 +256,9 @@ function mapTrack(t, artistName) {
     distributionPaid: !!t.distribution_paid,
     albumId: t.album_id || null,
     albumTitle: t._album ? t._album.title : '',
-    albumCoverUrl: t._album ? t._album.cover_url || '' : '',
+    // Miniature d'album dans le coin : seulement si le titre a SA pochette,
+    // sinon on afficherait deux fois la même image.
+    albumCoverUrl: t.cover_url && t._album ? t._album.cover_url || '' : '',
     artistName,
   };
 }

@@ -338,7 +338,7 @@
   "album.from": "Extrait de l'album « {title} »",
   "covers.legend": "Pochettes",
   "covers.trackTitle": "🎵 Pochette du titre",
-  "covers.trackHint": "L'image principale, affichée en grand. Optionnelle : sans elle, une pochette est créée automatiquement.",
+  "covers.trackHint": "L'image principale, affichée en grand. Optionnelle : sans elle, c'est la pochette de l'album qui s'affiche en grand, ou à défaut une pochette créée automatiquement.",
   "covers.albumTitle": "💿 Pochette de l'album ou de l'EP",
   "covers.albumHint": "Seulement si ce titre fait partie d'un album ou d'un EP. Elle s'affiche en petit, dans le coin de la pochette du titre.",
   "covers.previewLabel": "Aperçu : voilà comment tes pochettes apparaîtront sur Résonance.",

@@ -535,12 +535,13 @@ function updateCoversPreview() {
     wrap.innerHTML = '';
     return;
   }
-  const title = document.getElementById('track-title').value.trim() || '?';
+  // Même règle que sur le site : sans pochette de titre, celle de l'album
+  // s'affiche en grand (et pas de miniature en double).
+  const mainUrl = trackCoverPreviewUrl || albumUrl;
+  const badgeUrl = trackCoverPreviewUrl && albumUrl ? albumUrl : null;
   wrap.innerHTML =
-    (trackCoverPreviewUrl
-      ? '<img class="cover-art" src="' + trackCoverPreviewUrl + '" alt="">'
-      : '<div class="cover-art" style="background:linear-gradient(145deg,#D98F3D,#B8721F)">' + escapeHtml(title.charAt(0).toUpperCase()) + '</div>') +
-    (albumUrl ? '<img class="album-badge" src="' + escapeHtml(albumUrl) + '" alt="">' : '');
+    '<img class="cover-art" src="' + escapeHtml(mainUrl) + '" alt="">' +
+    (badgeUrl ? '<img class="album-badge" src="' + escapeHtml(badgeUrl) + '" alt="">' : '');
   box.hidden = false;
 }
 

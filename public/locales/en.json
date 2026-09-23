@@ -338,7 +338,7 @@
   "album.from": "From the album \"{title}\"",
   "covers.legend": "Covers",
   "covers.trackTitle": "🎵 Track cover",
-  "covers.trackHint": "The main image, shown large. Optional: without it, a cover is created automatically.",
+  "covers.trackHint": "The main image, shown large. Optional: without it, the album cover is shown large instead, or otherwise a cover is created automatically.",
   "covers.albumTitle": "💿 Album or EP cover",
   "covers.albumHint": "Only if this track is part of an album or an EP. It shows up small, in the corner of the track cover.",
   "covers.previewLabel": "Preview: this is how your covers will appear on Résonance.",

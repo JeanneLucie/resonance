@@ -338,7 +338,7 @@
   "album.from": "Del álbum «{title}»",
   "covers.legend": "Portadas",
   "covers.trackTitle": "🎵 Portada del tema",
-  "covers.trackHint": "La imagen principal, que se muestra en grande. Opcional: sin ella, se crea una portada automáticamente.",
+  "covers.trackHint": "La imagen principal, que se muestra en grande. Opcional: sin ella, se muestra en grande la portada del álbum o, si no hay, una portada creada automáticamente.",
   "covers.albumTitle": "💿 Portada del álbum o del EP",
   "covers.albumHint": "Solo si este tema forma parte de un álbum o de un EP. Aparece en pequeño, en la esquina de la portada del tema.",
   "covers.previewLabel": "Vista previa: así aparecerán tus portadas en Résonance.",
