@@ -306,5 +306,15 @@
   "admin.announce.none": "No current announcement.",
   "admin.announce.until": "until {date}",
   "admin.announce.confirmRemove": "Remove this announcement now?",
-  "admin.announce.tableMissing": "This feature isn't active yet: the Supabase step is missing (migration-annonces.sql)."
+  "admin.announce.tableMissing": "This feature isn't active yet: the Supabase step is missing (migration-annonces.sql).",
+  "upload.hint": "Accepted formats: WAV, MP3, M4A, FLAC… up to 50 MB. WAV files are heavy (about 10 MB per minute, sometimes more): if yours is over 50 MB, upload the MP3 version of your track instead.",
+  "upload.selected": "✓ File selected: {name} ({size} MB)",
+  "upload.tooLargeDetail": "This file ({name}) is {size} MB, the limit is {max} MB. Upload the MP3 version of your track instead, it's much lighter.",
+  "upload.tooLarge": "Your file is over {max} MB. Upload the MP3 version of your track instead, it's much lighter.",
+  "upload.noFile": "Please choose your audio file first.",
+  "upload.sending": "Uploading… {pct}% (don't close the page)",
+  "upload.processing": "Almost done, saving your track…",
+  "upload.badType": "This file isn't recognised as an audio file. Try a WAV or MP3 file.",
+  "upload.storageError": "The upload couldn't be completed. Try again in a moment; if it happens again, write to us at resonance.contact.equipe@proton.me.",
+  "upload.network": "The connection dropped during the upload. Check your network (Wi-Fi is safer for large files), then try again."
 }

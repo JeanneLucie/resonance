@@ -286,7 +286,8 @@
             </div>
           </div>
           <label data-i18n="dashboard.addTrack.audio" for="track-audio">Fichier audio</label>
-          <input type="file" id="track-audio" accept="audio/*" required>
+          <input type="file" id="track-audio" accept="audio/*,.wav,.wave,.mp3,.m4a,.aac,.flac,.ogg,.aif,.aiff" required>
+          <p class="field-hint" id="track-audio-info" data-i18n="upload.hint">Formats acceptés : WAV, MP3, M4A, FLAC… jusqu'à 50 Mo. Un fichier WAV est lourd (environ 10 Mo par minute, parfois plus) : si le tien dépasse 50 Mo, envoie plutôt la version MP3 de ton morceau.</p>
           <label data-i18n="dashboard.addTrack.cover" for="track-cover">Pochette (optionnelle, sinon générée automatiquement)</label>
           <input type="file" id="track-cover" accept="image/*">
 

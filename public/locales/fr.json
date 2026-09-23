@@ -306,5 +306,15 @@
   "admin.announce.none": "Aucune annonce en cours.",
   "admin.announce.until": "jusqu'au {date}",
   "admin.announce.confirmRemove": "Retirer cette annonce maintenant ?",
-  "admin.announce.tableMissing": "Cette fonction n'est pas encore activée : il manque l'étape Supabase (migration-annonces.sql)."
+  "admin.announce.tableMissing": "Cette fonction n'est pas encore activée : il manque l'étape Supabase (migration-annonces.sql).",
+  "upload.hint": "Formats acceptés : WAV, MP3, M4A, FLAC… jusqu'à 50 Mo. Un fichier WAV est lourd (environ 10 Mo par minute, parfois plus) : si le tien dépasse 50 Mo, envoie plutôt la version MP3 de ton morceau.",
+  "upload.selected": "✓ Fichier choisi : {name} ({size} Mo)",
+  "upload.tooLargeDetail": "Ce fichier ({name}) fait {size} Mo, la limite est de {max} Mo. Envoie plutôt la version MP3 de ton morceau, beaucoup plus légère.",
+  "upload.tooLarge": "Ton fichier dépasse {max} Mo. Envoie plutôt la version MP3 de ton morceau, beaucoup plus légère.",
+  "upload.noFile": "Choisis d'abord ton fichier audio.",
+  "upload.sending": "Envoi en cours… {pct} % (ne ferme pas la page)",
+  "upload.processing": "Presque fini, on enregistre ton morceau…",
+  "upload.badType": "Ce fichier n'est pas reconnu comme un fichier audio. Essaie avec un fichier WAV ou MP3.",
+  "upload.storageError": "L'envoi n'a pas pu aboutir. Réessaie dans un instant ; si ça recommence, écris-nous à resonance.contact.equipe@proton.me.",
+  "upload.network": "La connexion a été coupée pendant l'envoi. Vérifie ton réseau (le Wi-Fi est plus sûr pour les gros fichiers), puis réessaie."
 }

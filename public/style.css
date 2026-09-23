@@ -368,3 +368,7 @@ body.has-player .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); 
 .admin-subtitle:first-of-type { margin-top: 14px; }
 .admin-langs { margin-top: 10px; }
 .admin-langs summary { cursor: pointer; font-size: 0.85rem; color: var(--brass-deep); }
+
+/* --- Fichier audio choisi --- */
+.upload-info-ok { color: #2F6B57; font-weight: 500; }
+.upload-info-error { color: #9A3B32; font-weight: 500; }

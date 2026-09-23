@@ -291,11 +291,74 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
+// --- Fichier audio : vérifications immédiates, avant l'envoi ---
+const MAX_UPLOAD_MB = 50; // identique à MAX_UPLOAD_MB dans server.js
+
+function fileSizeMb(file) {
+  return Math.round((file.size / (1024 * 1024)) * 10) / 10;
+}
+
+// Dès qu'un fichier est choisi, on affiche son nom et son poids : sur
+// téléphone, c'est la seule façon d'être sûr que le bon fichier a été pris,
+// et de savoir tout de suite s'il est trop lourd.
+document.getElementById('track-audio').addEventListener('change', () => {
+  const file = document.getElementById('track-audio').files[0];
+  const info = document.getElementById('track-audio-info');
+  if (!file) {
+    info.textContent = t('upload.hint');
+    info.classList.remove('upload-info-error', 'upload-info-ok');
+    return;
+  }
+  const size = fileSizeMb(file);
+  if (size > MAX_UPLOAD_MB) {
+    info.textContent = t('upload.tooLargeDetail').replace('{name}', file.name).replace('{size}', size).replace('{max}', MAX_UPLOAD_MB);
+    info.classList.add('upload-info-error');
+    info.classList.remove('upload-info-ok');
+  } else {
+    info.textContent = t('upload.selected').replace('{name}', file.name).replace('{size}', size);
+    info.classList.add('upload-info-ok');
+    info.classList.remove('upload-info-error');
+  }
+});
+
+// Envoi avec suivi de progression (fetch ne sait pas donner le
+// pourcentage d'envoi, XMLHttpRequest oui). Sur téléphone, un WAV peut
+// mettre une minute ou plus à partir : sans pourcentage, on croit que
+// rien ne se passe.
+function uploadWithProgress(url, formData, onProgress) {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.upload.addEventListener('progress', (ev) => {
+      if (ev.lengthComputable) onProgress(Math.round((ev.loaded / ev.total) * 100));
+    });
+    xhr.addEventListener('load', () => {
+      let data = {};
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch (err) {
+        data = { error: xhr.status === 413 ? 'file_too_large' : 'generic' };
+      }
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
+    });
+    xhr.addEventListener('error', () => resolve({ ok: false, status: 0, data: { error: 'network' } }));
+    xhr.addEventListener('timeout', () => resolve({ ok: false, status: 0, data: { error: 'network' } }));
+    xhr.send(formData);
+  });
+}
+
 document.getElementById('track-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const status = document.getElementById('track-status');
   const fileInput = document.getElementById('track-audio');
-  if (!fileInput.files[0]) return;
+  if (!fileInput.files[0]) {
+    status.textContent = t('upload.noFile');
+    return;
+  }
+  if (fileSizeMb(fileInput.files[0]) > MAX_UPLOAD_MB) {
+    status.textContent = t('upload.tooLarge').replace('{max}', MAX_UPLOAD_MB);
+    return;
+  }
 
   const formData = new FormData();
   formData.append('title', document.getElementById('track-title').value.trim());
@@ -315,19 +378,26 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   const coverInput = document.getElementById('track-cover');
   if (coverInput.files[0]) formData.append('cover', coverInput.files[0]);
 
-  status.textContent = '…';
-  const res = await fetch('/api/tracks', { method: 'POST', body: formData });
-  const data = await res.json();
-  if (!res.ok) {
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  status.textContent = t('upload.sending').replace('{pct}', 0);
+  const { ok, data } = await uploadWithProgress('/api/tracks', formData, (pct) => {
+    status.textContent = pct < 100 ? t('upload.sending').replace('{pct}', pct) : t('upload.processing');
+  });
+  submitBtn.disabled = false;
+  if (!ok) {
     if (data.error === 'email_not_verified') refreshVerificationStatus();
-    status.textContent =
-      data.error === 'email_not_verified'
-        ? t('verify.blocksPublishShort')
-        : data.error === 'fan_account'
-        ? t('fan.cannotPublish')
-        : data.error === 'release_too_far'
-        ? t('release.advice.too_far')
-        : data.message || t('error.generic');
+    const messages = {
+      email_not_verified: t('verify.blocksPublishShort'),
+      fan_account: t('fan.cannotPublish'),
+      release_too_far: t('release.advice.too_far'),
+      file_too_large: t('upload.tooLarge').replace('{max}', MAX_UPLOAD_MB),
+      upload_error: t('upload.badType'),
+      storage_error: t('upload.storageError'),
+      network: t('upload.network'),
+      missing_fields: t('upload.noFile'),
+    };
+    status.textContent = messages[data.error] || data.message || t('error.generic');
     return;
   }
   status.textContent = '';
@@ -335,6 +405,9 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   trackFormDirty = false;
   document.getElementById('ai-detail-block').hidden = true;
   document.getElementById('track-release-advice').hidden = true;
+  const audioInfo = document.getElementById('track-audio-info');
+  audioInfo.textContent = t('upload.hint');
+  audioInfo.classList.remove('upload-info-error', 'upload-info-ok');
   if (data.track && data.track.isScheduled) {
     showToast(t('release.scheduledToast').replace('{date}', formatDateTime(data.track.releaseAt)));
   } else {

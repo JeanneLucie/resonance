@@ -28,9 +28,33 @@ app.set('trust proxy', 1);
 // permanent — contrairement à un dossier local sur Render, qui peut être
 // effacé à chaque redéploiement.
 const STORAGE_BUCKET = 'media';
+// 50 Mo : c'est la taille maximale qu'accepte le stockage gratuit de
+// Supabase. Au-delà, l'envoi échouait plus loin avec un message obscur.
+const MAX_UPLOAD_MB = 50;
+
+// Les téléphones (surtout l'iPhone, depuis l'app Fichiers ou un cloud)
+// envoient parfois un .wav avec un type "inconnu" au lieu de "audio/wav".
+// On reconnaît donc aussi les fichiers audio à leur extension, et on leur
+// redonne le bon type pour qu'ils se lisent correctement ensuite.
+const AUDIO_TYPES_BY_EXTENSION = {
+  '.wav': 'audio/wav',
+  '.wave': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.flac': 'audio/flac',
+  '.ogg': 'audio/ogg',
+  '.aif': 'audio/aiff',
+  '.aiff': 'audio/aiff',
+};
+
+function audioTypeFromName(name) {
+  return AUDIO_TYPES_BY_EXTENSION[path.extname(name || '').toLowerCase()] || null;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 60 * 1024 * 1024 }, // 60 Mo par fichier
+  limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.fieldname === 'cover' || file.fieldname === 'avatar' || file.fieldname === 'banner') {
       if (!file.mimetype.startsWith('image/')) {
@@ -38,7 +62,7 @@ const upload = multer({
       }
       return cb(null, true);
     }
-    if (!file.mimetype.startsWith('audio/')) {
+    if (!file.mimetype.startsWith('audio/') && !audioTypeFromName(file.originalname)) {
       return cb(new Error('Seuls les fichiers audio sont acceptés.'));
     }
     cb(null, true);
@@ -47,7 +71,8 @@ const upload = multer({
 
 async function uploadToStorage(file) {
   const safe = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '-' + file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(safe, file.buffer, { contentType: file.mimetype });
+  const contentType = file.mimetype.startsWith('audio/') || file.mimetype.startsWith('image/') ? file.mimetype : audioTypeFromName(file.originalname) || file.mimetype;
+  const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(safe, file.buffer, { contentType });
   if (error) throw error;
   const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(safe);
   return data.publicUrl;
@@ -480,8 +505,15 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
     }
   }
 
-  const audioUrl = await uploadToStorage(audioFile);
-  const coverUrl = coverFile ? await uploadToStorage(coverFile) : '';
+  let audioUrl;
+  let coverUrl = '';
+  try {
+    audioUrl = await uploadToStorage(audioFile);
+    if (coverFile) coverUrl = await uploadToStorage(coverFile);
+  } catch (err) {
+    const tooBig = /size|exceed|large/i.test((err && err.message) || '');
+    return res.status(tooBig ? 400 : 500).json({ error: tooBig ? 'file_too_large' : 'storage_error' });
+  }
 
   const { data: track, error } = await supabase
     .from('tracks')
@@ -1048,6 +1080,7 @@ app.put('/api/admin/welcome', requireAdmin, async (req, res) => {
 
 // Gestion des erreurs multer (fichier trop lourd, mauvais type…)
 app.use((err, req, res, next) => {
+  if (err && err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'file_too_large' });
   if (err) return res.status(400).json({ error: 'upload_error', message: err.message });
   next();
 });
