@@ -228,6 +228,10 @@ function mapTrack(t, artistName) {
   };
 }
 
+// Nombre de morceaux qu'un artiste peut publier avant d'avoir confirmé
+// son adresse e-mail (le même chiffre est utilisé côté site, dans app.js).
+const UNVERIFIED_TRACK_LIMIT = 3;
+
 // --- Sorties programmées ---
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -461,18 +465,17 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
     return res.status(403).json({ error: 'fan_account' });
   }
 
-  // Un premier morceau est autorisé sans confirmation d'e-mail (pour ne
-  // pas bloquer la découverte du site), mais le suivant exige que
-  // l'adresse ait bien été confirmée — évite qu'un compte créé avec
-  // une adresse qui n'appartient pas vraiment à la personne publie en
-  // continu.
+  // Les 3 premiers morceaux sont autorisés sans confirmation d'e-mail
+  // (pour ne pas bloquer la découverte du site) ; les suivants exigent
+  // que l'adresse ait bien été confirmée, ce qui évite qu'un compte créé
+  // avec une adresse qui n'appartient pas à la personne publie en continu.
   if (resendClient.isConfigured()) {
     const { data: me } = await supabase.from('users').select('email_verified').eq('id', req.session.userId).single();
     const { count: existingCount } = await supabase
       .from('tracks')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', req.session.userId);
-    if (!me.email_verified && (existingCount || 0) >= 1) {
+    if (!me.email_verified && (existingCount || 0) >= UNVERIFIED_TRACK_LIMIT) {
       return res.status(403).json({ error: 'email_not_verified' });
     }
   }
@@ -924,6 +927,122 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
     removeFromStorage(t.audio_url);
     if (t.cover_url) removeFromStorage(t.cover_url);
   });
+  res.json({ ok: true });
+});
+
+// --- Annonces temporaires et message de bienvenue ---
+// Une seule table "announcements" :
+//  - kind 'announcement' : bandeau temporaire, visible jusqu'à ends_at,
+//    pour un public choisi (tout le monde, membres, artistes, comptes
+//    d'écoute, ou visiteurs non connectés) ;
+//  - kind 'welcome' : une seule ligne, le message de bienvenue montré à
+//    chaque nouveau compte pendant ses premiers jours.
+// Chaque personne peut fermer un message ; ce choix est gardé sur son
+// appareil (côté site), rien n'est stocké ici.
+const ANNOUNCEMENT_AUDIENCES = ['all', 'members', 'artists', 'listeners', 'visitors'];
+const ANNOUNCEMENT_DURATIONS = [1, 3, 7, 14, 30];
+const WELCOME_DAYS = 30;
+const ANNOUNCEMENT_MAX_LENGTH = 1000;
+
+function mapAnnouncement(a) {
+  return {
+    id: a.id,
+    kind: a.kind,
+    audience: a.audience,
+    messages: { fr: a.message_fr || '', en: a.message_en || '', es: a.message_es || '' },
+    endsAt: a.ends_at ? Number(a.ends_at) : null,
+    createdAt: Number(a.created_at),
+  };
+}
+
+function cleanMessage(value) {
+  return String(value || '').trim().slice(0, ANNOUNCEMENT_MAX_LENGTH);
+}
+
+// Ce que la personne qui regarde le site doit voir.
+app.get('/api/announcements', async (req, res) => {
+  const now = Date.now();
+  const { data: rows, error } = await supabase.from('announcements').select('*');
+  if (error) return res.json({ announcements: [], viewerId: null }); // table pas encore créée
+  let viewer = null;
+  if (req.session.userId) {
+    const { data } = await supabase.from('users').select('id, role, account_type, created_at').eq('id', req.session.userId).maybeSingle();
+    viewer = data || null;
+  }
+  const isMember = !!viewer;
+  const isAdminViewer = isMember && viewer.role === 'admin';
+  const isArtist = isMember && !isAdminViewer && viewer.account_type !== 'fan';
+  const isListener = isMember && !isAdminViewer && viewer.account_type === 'fan';
+
+  const visible = (rows || []).filter((a) => {
+    if (a.kind === 'welcome') {
+      return isMember && !isAdminViewer && !!a.message_fr && now - Number(viewer.created_at) < WELCOME_DAYS * DAY_MS;
+    }
+    if (a.ends_at && Number(a.ends_at) <= now) return false;
+    if (a.audience === 'all') return true;
+    if (a.audience === 'members') return isMember;
+    if (a.audience === 'artists') return isArtist || isAdminViewer; // l'admin voit tout, pour vérifier
+    if (a.audience === 'listeners') return isListener || isAdminViewer;
+    if (a.audience === 'visitors') return !isMember;
+    return false;
+  });
+  visible.sort((a, b) => (a.kind === 'welcome' ? -1 : 0) - (b.kind === 'welcome' ? -1 : 0) || Number(b.created_at) - Number(a.created_at));
+  res.json({ announcements: visible.map(mapAnnouncement), viewerId: viewer ? viewer.id : null });
+});
+
+app.get('/api/admin/announcements', requireAdmin, async (req, res) => {
+  const { data: rows, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: 'announcements_table_missing' });
+  const now = Date.now();
+  const welcome = (rows || []).find((a) => a.kind === 'welcome');
+  const active = (rows || []).filter((a) => a.kind === 'announcement' && (!a.ends_at || Number(a.ends_at) > now));
+  res.json({ welcome: welcome ? mapAnnouncement(welcome) : null, announcements: active.map(mapAnnouncement) });
+});
+
+app.post('/api/admin/announcements', requireAdmin, async (req, res) => {
+  const messageFr = cleanMessage(req.body.messageFr);
+  const audience = ANNOUNCEMENT_AUDIENCES.includes(req.body.audience) ? req.body.audience : 'all';
+  const days = ANNOUNCEMENT_DURATIONS.includes(Number(req.body.durationDays)) ? Number(req.body.durationDays) : 7;
+  if (!messageFr) return res.status(400).json({ error: 'missing_fields' });
+  const now = Date.now();
+  const { data, error } = await supabase
+    .from('announcements')
+    .insert({
+      kind: 'announcement',
+      audience,
+      message_fr: messageFr,
+      message_en: cleanMessage(req.body.messageEn),
+      message_es: cleanMessage(req.body.messageEs),
+      ends_at: now + days * DAY_MS,
+      created_at: now,
+    })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: 'server_error', message: error.message });
+  res.json({ ok: true, announcement: mapAnnouncement(data) });
+});
+
+app.delete('/api/admin/announcements/:id', requireAdmin, async (req, res) => {
+  await supabase.from('announcements').delete().eq('id', req.params.id).eq('kind', 'announcement');
+  res.json({ ok: true });
+});
+
+// Enregistre (ou désactive, si le texte français est vide) le message de bienvenue.
+app.put('/api/admin/welcome', requireAdmin, async (req, res) => {
+  const fields = {
+    message_fr: cleanMessage(req.body.messageFr),
+    message_en: cleanMessage(req.body.messageEn),
+    message_es: cleanMessage(req.body.messageEs),
+  };
+  const { data: existing, error: readError } = await supabase.from('announcements').select('id').eq('kind', 'welcome').maybeSingle();
+  if (readError) return res.status(500).json({ error: 'announcements_table_missing' });
+  let error;
+  if (existing) {
+    ({ error } = await supabase.from('announcements').update(fields).eq('id', existing.id));
+  } else {
+    ({ error } = await supabase.from('announcements').insert({ ...fields, kind: 'welcome', audience: 'members', created_at: Date.now() }));
+  }
+  if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   res.json({ ok: true });
 });
 

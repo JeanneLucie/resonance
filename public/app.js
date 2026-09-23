@@ -19,6 +19,7 @@ async function loadLang(lang) {
     b.classList.toggle('active', b.getAttribute('data-lang') === lang);
   });
   document.documentElement.lang = lang;
+  if (ANNOUNCEMENTS_LOADED) renderAnnouncements();
 }
 
 function t(key) {
@@ -70,6 +71,7 @@ async function refreshMe() {
   currentUser = data.user;
   updateAuthUI();
   updateAdminUI();
+  loadAnnouncements();
   // Le compte admin n'a pas d'espace artiste : rien à charger de ce côté.
   if (currentUser && currentUser.role !== 'admin') {
     fillProfileForm(currentUser);
@@ -214,6 +216,7 @@ document.getElementById('nav-logout').addEventListener('click', async () => {
   currentUser = null;
   updateAuthUI();
   updateAdminUI();
+  loadAnnouncements();
   window.location.hash = '';
   window.scrollTo(0, 0);
 });
@@ -316,6 +319,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   const res = await fetch('/api/tracks', { method: 'POST', body: formData });
   const data = await res.json();
   if (!res.ok) {
+    if (data.error === 'email_not_verified') refreshVerificationStatus();
     status.textContent =
       data.error === 'email_not_verified'
         ? t('verify.blocksPublishShort')
@@ -458,6 +462,31 @@ document.getElementById('upgrade-to-artist-btn').addEventListener('click', async
   showToast('🎵');
 });
 
+// Nombre de morceaux publiables avant confirmation de l'e-mail
+// (doit rester identique à UNVERIFIED_TRACK_LIMIT dans server.js).
+const UNVERIFIED_TRACK_LIMIT = 3;
+
+// Relit seulement l'état de confirmation de l'e-mail, sans tout
+// recharger. Utile quand l'administratrice confirme une adresse pendant
+// que l'artiste a déjà le site ouvert : sans ça, l'ancien message restait
+// affiché jusqu'à ce que la personne recharge la page.
+async function refreshVerificationStatus() {
+  if (!currentUser || currentUser.emailVerified !== false) return;
+  try {
+    const res = await fetch('/api/me');
+    const data = await res.json();
+    if (data.user) {
+      currentUser.emailVerified = data.user.emailVerified;
+      refreshOnboarding();
+    }
+  } catch (err) {
+    /* réseau indisponible : on réessaiera plus tard */
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') refreshVerificationStatus();
+});
+
 function refreshOnboarding() {
   if (!currentUser) return;
   applyAccountTypeUI();
@@ -465,7 +494,7 @@ function refreshOnboarding() {
   const banner = document.getElementById('verify-email-banner');
   banner.hidden = currentUser.emailVerified !== false;
   const publishBlock = document.getElementById('verify-blocks-publish');
-  publishBlock.hidden = !(currentUser.emailVerified === false && MY_TRACKS.length >= 1);
+  publishBlock.hidden = !(currentUser.emailVerified === false && MY_TRACKS.length >= UNVERIFIED_TRACK_LIMIT);
   if (currentUser.accountType === 'fan') return;
   const steps = [
     { done: !!currentUser.avatarUrl, key: 'onboarding.step.avatar' },
@@ -1215,6 +1244,7 @@ async function loadAdminOverview() {
   ADMIN_TRACKS = tracks;
   renderAdminUsers();
   renderAdminTracks();
+  loadAdminAnnouncements();
   loadAdminReports(); // met aussi à jour les chiffres et "À traiter"
 }
 
@@ -1359,6 +1389,193 @@ function renderAdminTracks() {
     });
   });
 }
+
+// --- Annonces : bandeau en haut du site ---
+let ANNOUNCEMENTS = [];
+let ANNOUNCEMENTS_VIEWER = null;
+let ANNOUNCEMENTS_LOADED = false;
+const DISMISSED_KEY = 'resonance_dismissed_announcements';
+
+function getDismissed() {
+  try {
+    return JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]');
+  } catch (err) {
+    return [];
+  }
+}
+
+// Le message de bienvenue est retenu par compte (plusieurs personnes
+// peuvent utiliser le même appareil) ; les annonces, par numéro.
+function announcementKey(a) {
+  return a.kind === 'welcome' ? 'welcome-' + ANNOUNCEMENTS_VIEWER : 'a-' + a.id;
+}
+
+function announcementText(a) {
+  return a.messages[CURRENT_LANG] || a.messages.fr || '';
+}
+
+async function loadAnnouncements() {
+  try {
+    const res = await fetch('/api/announcements');
+    const data = await res.json();
+    ANNOUNCEMENTS = data.announcements || [];
+    ANNOUNCEMENTS_VIEWER = data.viewerId;
+  } catch (err) {
+    ANNOUNCEMENTS = [];
+  }
+  ANNOUNCEMENTS_LOADED = true;
+  renderAnnouncements();
+}
+
+function renderAnnouncements() {
+  const bar = document.getElementById('announcements-bar');
+  const dismissed = getDismissed();
+  const visible = ANNOUNCEMENTS.filter((a) => !dismissed.includes(announcementKey(a)) && announcementText(a));
+  if (visible.length === 0) {
+    bar.hidden = true;
+    bar.innerHTML = '';
+    return;
+  }
+  bar.innerHTML = visible
+    .map(
+      (a) =>
+        '<div class="announcement' + (a.kind === 'welcome' ? ' announcement-welcome' : '') + '">' +
+        '<span class="announcement-icon" aria-hidden="true">' + (a.kind === 'welcome' ? '👋' : '📣') + '</span>' +
+        '<p class="announcement-text">' + escapeHtml(announcementText(a)).replace(/\n/g, '<br>') + '</p>' +
+        '<button type="button" class="announcement-close" data-dismiss-key="' + announcementKey(a) + '" aria-label="' + escapeHtml(t('announce.close')) + '">✕</button>' +
+        '</div>'
+    )
+    .join('');
+  bar.hidden = false;
+  bar.querySelectorAll('[data-dismiss-key]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const list = getDismissed();
+      list.push(btn.getAttribute('data-dismiss-key'));
+      try {
+        localStorage.setItem(DISMISSED_KEY, JSON.stringify(list.slice(-200)));
+      } catch (err) {
+        /* stockage indisponible : le message reviendra au prochain chargement */
+      }
+      renderAnnouncements();
+    });
+  });
+}
+
+// --- Annonces : gestion dans l'espace admin ---
+function audienceLabel(audience) {
+  return t('admin.announce.aud.' + audience);
+}
+
+async function loadAdminAnnouncements() {
+  const list = document.getElementById('admin-announcements-list');
+  const res = await fetch('/api/admin/announcements');
+  if (!res.ok) {
+    list.innerHTML = '<p class="empty-state">' + t('admin.announce.tableMissing') + '</p>';
+    return;
+  }
+  const { welcome, announcements } = await res.json();
+  if (welcome) {
+    document.getElementById('welcome-fr').value = welcome.messages.fr;
+    document.getElementById('welcome-en').value = welcome.messages.en;
+    document.getElementById('welcome-es').value = welcome.messages.es;
+  }
+  if (announcements.length === 0) {
+    list.innerHTML = '<p class="empty-state">' + t('admin.announce.none') + '</p>';
+    return;
+  }
+  list.innerHTML = announcements
+    .map(
+      (a) =>
+        '<div class="admin-row"><div class="who"><span>' + escapeHtml(a.messages.fr) + '</span>' +
+        '<span class="sub">' + audienceLabel(a.audience) + ' · ' + t('admin.announce.until').replace('{date}', formatDateTime(a.endsAt)) + '</span></div>' +
+        '<button class="del-btn" data-announcement-id="' + a.id + '">' + t('admin.remove') + '</button></div>'
+    )
+    .join('');
+  list.querySelectorAll('[data-announcement-id]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(t('admin.announce.confirmRemove'))) return;
+      await fetch('/api/admin/announcements/' + btn.getAttribute('data-announcement-id'), { method: 'DELETE' });
+      loadAdminAnnouncements();
+      loadAnnouncements();
+    });
+  });
+}
+
+document.getElementById('welcome-save-btn').addEventListener('click', async () => {
+  const status = document.getElementById('welcome-status');
+  status.textContent = '…';
+  const res = await fetch('/api/admin/welcome', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messageFr: document.getElementById('welcome-fr').value,
+      messageEn: document.getElementById('welcome-en').value,
+      messageEs: document.getElementById('welcome-es').value,
+    }),
+  });
+  status.textContent = res.ok ? t('admin.announce.welcomeSaved') : t('admin.announce.tableMissing');
+});
+
+document.getElementById('announce-publish-btn').addEventListener('click', async () => {
+  const status = document.getElementById('announce-status');
+  const messageFr = document.getElementById('announce-fr').value.trim();
+  if (!messageFr) {
+    status.textContent = t('admin.announce.emptyFr');
+    return;
+  }
+  status.textContent = '…';
+  const res = await fetch('/api/admin/announcements', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messageFr,
+      messageEn: document.getElementById('announce-en').value,
+      messageEs: document.getElementById('announce-es').value,
+      audience: document.getElementById('announce-audience').value,
+      durationDays: Number(document.getElementById('announce-duration').value),
+    }),
+  });
+  if (!res.ok) {
+    status.textContent = t('admin.announce.tableMissing');
+    return;
+  }
+  ['announce-fr', 'announce-en', 'announce-es'].forEach((id) => (document.getElementById(id).value = ''));
+  status.textContent = t('admin.announce.published');
+  loadAdminAnnouncements();
+  loadAnnouncements();
+});
+
+// --- Traduire un message (espace admin) ---
+// Ouvre Google Traduction dans un nouvel onglet, avec le texte déjà
+// collé : gratuit, sans compte ni clé à configurer.
+const TRANSLATE_MAX_LENGTH = 4500; // au-delà, Google coupe le texte
+// Phrase ajoutée en français AVANT traduction : Google la traduit avec
+// le reste, dans la langue de la personne.
+const TRANSLATED_NOTE_FR = "(Ce message a été traduit automatiquement depuis le français. Merci de votre indulgence si certaines tournures sont maladroites.)";
+
+function openGoogleTranslate(text, from, to) {
+  const status = document.getElementById('admin-translate-status');
+  status.textContent = '';
+  if (!text) {
+    status.textContent = t('admin.translate.empty');
+    return;
+  }
+  if (text.length > TRANSLATE_MAX_LENGTH) {
+    status.textContent = t('admin.translate.tooLong');
+    return;
+  }
+  const url = 'https://translate.google.com/?sl=' + from + '&tl=' + to + '&text=' + encodeURIComponent(text) + '&op=translate';
+  window.open(url, '_blank', 'noopener');
+}
+
+document.getElementById('admin-translate-in-btn').addEventListener('click', () => {
+  openGoogleTranslate(document.getElementById('admin-translate-in').value.trim(), 'auto', 'fr');
+});
+document.getElementById('admin-translate-out-btn').addEventListener('click', () => {
+  let text = document.getElementById('admin-translate-out').value.trim();
+  if (text && document.getElementById('admin-translate-note').checked) text += '\n\n' + TRANSLATED_NOTE_FR;
+  openGoogleTranslate(text, 'fr', document.getElementById('admin-translate-lang').value);
+});
 
 document.getElementById('admin-users-search').addEventListener('input', renderAdminUsers);
 document.getElementById('admin-tracks-search').addEventListener('input', renderAdminTracks);

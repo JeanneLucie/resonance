@@ -49,6 +49,8 @@
   </div>
 </nav>
 
+<div class="announcements-bar" id="announcements-bar" hidden></div>
+
 <section class="hero main-view">
   <div class="wrap hero-grid">
     <div>
@@ -196,7 +198,7 @@
       </div>
 
       <div class="verify-banner" id="verify-email-banner" hidden>
-        <span data-i18n="verify.notice">Confirme ton adresse e-mail pour sécuriser ton compte.</span>
+        <span data-i18n="verify.notice">Pense à confirmer ton adresse e-mail avec le lien que nous t'avons envoyé. Tu peux déjà publier jusqu'à 3 morceaux sans l'avoir fait.</span>
         <button type="button" id="resend-verification-btn" data-i18n="verify.resend">Renvoyer l'e-mail</button>
       </div>
 
@@ -386,6 +388,87 @@
         <h3 data-i18n="admin.todo.title">À traiter</h3>
         <div id="admin-todo-list"></div>
         <p class="field-hint admin-export-hint" data-i18n="admin.todo.exportHint">Tu as reçu par e-mail une demande d'export de données ? Cherche la personne dans « Comptes inscrits » plus bas, puis clique sur « Activer l'export (48h) ».</p>
+      </div>
+
+      <div class="panel" id="admin-translate-panel" style="margin-top:24px;">
+        <h3 data-i18n="admin.translate.title">Traduire un message</h3>
+        <p class="field-hint" data-i18n="admin.translate.intro">Pour comprendre un message reçu en anglais ou en espagnol, et pour y répondre dans la langue de la personne.</p>
+        <label for="admin-translate-in" data-i18n="admin.translate.inLabel">1. Colle ici le message que tu as reçu</label>
+        <textarea id="admin-translate-in" rows="5"></textarea>
+        <button type="button" class="mini-btn admin-translate-btn" id="admin-translate-in-btn" data-i18n="admin.translate.inBtn">🌍 Traduire en français</button>
+        <label for="admin-translate-out" data-i18n="admin.translate.outLabel">2. Écris ta réponse en français</label>
+        <textarea id="admin-translate-out" rows="5"></textarea>
+        <label for="admin-translate-lang" data-i18n="admin.translate.langLabel">Langue de la personne</label>
+        <select id="admin-translate-lang" class="admin-select">
+          <option value="en" data-i18n="admin.translate.lang.en">Anglais</option>
+          <option value="es" data-i18n="admin.translate.lang.es">Espagnol</option>
+        </select>
+        <label class="checkbox-option admin-translate-note-row"><input type="checkbox" id="admin-translate-note" checked> <span data-i18n="admin.translate.noteLabel">Ajouter à la fin une phrase qui précise que ma réponse est traduite</span></label>
+        <button type="button" class="mini-btn admin-translate-btn" id="admin-translate-out-btn" data-i18n="admin.translate.outBtn">🌍 Traduire ma réponse</button>
+        <p class="form-note" id="admin-translate-status" aria-live="polite"></p>
+        <p class="field-hint" data-i18n="admin.translate.howto">La traduction s'ouvre dans un nouvel onglet, sur Google Traduction. Copie le résultat, puis colle-le dans ton e-mail. Relis toujours rapidement : une traduction automatique peut se tromper sur un nom ou une expression.</p>
+      </div>
+
+      <div class="panel" id="admin-announce-panel" style="margin-top:24px;">
+        <h3 data-i18n="admin.announce.title">Messages aux membres</h3>
+
+        <h4 class="admin-subtitle" data-i18n="admin.announce.welcomeTitle">👋 Message de bienvenue automatique</h4>
+        <p class="field-hint" data-i18n="admin.announce.welcomeHint">Il s'affiche tout seul à chaque nouvelle personne inscrite, pendant son premier mois, jusqu'à ce qu'elle le ferme. Laisse le champ vide pour ne rien afficher.</p>
+        <label for="welcome-fr" data-i18n="admin.announce.fr">Texte en français</label>
+        <textarea id="welcome-fr" maxlength="1000"></textarea>
+        <details class="admin-langs">
+          <summary data-i18n="admin.announce.otherLangs">Ajouter l'anglais et l'espagnol (facultatif)</summary>
+          <label for="welcome-en" data-i18n="admin.announce.en">Texte en anglais</label>
+          <textarea id="welcome-en" maxlength="1000"></textarea>
+          <label for="welcome-es" data-i18n="admin.announce.es">Texte en espagnol</label>
+          <textarea id="welcome-es" maxlength="1000"></textarea>
+        </details>
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" id="welcome-save-btn" data-i18n="admin.announce.welcomeSave">Enregistrer le message de bienvenue</button>
+          <span class="form-note" id="welcome-status" aria-live="polite"></span>
+        </div>
+
+        <h4 class="admin-subtitle" data-i18n="admin.announce.newTitle">📣 Nouvelle annonce temporaire</h4>
+        <p class="field-hint" data-i18n="admin.announce.newHint">Un bandeau en haut du site, visible jusqu'à la date de fin. Chacun peut le fermer d'un clic.</p>
+        <label for="announce-fr" data-i18n="admin.announce.fr">Texte en français</label>
+        <textarea id="announce-fr" maxlength="1000"></textarea>
+        <details class="admin-langs">
+          <summary data-i18n="admin.announce.otherLangs">Ajouter l'anglais et l'espagnol (facultatif)</summary>
+          <label for="announce-en" data-i18n="admin.announce.en">Texte en anglais</label>
+          <textarea id="announce-en" maxlength="1000"></textarea>
+          <label for="announce-es" data-i18n="admin.announce.es">Texte en espagnol</label>
+          <textarea id="announce-es" maxlength="1000"></textarea>
+        </details>
+        <p class="field-hint" data-i18n="admin.announce.langHint">Si tu laisses l'anglais et l'espagnol vides, tout le monde verra le texte en français. L'outil « Traduire un message » juste au-dessus peut t'aider à les remplir.</p>
+        <div class="field-row">
+          <div>
+            <label for="announce-audience" data-i18n="admin.announce.audience">Qui doit le voir ?</label>
+            <select id="announce-audience" class="admin-select">
+              <option value="all" data-i18n="admin.announce.aud.all">Tout le monde, visiteurs compris</option>
+              <option value="members" data-i18n="admin.announce.aud.members">Tous les comptes inscrits</option>
+              <option value="artists" data-i18n="admin.announce.aud.artists">Les artistes seulement</option>
+              <option value="listeners" data-i18n="admin.announce.aud.listeners">Les comptes d'écoute seulement</option>
+              <option value="visitors" data-i18n="admin.announce.aud.visitors">Les visiteurs sans compte seulement</option>
+            </select>
+          </div>
+          <div>
+            <label for="announce-duration" data-i18n="admin.announce.duration">Pendant combien de temps ?</label>
+            <select id="announce-duration" class="admin-select">
+              <option value="1" data-i18n="admin.announce.dur.1">1 jour</option>
+              <option value="3" data-i18n="admin.announce.dur.3">3 jours</option>
+              <option value="7" selected data-i18n="admin.announce.dur.7">1 semaine</option>
+              <option value="14" data-i18n="admin.announce.dur.14">2 semaines</option>
+              <option value="30" data-i18n="admin.announce.dur.30">1 mois</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-primary" id="announce-publish-btn" data-i18n="admin.announce.publish">Publier l'annonce</button>
+          <span class="form-note" id="announce-status" aria-live="polite"></span>
+        </div>
+
+        <h4 class="admin-subtitle" data-i18n="admin.announce.activeTitle">Annonces en cours</h4>
+        <div id="admin-announcements-list"></div>
       </div>
 
       <div class="panel" id="admin-reports-panel" style="margin-top:24px;">

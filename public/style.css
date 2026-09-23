@@ -343,3 +343,22 @@ body.has-player .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); 
 .admin-export-hint { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line-paper); }
 .admin-search { margin: 10px 0 6px; }
 .admin-badge { display: inline-block; font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--brass-deep); color: var(--brass-deep); margin-left: 6px; vertical-align: middle; }
+
+/* --- Traduire un message (admin) --- */
+.admin-translate-btn { display: inline-block; margin-top: 10px; }
+.admin-select { padding: 9px 12px; border-radius: 3px; border: 1px solid var(--line-paper); background: var(--paper); color: var(--text-on-paper); font-family: 'IBM Plex Sans', sans-serif; font-size: 0.92rem; min-width: 180px; }
+.admin-translate-note-row { margin-top: 12px; }
+#admin-translate-panel textarea { min-height: 110px; }
+
+/* --- Annonces (bandeau en haut du site) --- */
+.announcements-bar { max-width: 1080px; margin: 12px auto 0; padding: 0 20px; display: flex; flex-direction: column; gap: 8px; }
+.announcement { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 8px; background: #FBF0D9; border: 1px solid #E0C68A; color: #4E3D17; }
+.announcement-welcome { background: #E6F2EE; border-color: #9CC7B8; color: #1F4A3E; }
+.announcement-icon { font-size: 1.1rem; line-height: 1.4; }
+.announcement-text { flex: 1; margin: 0; font-size: 0.9rem; line-height: 1.5; }
+.announcement-close { background: none; border: none; font-size: 1rem; cursor: pointer; color: inherit; opacity: 0.7; padding: 2px 4px; }
+.announcement-close:hover { opacity: 1; }
+.admin-subtitle { font-size: 1rem; color: var(--text-on-paper); margin: 26px 0 4px; font-weight: 600; }
+.admin-subtitle:first-of-type { margin-top: 14px; }
+.admin-langs { margin-top: 10px; }
+.admin-langs summary { cursor: pointer; font-size: 0.85rem; color: var(--brass-deep); }
