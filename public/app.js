@@ -1110,7 +1110,7 @@ async function loadAdminOverview() {
       return (
         '<div class="admin-row"><div class="who"><span>' +
         escapeHtml(u.artistName) +
-        (u.role === 'admin' ? ' · admin' : '') +
+        (u.role === 'admin' ? ' · admin' : u.accountType === 'fan' ? ' · fan' : ' · artiste') +
         '</span><span class="sub">' +
         escapeHtml(u.email) +
         '</span></div>' +
