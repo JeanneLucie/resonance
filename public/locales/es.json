@@ -342,5 +342,8 @@
   "covers.albumTitle": "💿 Portada del álbum o del EP",
   "covers.albumHint": "Solo si este tema forma parte de un álbum o de un EP. Aparece en pequeño, en la esquina de la portada del tema.",
   "covers.previewLabel": "Vista previa: así aparecerán tus portadas en Risuona.",
-  "album.onceHint": "Solo creas el álbum una vez: para sus otros temas, basta con elegirlo en la lista."
+  "album.onceHint": "Solo creas el álbum una vez: para sus otros temas, basta con elegirlo en la lista.",
+  "exclusive.label": "✨ Exclusiva de Risuona",
+  "exclusive.hint": "Marca esta casilla si este tema no está publicado en ningún otro sitio (ni en Spotify, ni en SoundCloud, ni en otro servicio). Aparecerá una insignia \"Exclusiva de Risuona\" en su página, para destacarlo ante tu público.",
+  "exclusive.badge": "✨ Exclusiva de Risuona"
 }

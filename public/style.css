@@ -418,3 +418,6 @@ body.has-player .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); 
 .covers-preview-wrap .cover-art { width: 96px !important; height: 96px !important; margin: 0 !important; border-radius: 8px !important; font-size: 2rem; }
 .covers-preview-wrap .album-badge { right: -8px !important; bottom: -8px !important; width: 40px !important; height: 40px !important; }
 .covers-preview .field-hint { margin: 0; }
+
+/* --- Badge "Exclusivité Risuona" --- */
+.tag-exclusive { background: linear-gradient(120deg, #D98F3D, #B8721F); color: #1E1A2E; font-weight: 600; }

@@ -246,6 +246,7 @@ function mapTrack(t, artistName) {
     collaborators: t.collaborators || '',
     genesis: t.genesis || '',
     explicit: !!t.explicit,
+    exclusive: !!t.exclusive,
     spotifyUrl: t.spotify_url || '',
     appleUrl: t.apple_url || '',
     plays: t.plays || 0,
@@ -552,7 +553,7 @@ app.get('/api/me/tracks', requireAuth, async (req, res) => {
 });
 
 app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }, { name: 'albumCover', maxCount: 1 }]), async (req, res) => {
-  const { title, genre, aiLyrics, aiMusic, aiVocals, aiTool, collaborators, genesis, explicit, spotifyUrl, appleUrl } = req.body;
+  const { title, genre, aiLyrics, aiMusic, aiVocals, aiTool, collaborators, genesis, explicit, exclusive, spotifyUrl, appleUrl } = req.body;
   const releaseAt = parseReleaseAt(req.body.releaseAt);
   if (releaseAt === 'too_far') return res.status(400).json({ error: 'release_too_far' });
   const audioFile = req.files && req.files.audio && req.files.audio[0];
@@ -607,6 +608,10 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
       collaborators: collaborators || '',
       genesis: genesis || '',
       explicit: explicit === 'true' || explicit === true,
+      // "Exclusivité Risuona" : l'artiste déclare que ce titre n'est publié
+      // nulle part ailleurs. C'est une simple déclaration de sa part (comme
+      // pour l'IA), pas une vérification technique.
+      exclusive: exclusive === 'true' || exclusive === true,
       spotify_url: spotifyUrl || '',
       apple_url: appleUrl || '',
       release_at: releaseAt,
@@ -640,6 +645,7 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
   if (req.body.collaborators !== undefined) fields.collaborators = req.body.collaborators;
   if (req.body.genesis !== undefined) fields.genesis = req.body.genesis;
   if (req.body.explicit !== undefined) fields.explicit = req.body.explicit === 'true' || req.body.explicit === true;
+  if (req.body.exclusive !== undefined) fields.exclusive = req.body.exclusive === 'true' || req.body.exclusive === true;
   if (req.body.spotifyUrl !== undefined) fields.spotify_url = req.body.spotifyUrl;
   if (req.body.appleUrl !== undefined) fields.apple_url = req.body.appleUrl;
   if (req.body.releaseAt !== undefined) {

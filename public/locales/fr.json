@@ -342,5 +342,8 @@
   "covers.albumTitle": "💿 Pochette de l'album ou de l'EP",
   "covers.albumHint": "Seulement si ce titre fait partie d'un album ou d'un EP. Elle s'affiche en petit, dans le coin de la pochette du titre.",
   "covers.previewLabel": "Aperçu : voilà comment tes pochettes apparaîtront sur Risuona.",
-  "album.onceHint": "Tu ne crées l'album qu'une fois : pour ses autres titres, il suffit de le choisir dans la liste."
+  "album.onceHint": "Tu ne crées l'album qu'une fois : pour ses autres titres, il suffit de le choisir dans la liste.",
+  "exclusive.label": "✨ Exclusivité Risuona",
+  "exclusive.hint": "Coche cette case si ce titre n'est publié nulle part ailleurs (pas sur Spotify, pas sur SoundCloud, pas sur un autre service). Un badge affichera \"Exclusivité Risuona\" sur sa page, pour le mettre en valeur auprès de ton public.",
+  "exclusive.badge": "✨ Exclusivité Risuona"
 }

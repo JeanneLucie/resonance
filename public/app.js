@@ -393,6 +393,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   formData.append('appleUrl', document.getElementById('track-appleUrl').value.trim());
   formData.append('genesis', document.getElementById('track-genesis').value.trim());
   formData.append('explicit', document.getElementById('track-explicit').checked);
+  formData.append('exclusive', document.getElementById('track-exclusive').checked);
   formData.append('aiLyrics', document.getElementById('track-ai-lyrics').checked);
   formData.append('aiMusic', document.getElementById('track-ai-music').checked);
   formData.append('aiVocals', document.getElementById('track-ai-vocals').checked);
@@ -444,6 +445,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   trackFormDirty = false;
   document.getElementById('ai-detail-block').hidden = true;
   document.getElementById('track-release-advice').hidden = true;
+  document.getElementById('track-exclusive').checked = false;
   document.getElementById('track-album-new').hidden = true;
   resetCoversPreview();
   loadMyAlbums();
@@ -1035,6 +1037,7 @@ function renderTrackCard(tr) {
     tags.push('<span class="tag ai">' + t('ai.tagPrefix') + ' ' + aiParts.join(', ') + (tr.aiTool ? ' · ' + escapeHtml(tr.aiTool) : '') + '</span>');
   }
   if (tr.explicit) tags.push('<span class="tag explicit">' + t('tag.explicit') + '</span>');
+  if (tr.exclusive) tags.push('<span class="tag tag-exclusive">' + t('exclusive.badge') + '</span>');
   if (Date.now() - (tr.releaseAt || tr.createdAt) < 7 * 24 * 60 * 60 * 1000) tags.push('<span class="tag new">' + t('tag.new') + '</span>');
 
   const streamingLinks = [];
@@ -1256,6 +1259,7 @@ function toggleEditPanel(trackId) {
     '<input type="url" class="edit-apple" value="' + escapeHtml(tr.appleUrl || '') + '">' +
     '<label>' + t('dashboard.addTrack.genesis') + '</label>' +
     '<textarea class="edit-genesis">' + escapeHtml(tr.genesis || '') + '</textarea>' +
+    '<label class="edit-explicit-row"><input type="checkbox" class="edit-exclusive"' + (tr.exclusive ? ' checked' : '') + '> ' + t('exclusive.label') + '</label>' +
     '<label class="edit-explicit-row"><input type="checkbox" class="edit-explicit"' + (tr.explicit ? ' checked' : '') + '> ' + t('dashboard.addTrack.explicit') + '</label>' +
     '<label>' + t('dashboard.addTrack.aiLevel') + '</label>' +
     '<div class="radio-group">' +
@@ -1305,6 +1309,7 @@ function toggleEditPanel(trackId) {
     formData.append('appleUrl', panel.querySelector('.edit-apple').value.trim());
     formData.append('genesis', panel.querySelector('.edit-genesis').value.trim());
     formData.append('explicit', panel.querySelector('.edit-explicit').checked);
+    formData.append('exclusive', panel.querySelector('.edit-exclusive').checked);
     formData.append('aiLyrics', panel.querySelector('.edit-ai-lyrics').checked);
     formData.append('aiMusic', panel.querySelector('.edit-ai-music').checked);
     formData.append('aiVocals', panel.querySelector('.edit-ai-vocals').checked);
