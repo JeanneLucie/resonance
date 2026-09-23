@@ -1,3 +1,9 @@
+/* Règle de sécurité : un élément marqué "hidden" doit TOUJOURS être
+   caché. Sans elle, certains blocs qui ont leur propre mise en page
+   (bandeaux de confirmation d'e-mail, lecteur du bas…) restaient
+   visibles alors que le site demandait de les cacher. */
+[hidden] { display: none !important; }
+
 :root {
   --ink: #1E1A2E;
   --ink-soft: #2A2540;
