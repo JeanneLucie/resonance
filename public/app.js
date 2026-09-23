@@ -1455,7 +1455,7 @@ async function generatePromoVisual(trackId) {
     }
   }
 
-  const fileName = (tr.title || 'resonance').replace(/[^a-zA-Z0-9-_]+/g, '_') + '.png';
+  const fileName = (tr.title || 'risuona').replace(/[^a-zA-Z0-9-_]+/g, '_') + '.png';
 
   // Sur téléphone : ouvre le menu de partage natif (Instagram, TikTok,
   // messages…), prêt en un clic. Sinon (ordinateur, navigateurs qui ne

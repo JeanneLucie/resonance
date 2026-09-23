@@ -965,7 +965,7 @@ app.get('/api/me/export', requireAuth, async (req, res) => {
     morceaux: (tracks || []).map((t) => mapTrack(t, me.artist_name)),
     genereLe: new Date().toISOString(),
   };
-  res.setHeader('Content-Disposition', 'attachment; filename="resonance-mes-donnees.json"');
+  res.setHeader('Content-Disposition', 'attachment; filename="risuona-mes-donnees.json"');
   res.setHeader('Content-Type', 'application/json');
   res.send(JSON.stringify(exportData, null, 2));
 });
