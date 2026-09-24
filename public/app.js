@@ -2114,6 +2114,29 @@ async function loadPageReader(name) {
   }
 }
 
+// Le bouton "Écouter cette page" (page CGU) porte son propre script quand
+// cgu.html est ouverte directement, mais ce script ne s'exécute pas quand
+// le contenu est injecté par le lecteur interne ci-dessus (innerHTML
+// n'exécute pas les <script>). On gère donc aussi le clic ici, par
+// délégation, pour que le bouton fonctionne dans les deux cas.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('#cguListenBtn');
+  if (!btn || typeof window.speechSynthesis === 'undefined') return;
+  const label = btn.querySelector('.cgu-listen-label');
+  if (window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    if (label) label.textContent = 'Écouter cette page';
+    return;
+  }
+  const body = document.querySelector('#page-reader .legal-body');
+  if (!body) return;
+  const utter = new SpeechSynthesisUtterance(body.innerText);
+  utter.lang = 'fr-FR';
+  utter.onend = () => { if (label) label.textContent = 'Écouter cette page'; };
+  window.speechSynthesis.speak(utter);
+  if (label) label.textContent = 'Pause';
+});
+
 document.getElementById('back-to-discover-from-track').addEventListener('click', () => {
   window.location.hash = '';
 });

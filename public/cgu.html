@@ -21,6 +21,9 @@
     <div class="section-head">
       <h2>Conditions d'utilisation &amp; confidentialité</h2>
       <p>Dernière mise à jour : septembre 2026</p>
+      <button type="button" class="cgu-listen-btn" id="cguListenBtn" aria-label="Écouter cette page à voix haute">
+        <span class="cgu-listen-icon" aria-hidden="true">🔊</span><span class="cgu-listen-label">Écouter cette page</span>
+      </button>
     </div>
 
     <div class="legal-body">
@@ -57,6 +60,7 @@
 
       <h3>9. Données personnelles</h3>
       <p>Risuona collecte : ton adresse e-mail, un mot de passe (jamais stocké en clair, toujours chiffré), et les informations que tu choisis de renseigner sur ton profil (nom d'artiste, bio, liens, photo). Ces données sont hébergées sur des serveurs situés en Europe (Supabase, région Paris) et ne sont ni vendues, ni partagées avec des tiers à des fins publicitaires.</p>
+      <p>Les visuels de pochette générés automatiquement par Risuona affichent le nom d'artiste tel que tu choisis de l'afficher (nom complet ou initiales, réglable depuis ton profil).</p>
       <p>Conformément au RGPD, tu peux à tout moment demander l'accès, la correction ou la suppression de tes données en écrivant à <a href="mailto:resonance.contact.equipe@proton.me">resonance.contact.equipe@proton.me</a>.</p>
 
       <h3>10. Mineurs et contrôle parental</h3>
@@ -66,7 +70,7 @@
       <p>Risuona est fournie "en l'état", sans garantie de disponibilité continue. Risuona ne peut être tenue responsable du contenu publié par les artistes, ni des litiges entre un artiste et un service de don ou de distribution tiers.</p>
 
       <h3>12. Modification de ces conditions</h3>
-      <p>Ces conditions peuvent évoluer à mesure que Risuona se développe. Les changements importants seront signalés directement sur le site.</p>
+      <p>Ces conditions peuvent évoluer à mesure que Risuona se développe. Lors d'un changement important, les personnes déjà inscrites devront valider à nouveau les conditions mises à jour avant de pouvoir continuer à publier ; en attendant cette validation, le reste du site reste utilisable normalement.</p>
 
       <h3>13. Loi applicable</h3>
       <p>Ces conditions sont soumises au droit français.</p>
@@ -80,7 +84,38 @@
   .legal-body h3 { font-family: 'Fraunces', serif; font-size: 1.1rem; margin: 28px 0 10px; color: var(--text-on-paper); }
   .legal-body p { color: var(--text-on-paper-dim); font-size: 0.92rem; line-height: 1.6; margin: 0 0 10px; }
   .legal-body a { color: var(--brass-deep); }
+  .cgu-listen-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--ink, #1E1A2E); color: #F3EFE6; border: none; border-radius: 20px;
+    padding: 9px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer; margin-top: 10px;
+  }
+  .cgu-listen-btn:hover { opacity: 0.9; }
 </style>
+
+<script>
+  // Lecture à voix haute de la page CGU (Web Speech API du navigateur,
+  // gratuite, aucun compte ni service tiers). Ce script ne s'exécute que
+  // lorsque cgu.html est ouverte directement ; quand la page est lue à
+  // l'intérieur du site (bouton "Conditions d'utilisation" du pied de page),
+  // le même bouton est géré par app.js (voir cguListenBtn côté app.js).
+  (function () {
+    var btn = document.getElementById('cguListenBtn');
+    if (!btn || typeof window.speechSynthesis === 'undefined') return;
+    btn.addEventListener('click', function () {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        btn.querySelector('.cgu-listen-label').textContent = 'Écouter cette page';
+        return;
+      }
+      var text = document.querySelector('.legal-body').innerText;
+      var utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'fr-FR';
+      utter.onend = function () { btn.querySelector('.cgu-listen-label').textContent = 'Écouter cette page'; };
+      window.speechSynthesis.speak(utter);
+      btn.querySelector('.cgu-listen-label').textContent = 'Pause';
+    });
+  })();
+</script>
 
 </body>
 </html>
