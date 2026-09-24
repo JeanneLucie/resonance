@@ -220,6 +220,9 @@ function publicUser(u) {
     role: u.role,
     accountType: u.account_type || 'artist',
     followingIds: u.following_ids || [],
+    // Nom affiché sur les pochettes créées automatiquement : 'full' (nom
+    // complet) ou 'initials' (ex. « M.D. » pour Marine Dax).
+    coverNameStyle: u.cover_name_style === 'initials' ? 'initials' : 'full',
   };
 }
 
@@ -235,6 +238,9 @@ function publicArtist(u) {
 }
 
 function mapTrack(t, artistName) {
+  // Pochette créée automatiquement + album avec sa propre pochette : c'est
+  // celle de l'album qui prime (la pochette automatique n'est qu'un repli).
+  const ownCover = t.cover_generated && t._album && t._album.cover_url ? '' : t.cover_url || '';
   return {
     id: t.id,
     userId: t.user_id,
@@ -247,8 +253,9 @@ function mapTrack(t, artistName) {
     audioUrl: t.audio_url,
     // Pas de pochette propre mais un album avec pochette : c'est celle de
     // l'album qui devient l'image principale (comme sur Spotify).
-    coverUrl: t.cover_url || (t._album && t._album.cover_url) || '',
-    hasOwnCover: !!t.cover_url,
+    coverUrl: ownCover || (t._album && t._album.cover_url) || '',
+    hasOwnCover: !!t.cover_url && !t.cover_generated,
+    coverGenerated: !!t.cover_generated,
     collaborators: t.collaborators || '',
     genesis: t.genesis || '',
     explicit: !!t.explicit,
@@ -265,7 +272,7 @@ function mapTrack(t, artistName) {
     albumTitle: t._album ? t._album.title : '',
     // Miniature d'album dans le coin : seulement si le titre a SA pochette,
     // sinon on afficherait deux fois la même image.
-    albumCoverUrl: t.cover_url && t._album ? t._album.cover_url || '' : '',
+    albumCoverUrl: ownCover && t._album ? t._album.cover_url || '' : '',
     artistName,
   };
 }
@@ -504,6 +511,9 @@ app.put(
       suno_url: req.body.sunoUrl,
       bandcamp_url: req.body.bandcampUrl,
     };
+    if (req.body.coverNameStyle === 'full' || req.body.coverNameStyle === 'initials') {
+      fields.cover_name_style = req.body.coverNameStyle;
+    }
     Object.keys(fields).forEach((k) => fields[k] === undefined && delete fields[k]);
 
     const avatarFile = req.files && req.files.avatar && req.files.avatar[0];
@@ -599,37 +609,44 @@ app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1
   const album = await resolveAlbumChoice(req, req.session.userId);
   if (album.error) return res.status(400).json({ error: album.error });
 
-  const { data: track, error } = await supabase
-    .from('tracks')
-    .insert({
-      user_id: req.session.userId,
-      title,
-      genre: genre || '',
-      ai_lyrics: aiLyrics === 'true' || aiLyrics === true,
-      ai_music: aiMusic === 'true' || aiMusic === true,
-      ai_vocals: aiVocals === 'true' || aiVocals === true,
-      ai_tool: aiTool || '',
-      audio_url: audioUrl,
-      cover_url: coverUrl,
-      collaborators: collaborators || '',
-      genesis: genesis || '',
-      explicit: explicit === 'true' || explicit === true,
-      // "Exclusivité Risuona" : l'artiste déclare que ce titre n'est publié
-      // nulle part ailleurs. C'est une simple déclaration de sa part (comme
-      // pour l'IA), pas une vérification technique.
-      exclusive: exclusive === 'true' || exclusive === true,
-      spotify_url: spotifyUrl || '',
-      apple_url: appleUrl || '',
-      release_at: releaseAt,
-      // album_id n'est envoyé que s'il y a un album : ainsi, publier un
-      // single marche même si l'étape Supabase des albums n'est pas faite.
-      ...(album.albumId ? { album_id: album.albumId } : {}),
-      // created_at reste la date d'upload réelle : c'est elle qui sert de
-      // preuve d'antériorité (CGU), même si la sortie publique est plus tard.
-      created_at: Date.now(),
-    })
-    .select()
-    .single();
+  const row = {
+    user_id: req.session.userId,
+    title,
+    genre: genre || '',
+    ai_lyrics: aiLyrics === 'true' || aiLyrics === true,
+    ai_music: aiMusic === 'true' || aiMusic === true,
+    ai_vocals: aiVocals === 'true' || aiVocals === true,
+    ai_tool: aiTool || '',
+    audio_url: audioUrl,
+    cover_url: coverUrl,
+    collaborators: collaborators || '',
+    genesis: genesis || '',
+    explicit: explicit === 'true' || explicit === true,
+    // "Exclusivité Risuona" : l'artiste déclare que ce titre n'est publié
+    // nulle part ailleurs. C'est une simple déclaration de sa part (comme
+    // pour l'IA), pas une vérification technique.
+    exclusive: exclusive === 'true' || exclusive === true,
+    spotify_url: spotifyUrl || '',
+    apple_url: appleUrl || '',
+    release_at: releaseAt,
+    // album_id n'est envoyé que s'il y a un album : ainsi, publier un
+    // single marche même si l'étape Supabase des albums n'est pas faite.
+    ...(album.albumId ? { album_id: album.albumId } : {}),
+    // Pochette créée automatiquement par le site (l'artiste n'a pas envoyé
+    // d'image) : on le note pour pouvoir la régénérer sans jamais écraser
+    // une vraie pochette. Envoyé seulement si c'est le cas, comme album_id.
+    ...(coverUrl && req.body.coverGenerated === 'true' ? { cover_generated: true } : {}),
+    // created_at reste la date d'upload réelle : c'est elle qui sert de
+    // preuve d'antériorité (CGU), même si la sortie publique est plus tard.
+    created_at: Date.now(),
+  };
+  let { data: track, error } = await supabase.from('tracks').insert(row).select().single();
+  // Étape Supabase des pochettes automatiques pas encore faite : on publie
+  // quand même, simplement sans la mention "pochette générée".
+  if (error && row.cover_generated && /cover_generated/.test(error.message || '')) {
+    delete row.cover_generated;
+    ({ data: track, error } = await supabase.from('tracks').insert(row).select().single());
+  }
 
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   const advice = await releaseAdvice(req.session.userId, releaseAt, track.id);
@@ -670,8 +687,20 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
 
   const coverFile = req.files && req.files.cover && req.files.cover[0];
   if (coverFile) {
+    const generated = req.body.coverGenerated === 'true';
+    // Une pochette automatique ne remplace jamais une vraie pochette
+    // envoyée par l'artiste.
+    if (generated && track.cover_url && !track.cover_generated) {
+      return res.status(409).json({ error: 'own_cover' });
+    }
+    // Étape Supabase des pochettes automatiques pas encore faite.
+    if (generated && !('cover_generated' in track)) {
+      return res.status(409).json({ error: 'covers_not_ready' });
+    }
     fields.cover_url = await uploadToStorage(coverFile);
     if (track.cover_url) removeFromStorage(track.cover_url);
+    if (generated) fields.cover_generated = true;
+    else if (track.cover_generated) fields.cover_generated = false;
   }
 
   const { data: updated, error } = await supabase.from('tracks').update(fields).eq('id', track.id).select().single();

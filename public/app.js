@@ -231,6 +231,7 @@ function fillProfileForm(user) {
   document.getElementById('profile-instagramUrl').value = user.instagramUrl || '';
   document.getElementById('profile-sunoUrl').value = user.sunoUrl || '';
   document.getElementById('profile-bandcampUrl').value = user.bandcampUrl || '';
+  document.getElementById('profile-coverNameStyle').value = user.coverNameStyle === 'initials' ? 'initials' : 'full';
 
   const avatarPreview = document.getElementById('profile-avatar-preview');
   if (user.avatarUrl) { avatarPreview.src = user.avatarUrl; avatarPreview.hidden = false; } else { avatarPreview.hidden = true; avatarPreview.src = ''; }
@@ -249,6 +250,10 @@ document.getElementById('profile-form').addEventListener('submit', async (e) => 
   formData.append('instagramUrl', document.getElementById('profile-instagramUrl').value.trim());
   formData.append('sunoUrl', document.getElementById('profile-sunoUrl').value.trim());
   formData.append('bandcampUrl', document.getElementById('profile-bandcampUrl').value.trim());
+  // Envoyé seulement s'il change (tant que l'étape Supabase n'est pas faite,
+  // le profil s'enregistre donc normalement).
+  const coverNameStyle = document.getElementById('profile-coverNameStyle').value;
+  if (coverNameStyle !== ((currentUser && currentUser.coverNameStyle) || 'full')) formData.append('coverNameStyle', coverNameStyle);
   const avatarFile = document.getElementById('profile-avatar').files[0];
   if (avatarFile) formData.append('avatar', avatarFile);
   const bannerFile = document.getElementById('profile-banner').files[0];
@@ -408,6 +413,12 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
     status.textContent = t('album.titleMissing');
     return;
   }
+  // Ni pochette de titre ni pochette d'album : on envoie la pochette créée
+  // automatiquement (celle affichée dans l'aperçu).
+  if (!coverInput.files[0] && !selectedAlbumCoverUrl() && window.RisuonaCover) {
+    formData.append('cover', await RisuonaCover.toFile(publishCoverOpts()));
+    formData.append('coverGenerated', 'true');
+  }
   formData.append('albumChoice', albumChoice);
   if (albumChoice === 'new') {
     formData.append('albumTitle', document.getElementById('track-album-title').value.trim());
@@ -447,6 +458,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   document.getElementById('track-release-advice').hidden = true;
   document.getElementById('track-exclusive').checked = false;
   document.getElementById('track-album-new').hidden = true;
+  publishCoverSeed = window.RisuonaCover ? RisuonaCover.randomSeed() : 1;
   resetCoversPreview();
   loadMyAlbums();
   const audioInfo = document.getElementById('track-audio-info');
@@ -522,15 +534,32 @@ function objectUrlFor(input, previous) {
   return file && (file.type || '').startsWith('image/') ? URL.createObjectURL(file) : null;
 }
 
+function selectedAlbumCoverUrl() {
+  const choice = document.getElementById('track-album').value;
+  if (choice === 'new') return albumCoverPreviewUrl;
+  if (!choice) return null;
+  const album = MY_ALBUMS.find((a) => String(a.id) === choice);
+  return album && album.coverUrl ? album.coverUrl : null;
+}
+
+// Pochette automatique du formulaire de publication : une graine tirée au
+// hasard, que le bouton "Générer un autre visuel" remplace.
+let publishCoverSeed = window.RisuonaCover ? RisuonaCover.randomSeed() : 1;
+function publishCoverOpts() {
+  return { seed: publishCoverSeed, title: document.getElementById('track-title').value.trim(), artist: myCoverArtist() };
+}
+
 function updateCoversPreview() {
   const box = document.getElementById('covers-preview');
   const wrap = document.getElementById('covers-preview-wrap');
-  const choice = document.getElementById('track-album').value;
-  let albumUrl = null;
-  if (choice === 'new') albumUrl = albumCoverPreviewUrl;
-  else if (choice) {
-    const album = MY_ALBUMS.find((a) => String(a.id) === choice);
-    albumUrl = album && album.coverUrl ? album.coverUrl : null;
+  const albumUrl = selectedAlbumCoverUrl();
+  const auto = !trackCoverPreviewUrl && !albumUrl && !!window.RisuonaCover;
+  document.getElementById('covers-auto-hint').hidden = !auto;
+  document.getElementById('covers-regenerate').hidden = !auto;
+  if (auto) {
+    wrap.innerHTML = '<img class="cover-art" src="' + RisuonaCover.render(publishCoverOpts(), 320).toDataURL('image/jpeg', 0.85) + '" alt="">';
+    box.hidden = false;
+    return;
   }
   if (!trackCoverPreviewUrl && !albumUrl) {
     box.hidden = true;
@@ -556,6 +585,12 @@ document.getElementById('track-album-cover').addEventListener('change', (e) => {
   updateCoversPreview();
 });
 document.getElementById('track-album').addEventListener('change', updateCoversPreview);
+document.getElementById('track-title').addEventListener('input', updateCoversPreview);
+document.getElementById('covers-regenerate').addEventListener('click', () => {
+  publishCoverSeed = RisuonaCover.randomSeed();
+  updateCoversPreview();
+});
+updateCoversPreview();
 
 function resetCoversPreview() {
   if (trackCoverPreviewUrl) URL.revokeObjectURL(trackCoverPreviewUrl);
@@ -950,6 +985,7 @@ async function loadMyTracks() {
   list.querySelectorAll('.edit-only-btn').forEach((btn) => {
     btn.addEventListener('click', () => toggleEditPanel(Number(btn.getAttribute('data-edit-id'))));
   });
+  backfillGeneratedCovers(tracks);
   list.querySelectorAll('.promo-btn').forEach((btn) => {
     btn.addEventListener('click', () => generatePromoVisual(Number(btn.getAttribute('data-promo-id'))));
   });
@@ -1004,9 +1040,33 @@ function formatDate(ts) {
   return d.toLocaleDateString(localeMap[CURRENT_LANG] || 'fr-FR', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+// --- Pochettes automatiques ---
+function coverArtistLabel(name, style) {
+  return style === 'initials' && window.RisuonaCover ? RisuonaCover.initials(name) : name || '';
+}
+
+function myCoverArtist() {
+  return currentUser ? coverArtistLabel(currentUser.artistName, currentUser.coverNameStyle) : '';
+}
+
+// Morceau encore sans aucune pochette (publié avant les pochettes
+// automatiques) : on dessine à l'affichage la même pochette que celle qui
+// lui sera attribuée (graine tirée du titre), en attendant qu'elle soit
+// enregistrée depuis l'espace de l'artiste.
+const FALLBACK_COVERS = {};
+function fallbackCoverUrl(title, artistName) {
+  if (!window.RisuonaCover) return '';
+  const key = (title || '') + '|' + (artistName || '');
+  if (!FALLBACK_COVERS[key]) {
+    FALLBACK_COVERS[key] = RisuonaCover.render({ title, artist: artistName }, 400).toDataURL('image/jpeg', 0.85);
+  }
+  return FALLBACK_COVERS[key];
+}
+
 function coverArt(tr) {
-  if (tr.coverUrl) {
-    return '<img class="cover-art" src="' + escapeHtml(tr.coverUrl) + '" alt="">';
+  const url = tr.coverUrl || fallbackCoverUrl(tr.title, tr.artistName);
+  if (url) {
+    return '<img class="cover-art" src="' + escapeHtml(url) + '" alt="">';
   }
   const letter = (tr.title || '?').trim().charAt(0).toUpperCase();
   const palette = [
@@ -1248,6 +1308,11 @@ function toggleEditPanel(trackId) {
     return;
   }
   const tr = MY_TRACKS.find((x) => x.id === trackId);
+  // Pochette automatique (pas d'image envoyée par l'artiste, pas de
+  // pochette d'album qui prendrait le dessus) : on peut en tirer une autre.
+  const album = tr.albumId ? MY_ALBUMS.find((a) => a.id === tr.albumId) : null;
+  const autoCover = !!window.RisuonaCover && !tr.hasOwnCover && !(album && album.coverUrl);
+  let editCoverSeed = null;
   panel.innerHTML =
     '<label>' + t('dashboard.addTrack.trackTitle') + '</label>' +
     '<input type="text" class="edit-title" value="' + escapeHtml(tr.title) + '">' +
@@ -1273,6 +1338,12 @@ function toggleEditPanel(trackId) {
     '<input type="text" class="edit-aitool" value="' + escapeHtml(tr.aiTool || '') + '">' +
     '<label>' + t('dashboard.addTrack.cover') + '</label>' +
     '<input type="file" class="edit-cover" accept="image/*">' +
+    (autoCover
+      ? '<div class="edit-cover-auto"><img class="edit-cover-auto-img" src="' +
+        escapeHtml(tr.coverUrl || fallbackCoverUrl(tr.title, tr.artistName)) +
+        '" alt=""><button type="button" class="mini-btn edit-cover-regen">' + t('covers.regenerate') + '</button></div>' +
+        '<p class="field-hint">' + t('covers.editAutoHint') + '</p>'
+      : '') +
     '<label>' + t('album.label') + '</label>' +
     '<select class="edit-album">' + albumOptionsHtml(tr.albumId) + '</select>' +
     '<div class="edit-album-new album-new-block" hidden>' +
@@ -1288,6 +1359,15 @@ function toggleEditPanel(trackId) {
     '<div class="form-actions"><button type="button" class="btn btn-primary edit-save">' + t('dashboard.myTracks.save') + '</button>' +
     '<span class="form-note edit-status"></span></div>';
   panel.hidden = false;
+
+  const regenBtn = panel.querySelector('.edit-cover-regen');
+  if (regenBtn) {
+    regenBtn.addEventListener('click', () => {
+      editCoverSeed = RisuonaCover.randomSeed();
+      const opts = { seed: editCoverSeed, title: panel.querySelector('.edit-title').value.trim(), artist: myCoverArtist() };
+      panel.querySelector('.edit-cover-auto-img').src = RisuonaCover.render(opts, 320).toDataURL('image/jpeg', 0.85);
+    });
+  }
 
   const editAlbum = panel.querySelector('.edit-album');
   editAlbum.addEventListener('change', () => {
@@ -1318,6 +1398,15 @@ function toggleEditPanel(trackId) {
     formData.append('aiTool', panel.querySelector('.edit-aitool').value.trim());
     const coverFile = panel.querySelector('.edit-cover').files[0];
     if (coverFile) formData.append('cover', coverFile);
+    // Pochette automatique : nouvelle pochette si l'artiste en a tiré une
+    // autre, ou si le titre a changé (sinon l'ancien titre resterait écrit
+    // dessus).
+    const newTitle = panel.querySelector('.edit-title').value.trim();
+    if (!coverFile && autoCover && (editCoverSeed !== null || (tr.coverGenerated && newTitle !== tr.title))) {
+      const seed = editCoverSeed !== null ? editCoverSeed : RisuonaCover.randomSeed();
+      formData.append('cover', await RisuonaCover.toFile({ seed, title: newTitle, artist: myCoverArtist() }));
+      formData.append('coverGenerated', 'true');
+    }
     // On n'envoie l'album que s'il a changé (évite toute erreur si l'étape
     // Supabase des albums n'a pas encore été faite).
     if (editAlbum.value !== String(tr.albumId || '')) {
@@ -1348,6 +1437,8 @@ function toggleEditPanel(trackId) {
           ? t('album.titleMissing')
           : err.error === 'albums_table_missing'
           ? t('album.notReady')
+          : err.error === 'covers_not_ready'
+          ? t('covers.notReady')
           : t('error.generic');
       return;
     }
@@ -1357,6 +1448,27 @@ function toggleEditPanel(trackId) {
     loadMyTracks();
     loadFeed();
   });
+}
+
+// Morceaux publiés avant les pochettes automatiques et toujours sans
+// aucune image : quand l'artiste ouvre son espace, on leur enregistre leur
+// pochette (la même que celle déjà affichée aux visiteurs). Une seule
+// tentative par morceau et par visite ; si l'étape Supabase n'est pas
+// encore faite, on s'arrête sans rien casser.
+const COVER_BACKFILL_TRIED = new Set();
+async function backfillGeneratedCovers(tracks) {
+  if (!window.RisuonaCover || !currentUser) return;
+  const todo = tracks.filter((tr) => !tr.coverUrl && !tr.hasOwnCover && !COVER_BACKFILL_TRIED.has(tr.id));
+  for (const tr of todo) {
+    COVER_BACKFILL_TRIED.add(tr.id);
+    const formData = new FormData();
+    formData.append('cover', await RisuonaCover.toFile({ title: tr.title, artist: myCoverArtist() }));
+    formData.append('coverGenerated', 'true');
+    const res = await fetch('/api/tracks/' + tr.id, { method: 'PUT', body: formData }).catch(() => null);
+    if (!res || !res.ok) return;
+    const data = await res.json().catch(() => null);
+    if (data && data.track) Object.assign(tr, data.track);
+  }
 }
 
 // --- Visuel promo (image carrée prête à poster) ---
@@ -1399,8 +1511,9 @@ async function generatePromoVisual(trackId) {
   ctx.save();
   roundRectPath(ctx, coverX, coverY, coverSize, coverSize, 24);
   ctx.clip();
-  if (tr.coverUrl) {
-    const img = await loadImage(tr.coverUrl);
+  const promoCoverUrl = tr.coverUrl || fallbackCoverUrl(tr.title, tr.artistName || (currentUser && currentUser.artistName));
+  if (promoCoverUrl) {
+    const img = await loadImage(promoCoverUrl);
     ctx.fillStyle = '#1E1A2E';
     ctx.fillRect(coverX, coverY, coverSize, coverSize);
     const scale = Math.max(coverSize / img.width, coverSize / img.height);
@@ -2340,6 +2453,7 @@ function playTrackById(id, audioUrl, title, artist, coverUrl, coverFallback, que
   globalAudio.src = audioUrl;
   globalAudio.play().catch(() => {});
   saveRecentListen({ id, title, artistName: artist, coverUrl });
+  if (!coverUrl) coverUrl = fallbackCoverUrl(title, artist);
 
   // Une écoute ne compte qu'après 15 secondes de lecture réelle, pour
   // éviter qu'un simple clic accidentel gonfle les chiffres — comme le
@@ -2607,8 +2721,8 @@ function renderRecentListens() {
     .map(
       (r) =>
         '<button type="button" class="recent-listen-item recent-listen-play" data-track-id="' + r.id + '">' +
-        (r.coverUrl
-          ? '<img class="recent-listen-cover" src="' + escapeHtml(r.coverUrl) + '" alt="">'
+        (r.coverUrl || fallbackCoverUrl(r.title, r.artistName)
+          ? '<img class="recent-listen-cover" src="' + escapeHtml(r.coverUrl || fallbackCoverUrl(r.title, r.artistName)) + '" alt="">'
           : '<div class="recent-listen-cover-fallback">' + escapeHtml((r.title || '?').trim().charAt(0).toUpperCase()) + '</div>') +
         '<div class="recent-listen-title">' + escapeHtml(r.title) + '</div>' +
         '<div class="recent-listen-artist">' + escapeHtml(r.artistName) + '</div>' +
