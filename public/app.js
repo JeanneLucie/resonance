@@ -2293,8 +2293,42 @@ async function loadTrackPage(trackId) {
 // --- Service worker (installation en app) ---
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/sw.js').then((registration) => {
+      // Une nouvelle version vient d'être installée en arrière-plan : on
+      // prévient la personne au lieu de rester muet comme avant. La
+      // présence de navigator.serviceWorker.controller distingue une vraie
+      // mise à jour de la toute première installation (rien à annoncer).
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdateBanner();
+          }
+        });
+      });
+    }).catch(() => {});
   });
+
+  // Dès que la nouvelle version prend la main (juste après l'installation,
+  // le service worker l'active tout de suite), on recharge la page pour
+  // qu'elle s'applique - en laissant au message de mise à jour un minimum
+  // de temps à l'écran pour qu'il soit bien visible.
+  let swReloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swReloading) return;
+    swReloading = true;
+    showUpdateBanner();
+    setTimeout(() => window.location.reload(), 600);
+  });
+}
+
+function showUpdateBanner() {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  clearTimeout(showToast._timer);
+  el.innerHTML = '<span class="update-spinner" aria-hidden="true"></span>' + escapeHtml(t('pwa.updating'));
+  el.classList.add('show');
 }
 
 // --- Bouton "Installer l'appli" ---

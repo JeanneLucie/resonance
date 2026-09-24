@@ -292,6 +292,24 @@ body.has-player .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); 
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* Petit rond qui tourne, affiché dans le toast pendant la mise à jour de
+   l'appli (installation d'une nouvelle version en arrière-plan), pour que
+   ce moment ne soit plus silencieux comme avant. */
+.update-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  border: 2px solid rgba(30, 26, 46, 0.25);
+  border-top-color: #1E1A2E;
+  border-radius: 50%;
+  animation: update-spin 0.7s linear infinite;
+}
+@keyframes update-spin {
+  to { transform: rotate(360deg); }
+}
+
 .player-bar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
   background: var(--ink-soft); border-top: 1px solid var(--line);
