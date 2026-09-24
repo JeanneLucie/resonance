@@ -2268,7 +2268,11 @@ async function loadTrackPage(trackId) {
   }
   const { track } = await res.json();
   container.innerHTML = renderTrackCard(track);
-  currentDiscoverQueue = [track];
+  // La liste de lecture de cette page doit contenir tout le catalogue
+  // (pas seulement ce morceau), sinon la lecture s'arrête à la fin du
+  // morceau au lieu d'enchaîner sur le suivant, et le bouton "aléatoire"
+  // du lecteur dédié n'a plus le même effet ici.
+  currentDiscoverQueue = ALL_TRACKS.length ? ALL_TRACKS : [track];
   document.title = track.title + ' · ' + track.artistName + ' | Risuona';
 
   // "Plus de cet artiste" — quelques autres morceaux, pour continuer la découverte

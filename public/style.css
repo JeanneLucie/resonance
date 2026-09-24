@@ -316,11 +316,38 @@ body.has-player .toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); 
 .player-progress-wrap { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .player-time { font-size: 0.72rem; color: var(--text-on-ink-dim); flex-shrink: 0; min-width: 32px; }
 .player-time:last-child { text-align: right; }
-#player-seek { flex: 1; accent-color: var(--brass); }
+/* Sans ces réglages, un glissement du doigt sur cette barre peut être
+   interprété par le navigateur comme un appui long (menu contextuel,
+   changement d'onglet) plutôt que comme un déplacement dans la musique. */
+#player-seek {
+  flex: 1; accent-color: var(--brass);
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
 .player-close { background: none; border: none; color: var(--text-on-ink-dim); cursor: pointer; font-size: 0.9rem; flex-shrink: 0; }
 @media (max-width: 600px) {
-  .player-info { max-width: 90px; }
-  .player-bar { gap: 10px; padding-left: 12px; padding-right: 12px; }
+  /* Sur petit écran, une seule ligne ne laissait quasiment plus de place
+     à la barre de progression (pochette + titre + bouton + horloges
+     grignotaient tout l'espace), d'où l'impression de pochette et
+     d'informations coupées. On passe à deux lignes : pochette / titre /
+     fermer en haut, lecture / avancement en dessous, sur toute la largeur. */
+  .player-bar {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    grid-template-areas: "cover info close" "play seek seek";
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 8px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .player-cover { grid-area: cover; width: 48px; height: 48px; }
+  .player-info { grid-area: info; max-width: none; min-width: 0; }
+  .player-playpause { grid-area: play; }
+  .player-progress-wrap { grid-area: seek; }
+  .player-close { grid-area: close; }
 }
 
 /* --- Sorties programmées : bulle de conseils --- */
