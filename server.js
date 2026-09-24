@@ -220,6 +220,9 @@ function publicUser(u) {
     role: u.role,
     accountType: u.account_type || 'artist',
     followingIds: u.following_ids || [],
+    cguVersion: CGU_VERSION,
+    cguUpToDate: isCguUpToDate(u),
+    identityVerified: u.identity_verified === true,
     // Nom affiché sur les pochettes créées automatiquement : 'full' (nom
     // complet) ou 'initials' (ex. « M.D. » pour Marine Dax).
     coverNameStyle: u.cover_name_style === 'initials' ? 'initials' : 'full',
@@ -405,6 +408,44 @@ app.get('/api/me/release-advice', requireAuth, async (req, res) => {
   res.json({ tips: await releaseAdvice(req.session.userId, releaseAt, req.query.trackId) });
 });
 
+// --- CGU (conditions d'utilisation) ---
+// À changer à chaque nouvelle version des CGU (texte modifié dans
+// public/cgu.html) : ça déclenche le bandeau de ré-acceptation pour tous
+// les comptes qui ont accepté une version antérieure.
+const CGU_VERSION = '2';
+
+// Enregistre une acceptation des CGU : une ligne de plus dans le registre
+// (jamais écrasée, c'est la preuve juridique) + mise à jour de la recopie
+// rapide sur le compte. Tolérant si l'étape Supabase n'est pas encore
+// faite (le registre n'existe pas encore) : le site continue de marcher,
+// simplement sans cette protection en attendant.
+async function recordCguAcceptance(user) {
+  const now = Date.now();
+  await supabase.from('cgu_acceptances').insert({
+    user_id: user.id,
+    version: CGU_VERSION,
+    artist_name: user.artist_name,
+    email: user.email,
+    account_type: user.account_type || 'artist',
+    accepted_at: now,
+  });
+  await supabase.from('users').update({ cgu_accepted_version: CGU_VERSION, cgu_accepted_at: now }).eq('id', user.id);
+}
+
+// Un compte est à jour s'il a accepté la version courante — ou si l'étape
+// Supabase n'est pas encore faite (cgu_accepted_version alors undefined,
+// pas null) : on ne bloque personne tant que le registre n'existe pas.
+function isCguUpToDate(user) {
+  return user.cgu_accepted_version === CGU_VERSION || user.cgu_accepted_version === undefined;
+}
+
+async function requireCguUpToDate(req, res, next) {
+  const { data: user } = await supabase.from('users').select('id, artist_name, email, account_type, cgu_accepted_version').eq('id', req.session.userId).maybeSingle();
+  if (!user) return res.status(401).json({ error: 'not_authenticated' });
+  if (!isCguUpToDate(user)) return res.status(403).json({ error: 'terms_outdated' });
+  next();
+}
+
 // --- Auth ---
 app.post('/api/signup', authLimiter, async (req, res) => {
   const { artistName, email, password, acceptedTerms, accountType } = req.body;
@@ -435,6 +476,7 @@ app.post('/api/signup', authLimiter, async (req, res) => {
     .single();
 
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
+  await recordCguAcceptance(user);
   req.session.userId = user.id;
   if (role === 'artist') {
     resendClient.notifyNewSignup(artistName, email);
@@ -491,6 +533,15 @@ app.get('/api/me', async (req, res) => {
   if (!req.session.userId) return res.json({ user: null });
   const { data: user } = await supabase.from('users').select('*').eq('id', req.session.userId).maybeSingle();
   res.json({ user: publicUser(user) });
+});
+
+// Clic sur "J'accepte" dans le bandeau de ré-acceptation des CGU.
+app.post('/api/me/accept-terms', requireAuth, async (req, res) => {
+  const { data: user } = await supabase.from('users').select('id, artist_name, email, account_type').eq('id', req.session.userId).maybeSingle();
+  if (!user) return res.status(401).json({ error: 'not_authenticated' });
+  await recordCguAcceptance(user);
+  const { data: updated } = await supabase.from('users').select('*').eq('id', req.session.userId).single();
+  res.json({ ok: true, user: publicUser(updated) });
 });
 
 app.put(
@@ -568,7 +619,7 @@ app.get('/api/me/tracks', requireAuth, async (req, res) => {
   res.json({ tracks: (tracks || []).map((t) => mapTrack(t, me ? me.artist_name : '')) });
 });
 
-app.post('/api/tracks', requireAuth, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }, { name: 'albumCover', maxCount: 1 }]), async (req, res) => {
+app.post('/api/tracks', requireAuth, requireCguUpToDate, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }, { name: 'albumCover', maxCount: 1 }]), async (req, res) => {
   const { title, genre, aiLyrics, aiMusic, aiVocals, aiTool, collaborators, genesis, explicit, exclusive, spotifyUrl, appleUrl } = req.body;
   const releaseAt = parseReleaseAt(req.body.releaseAt);
   if (releaseAt === 'too_far') return res.status(400).json({ error: 'release_too_far' });
@@ -828,7 +879,7 @@ app.get('/api/artists/:id', async (req, res) => {
   });
 });
 
-app.post('/api/artists/:id/follow', requireAuth, async (req, res) => {
+app.post('/api/artists/:id/follow', requireAuth, requireCguUpToDate, async (req, res) => {
   const targetId = Number(req.params.id);
   if (targetId === req.session.userId) return res.status(400).json({ error: 'cannot_follow_self' });
   const { data: me } = await supabase.from('users').select('following_ids').eq('id', req.session.userId).single();
@@ -993,6 +1044,16 @@ app.post('/api/admin/users/:id/enable-export', requireAdmin, async (req, res) =>
 app.post('/api/admin/users/:id/manual-verify', requireAdmin, async (req, res) => {
   await supabase.from('users').update({ email_verified: true }).eq('id', req.params.id);
   res.json({ ok: true });
+});
+
+// Badge "Compte vérifié" (identité réelle confirmée à la main par
+// l'administratrice, par exemple via un lien vers un profil officiel déjà
+// connu sous ce nom) — bascule simple, pas de demande ni de document stocké.
+app.post('/api/admin/users/:id/toggle-verified', requireAdmin, async (req, res) => {
+  const { data: user } = await supabase.from('users').select('identity_verified').eq('id', req.params.id).maybeSingle();
+  if (!user) return res.status(404).json({ error: 'not_found' });
+  await supabase.from('users').update({ identity_verified: !user.identity_verified }).eq('id', req.params.id);
+  res.json({ ok: true, identityVerified: !user.identity_verified });
 });
 
 app.get('/api/me/export', requireAuth, async (req, res) => {
