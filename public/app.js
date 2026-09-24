@@ -589,7 +589,7 @@ function showPublishSuccess(track) {
     share.hidden = false;
   }
   view.href = '#/morceau/' + track.id;
-  share.onclick = () => shareUrl(trackUrl, 'nav.shareText');
+  share.onclick = () => shareUrl(trackUrl, 'nav.shareTrackText', { artist: track.artistName });
   document.getElementById('track-form').hidden = true;
   box.hidden = false;
   box.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1106,6 +1106,8 @@ function renderTrackCard(tr) {
     t('track.shareTooltip') +
     '" data-share-url="' +
     escapeHtml(window.location.origin + '/#/morceau/' + tr.id) +
+    '" data-share-artist="' +
+    escapeHtml(tr.artistName) +
     '">🔗</button>' +
     '<button type="button" class="link-pill report-track-btn" data-report-id="' +
     tr.id +
@@ -2210,10 +2212,18 @@ installBtn.addEventListener('click', async () => {
 });
 
 // --- Bouton "Partager" (page courante ou lien spécifique) ---
-async function shareUrl(url, textKey) {
+// `replacements` (optionnel) : ex. { artist: "Nom" } remplace {artist} dans
+// le texte traduit — même convention que {n}, {title} ailleurs dans ce fichier.
+async function shareUrl(url, textKey, replacements) {
+  let text = t(textKey || 'nav.shareText');
+  if (replacements) {
+    Object.keys(replacements).forEach((key) => {
+      text = text.replace('{' + key + '}', replacements[key]);
+    });
+  }
   if (navigator.share) {
     try {
-      await navigator.share({ title: 'Risuona', text: t(textKey || 'nav.shareText'), url });
+      await navigator.share({ title: 'Risuona', text, url });
       return;
     } catch (err) {
       if (err && err.name === 'AbortError') return;
@@ -2268,7 +2278,7 @@ document.getElementById('share-page-btn').addEventListener('click', () => shareU
 
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.share-track-btn');
-  if (btn) shareUrl(btn.getAttribute('data-share-url'), 'nav.shareTrackText');
+  if (btn) shareUrl(btn.getAttribute('data-share-url'), 'nav.shareTrackText', { artist: btn.getAttribute('data-share-artist') });
 });
 
 document.addEventListener('click', async (e) => {

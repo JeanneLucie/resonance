@@ -5,7 +5,7 @@
   "nav.installMac": "To install Risuona on your Mac: in the \"File\" menu at the top of the screen, choose \"Add to Dock\" (or click the Share icon in Safari's toolbar, then \"Add to Dock\").",
   "nav.installGeneric": "To install Risuona: look in your browser's menu for an \"Install app\" or \"Add to Home Screen\" option (often a ⊕ icon or a ⋮ menu in the address bar).",
   "nav.shareText": "Discover Risuona, independent music, with or without AI, no commission.",
-  "nav.shareTrackText": "Listen to this track on Risuona!",
+  "nav.shareTrackText": "Discover {artist} on Risuona 🎵",
   "nav.shareCopied": "Link copied!",
   "nav.shareQrHint": "Scan to open this page on another phone.",
   "nav.logout": "Log out",

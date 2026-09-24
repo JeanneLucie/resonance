@@ -5,7 +5,7 @@
   "nav.installMac": "Para instalar Risuona en tu Mac: en el menú \"Archivo\" en la parte superior de la pantalla, elige \"Añadir al Dock\" (o haz clic en el icono Compartir de Safari y luego en \"Añadir al Dock\").",
   "nav.installGeneric": "Para instalar Risuona: busca en el menú de tu navegador una opción \"Instalar aplicación\" o \"Añadir a pantalla de inicio\" (suele ser un icono ⊕ o un menú ⋮ en la barra de direcciones).",
   "nav.shareText": "Descubre Risuona, música independiente, con o sin IA, sin comisión.",
-  "nav.shareTrackText": "¡Escucha este tema en Risuona!",
+  "nav.shareTrackText": "Descubre a {artist} en Risuona 🎵",
   "nav.shareCopied": "¡Enlace copiado!",
   "nav.shareQrHint": "Escanea para abrir esta página en otro teléfono.",
   "nav.logout": "Cerrar sesión",
