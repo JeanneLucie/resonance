@@ -437,6 +437,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
     if (data.error === 'email_not_verified') refreshVerificationStatus();
     const messages = {
       email_not_verified: t('verify.blocksPublishShort'),
+      terms_outdated: t('cgu.blocksPublish'),
       fan_account: t('fan.cannotPublish'),
       release_too_far: t('release.advice.too_far'),
       file_too_large: t('upload.tooLarge').replace('{max}', MAX_UPLOAD_MB),
@@ -785,6 +786,7 @@ function refreshOnboarding() {
   banner.hidden = currentUser.emailVerified !== false;
   const publishBlock = document.getElementById('verify-blocks-publish');
   publishBlock.hidden = !(currentUser.emailVerified === false && MY_TRACKS.length >= UNVERIFIED_TRACK_LIMIT);
+  document.getElementById('cgu-banner').hidden = currentUser.cguUpToDate !== false;
   if (currentUser.accountType === 'fan') return;
   const steps = [
     { done: !!currentUser.avatarUrl, key: 'onboarding.step.avatar' },
@@ -1763,6 +1765,7 @@ function renderAdminUsers() {
       return (
         '<div class="admin-row"><div class="who"><span>' + escapeHtml(u.artistName) + ' · ' + adminTypeLabel(u) +
         (u.role !== 'admin' && !u.emailVerified ? ' <span class="admin-badge">' + t('admin.users.unverified') + '</span>' : '') +
+        (u.identityVerified ? ' <span class="admin-badge admin-badge-verified">' + t('admin.users.identityVerified') + '</span>' : '') +
         '</span><span class="sub">' + escapeHtml(u.email) +
         (u.createdAt ? ' · ' + t('admin.users.joined').replace('{date}', formatDate(u.createdAt)) : '') +
         '</span></div>' +
@@ -1771,6 +1774,7 @@ function renderAdminUsers() {
           : '<button class="mini-btn" data-enable-export-id="' + u.id + '"' + (exportActive ? ' disabled' : '') + '>' +
             (exportActive ? t('admin.exportActive') : t('admin.enableExport')) + '</button>' +
             (u.emailVerified ? '' : '<button class="mini-btn" data-manual-verify-id="' + u.id + '">' + t('admin.todo.confirm') + '</button>') +
+            (u.role === 'admin' ? '' : '<button class="mini-btn" data-toggle-verified-id="' + u.id + '">' + (u.identityVerified ? t('admin.users.unverify') : t('admin.users.verify')) + '</button>') +
             '<button class="del-btn" data-user-id="' + u.id + '">' + t('admin.remove') + '</button>') +
         '</div>'
       );
@@ -1788,6 +1792,13 @@ function renderAdminUsers() {
     btn.addEventListener('click', async () => {
       await fetch('/api/admin/users/' + btn.getAttribute('data-enable-export-id') + '/enable-export', { method: 'POST' });
       showToast(t('admin.exportEnabled'));
+      loadAdminOverview();
+    });
+  });
+  usersList.querySelectorAll('[data-toggle-verified-id]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      await fetch('/api/admin/users/' + btn.getAttribute('data-toggle-verified-id') + '/toggle-verified', { method: 'POST' });
       loadAdminOverview();
     });
   });
@@ -2066,6 +2077,7 @@ async function loadArtistPage(artistId) {
   const { artist, tracks, followerCount, isFollowing } = await res.json();
 
   document.getElementById('artist-page-name').textContent = artist.artistName;
+  document.getElementById('artist-page-verified').hidden = !artist.identityVerified;
   document.getElementById('artist-page-bio').textContent = artist.bio || '';
   document.getElementById('artist-page-bio').hidden = !artist.bio;
 
@@ -2104,7 +2116,15 @@ async function loadArtistPage(artistId) {
     followBtn.textContent = isFollowing ? t('artist.unfollow') : t('artist.follow');
     followBtn.onclick = async () => {
       const action = followBtn.textContent === t('artist.follow') ? 'follow' : 'unfollow';
-      await fetch('/api/artists/' + artist.id + '/' + action, { method: 'POST' });
+      const res = await fetch('/api/artists/' + artist.id + '/' + action, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.error === 'terms_outdated') {
+          showToast(t('cgu.blocksFollow'));
+          window.location.hash = '#espace';
+          return;
+        }
+      }
       loadArtistPage(artistId);
     };
   }
@@ -2423,6 +2443,19 @@ document.getElementById('resend-verification-btn-2').addEventListener('click', a
   await fetch('/api/resend-verification', { method: 'POST' });
   showToast(t('verify.resent'));
   setTimeout(() => (btn.disabled = false), 3000);
+});
+
+document.getElementById('cgu-accept-btn').addEventListener('click', async (e) => {
+  const btn = e.target;
+  btn.disabled = true;
+  const res = await fetch('/api/me/accept-terms', { method: 'POST' });
+  if (res.ok) {
+    const data = await res.json();
+    currentUser = data.user;
+    refreshOnboarding();
+    showToast('✓');
+  }
+  btn.disabled = false;
 });
 
 document.getElementById('share-page-btn').addEventListener('click', () => shareUrl(window.location.href));

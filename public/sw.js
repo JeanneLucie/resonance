@@ -5,7 +5,7 @@
 // statiques (HTML, CSS, JS, icônes), jamais les morceaux audio ni les
 // réponses de l'API.
 
-const CACHE_NAME = 'resonance-shell-v24';
+const CACHE_NAME = 'resonance-shell-v25';
 const SHELL_FILES = [
   '/',
   '/style.css',
