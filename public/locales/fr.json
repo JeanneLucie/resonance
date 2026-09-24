@@ -355,5 +355,6 @@
   "exclusive.label": "✨ Exclusivité Risuona",
   "exclusive.hint": "Coche cette case si ce titre n'est publié nulle part ailleurs (pas sur Spotify, pas sur SoundCloud, pas sur un autre service). Un badge affichera \"Exclusivité Risuona\" sur sa page, pour le mettre en valeur auprès de ton public.",
   "exclusive.tip": "💡 Astuce : garder ce titre en exclusivité sur Risuona pendant quelques semaines avant de le sortir ailleurs donne à ton public une bonne raison de venir t'écouter ici en premier. Ça nous aide à grandir, ensemble !",
-  "exclusive.badge": "✨ Exclusivité Risuona"
+  "exclusive.badge": "✨ Exclusivité Risuona",
+  "pwa.updating": "Mise à jour de Risuona…"
 }

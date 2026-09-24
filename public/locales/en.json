@@ -355,5 +355,6 @@
   "exclusive.label": "✨ Risuona exclusive",
   "exclusive.hint": "Check this box if this track isn't published anywhere else (not on Spotify, not on SoundCloud, not on any other service). A \"Risuona exclusive\" badge will show up on its page, to highlight it to your audience.",
   "exclusive.tip": "💡 Tip: keeping this track exclusive to Risuona for a few weeks before releasing it elsewhere gives your audience a good reason to come listen here first. It helps us grow, together!",
-  "exclusive.badge": "✨ Risuona exclusive"
+  "exclusive.badge": "✨ Risuona exclusive",
+  "pwa.updating": "Updating Risuona…"
 }

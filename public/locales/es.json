@@ -355,5 +355,6 @@
   "exclusive.label": "✨ Exclusiva de Risuona",
   "exclusive.hint": "Marca esta casilla si este tema no está publicado en ningún otro sitio (ni en Spotify, ni en SoundCloud, ni en otro servicio). Aparecerá una insignia \"Exclusiva de Risuona\" en su página, para destacarlo ante tu público.",
   "exclusive.tip": "💡 Consejo: mantener este tema en exclusiva en Risuona durante algunas semanas antes de publicarlo en otros sitios le da a tu público una buena razón para escucharte aquí primero. Esto nos ayuda a crecer, juntos.",
-  "exclusive.badge": "✨ Exclusiva de Risuona"
+  "exclusive.badge": "✨ Exclusiva de Risuona",
+  "pwa.updating": "Actualizando Risuona…"
 }
