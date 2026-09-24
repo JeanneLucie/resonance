@@ -437,6 +437,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
     if (data.error === 'email_not_verified') refreshVerificationStatus();
     const messages = {
       email_not_verified: t('verify.blocksPublishShort'),
+      terms_outdated: t('cgu.blocksPublish'),
       fan_account: t('fan.cannotPublish'),
       release_too_far: t('release.advice.too_far'),
       file_too_large: t('upload.tooLarge').replace('{max}', MAX_UPLOAD_MB),
@@ -785,6 +786,7 @@ function refreshOnboarding() {
   banner.hidden = currentUser.emailVerified !== false;
   const publishBlock = document.getElementById('verify-blocks-publish');
   publishBlock.hidden = !(currentUser.emailVerified === false && MY_TRACKS.length >= UNVERIFIED_TRACK_LIMIT);
+  document.getElementById('cgu-banner').hidden = currentUser.cguUpToDate !== false;
   if (currentUser.accountType === 'fan') return;
   const steps = [
     { done: !!currentUser.avatarUrl, key: 'onboarding.step.avatar' },
@@ -2104,7 +2106,15 @@ async function loadArtistPage(artistId) {
     followBtn.textContent = isFollowing ? t('artist.unfollow') : t('artist.follow');
     followBtn.onclick = async () => {
       const action = followBtn.textContent === t('artist.follow') ? 'follow' : 'unfollow';
-      await fetch('/api/artists/' + artist.id + '/' + action, { method: 'POST' });
+      const res = await fetch('/api/artists/' + artist.id + '/' + action, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.error === 'terms_outdated') {
+          showToast(t('cgu.blocksFollow'));
+          window.location.hash = '#espace';
+          return;
+        }
+      }
       loadArtistPage(artistId);
     };
   }
@@ -2385,6 +2395,19 @@ document.getElementById('resend-verification-btn-2').addEventListener('click', a
   await fetch('/api/resend-verification', { method: 'POST' });
   showToast(t('verify.resent'));
   setTimeout(() => (btn.disabled = false), 3000);
+});
+
+document.getElementById('cgu-accept-btn').addEventListener('click', async (e) => {
+  const btn = e.target;
+  btn.disabled = true;
+  const res = await fetch('/api/me/accept-terms', { method: 'POST' });
+  if (res.ok) {
+    const data = await res.json();
+    currentUser = data.user;
+    refreshOnboarding();
+    showToast('✓');
+  }
+  btn.disabled = false;
 });
 
 document.getElementById('share-page-btn').addEventListener('click', () => shareUrl(window.location.href));
