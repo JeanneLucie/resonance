@@ -1765,6 +1765,7 @@ function renderAdminUsers() {
       return (
         '<div class="admin-row"><div class="who"><span>' + escapeHtml(u.artistName) + ' · ' + adminTypeLabel(u) +
         (u.role !== 'admin' && !u.emailVerified ? ' <span class="admin-badge">' + t('admin.users.unverified') + '</span>' : '') +
+        (u.identityVerified ? ' <span class="admin-badge admin-badge-verified">' + t('admin.users.identityVerified') + '</span>' : '') +
         '</span><span class="sub">' + escapeHtml(u.email) +
         (u.createdAt ? ' · ' + t('admin.users.joined').replace('{date}', formatDate(u.createdAt)) : '') +
         '</span></div>' +
@@ -1773,6 +1774,7 @@ function renderAdminUsers() {
           : '<button class="mini-btn" data-enable-export-id="' + u.id + '"' + (exportActive ? ' disabled' : '') + '>' +
             (exportActive ? t('admin.exportActive') : t('admin.enableExport')) + '</button>' +
             (u.emailVerified ? '' : '<button class="mini-btn" data-manual-verify-id="' + u.id + '">' + t('admin.todo.confirm') + '</button>') +
+            (u.role === 'admin' ? '' : '<button class="mini-btn" data-toggle-verified-id="' + u.id + '">' + (u.identityVerified ? t('admin.users.unverify') : t('admin.users.verify')) + '</button>') +
             '<button class="del-btn" data-user-id="' + u.id + '">' + t('admin.remove') + '</button>') +
         '</div>'
       );
@@ -1790,6 +1792,13 @@ function renderAdminUsers() {
     btn.addEventListener('click', async () => {
       await fetch('/api/admin/users/' + btn.getAttribute('data-enable-export-id') + '/enable-export', { method: 'POST' });
       showToast(t('admin.exportEnabled'));
+      loadAdminOverview();
+    });
+  });
+  usersList.querySelectorAll('[data-toggle-verified-id]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      await fetch('/api/admin/users/' + btn.getAttribute('data-toggle-verified-id') + '/toggle-verified', { method: 'POST' });
       loadAdminOverview();
     });
   });
@@ -2068,6 +2077,7 @@ async function loadArtistPage(artistId) {
   const { artist, tracks, followerCount, isFollowing } = await res.json();
 
   document.getElementById('artist-page-name').textContent = artist.artistName;
+  document.getElementById('artist-page-verified').hidden = !artist.identityVerified;
   document.getElementById('artist-page-bio').textContent = artist.bio || '';
   document.getElementById('artist-page-bio').hidden = !artist.bio;
 

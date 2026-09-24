@@ -222,6 +222,7 @@ function publicUser(u) {
     followingIds: u.following_ids || [],
     cguVersion: CGU_VERSION,
     cguUpToDate: isCguUpToDate(u),
+    identityVerified: u.identity_verified === true,
     // Nom affiché sur les pochettes créées automatiquement : 'full' (nom
     // complet) ou 'initials' (ex. « M.D. » pour Marine Dax).
     coverNameStyle: u.cover_name_style === 'initials' ? 'initials' : 'full',
@@ -1043,6 +1044,16 @@ app.post('/api/admin/users/:id/enable-export', requireAdmin, async (req, res) =>
 app.post('/api/admin/users/:id/manual-verify', requireAdmin, async (req, res) => {
   await supabase.from('users').update({ email_verified: true }).eq('id', req.params.id);
   res.json({ ok: true });
+});
+
+// Badge "Compte vérifié" (identité réelle confirmée à la main par
+// l'administratrice, par exemple via un lien vers un profil officiel déjà
+// connu sous ce nom) — bascule simple, pas de demande ni de document stocké.
+app.post('/api/admin/users/:id/toggle-verified', requireAdmin, async (req, res) => {
+  const { data: user } = await supabase.from('users').select('identity_verified').eq('id', req.params.id).maybeSingle();
+  if (!user) return res.status(404).json({ error: 'not_found' });
+  await supabase.from('users').update({ identity_verified: !user.identity_verified }).eq('id', req.params.id);
+  res.json({ ok: true, identityVerified: !user.identity_verified });
 });
 
 app.get('/api/me/export', requireAuth, async (req, res) => {
