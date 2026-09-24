@@ -96,7 +96,8 @@
       const n = 4 + Math.floor(rand() * 4);
       for (let i = 0; i < n; i++) {
         const offset = (rand() - 0.5) * size * 1.1;
-        const width = size * (0.008 + Math.pow(rand(), 2) * 0.08);
+        // Épaisseur plafonnée : pas de bande trop grosse qui écrase l'image.
+        const width = size * Math.min(0.008 + Math.pow(rand(), 2) * 0.08, 0.045);
         const pair = pairs[Math.floor(rand() * pairs.length)];
         ctx.save();
         ctx.translate(size / 2, size / 2);
@@ -107,6 +108,24 @@
         ctx.fillRect(-diag / 2, offset - width / 2, diag, width);
         ctx.restore();
       }
+    }
+
+    // Quelques lignes très fines dans une troisième direction, différente
+    // des deux autres : elles croisent le motif et le rendent unique.
+    const fineAngle = baseAngle - (Math.PI * 0.19 + rand() * Math.PI * 0.12);
+    const fineCount = 3 + Math.floor(rand() * 4);
+    for (let i = 0; i < fineCount; i++) {
+      const offset = (rand() - 0.5) * size * 1.2;
+      const width = size * (0.0015 + rand() * 0.003);
+      const pair = pairs[Math.floor(rand() * pairs.length)];
+      ctx.save();
+      ctx.translate(size / 2, size / 2);
+      ctx.rotate(fineAngle + (rand() - 0.5) * 0.08);
+      ctx.globalAlpha = 0.6 + rand() * 0.35;
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = rand() < 0.35 ? '#F3EFE6' : pair[0];
+      ctx.fillRect(-diag / 2, offset - width / 2, diag, width);
+      ctx.restore();
     }
   }
 
