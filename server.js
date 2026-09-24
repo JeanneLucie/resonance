@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const helmet = require('helmet');
 const session = require('express-session');
 const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcryptjs');
@@ -93,6 +94,11 @@ async function removeFromStorage(url) {
 }
 
 // --- Middlewares ---
+// En-têtes de sécurité HTTP standards (anti-clickjacking, anti-sniffing MIME,
+// etc.). La politique de sécurité de contenu (CSP) est désactivée pour l'instant
+// afin de ne rien casser (polices Google, Stripe, Supabase, images en data:),
+// elle pourra être affinée plus tard si besoin.
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
