@@ -137,7 +137,7 @@
   "dashboard.myTracks.delete": "Delete",
   "dashboard.myTracks.edit": "Edit",
   "dashboard.myTracks.save": "Save",
-  "dashboard.myTracks.promo": "Generate a visual",
+  "dashboard.myTracks.promo": "Generate a visual", "dashboard.myTracks.promoHint": "Perfect for sharing on Instagram, TikTok, Threads… : a ready-to-use image with a QR code linking to your page.",
   "nav.admin": "Admin",
   "admin.title": "Administration",
   "admin.lede": "View restricted to the platform's administrator.",
