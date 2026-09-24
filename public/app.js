@@ -931,7 +931,7 @@ async function loadMyTracks() {
         '">' +
         t('dashboard.myTracks.edit') +
         '</button>' +
-        '<button class="mini-btn promo-btn" data-promo-id="' +
+        '<button class="mini-btn promo-btn" title="' + t('dashboard.myTracks.promoHint') + '" data-promo-id="' +
         tr.id +
         '">' +
         t('dashboard.myTracks.promo') +
