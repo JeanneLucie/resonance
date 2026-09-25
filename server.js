@@ -572,15 +572,20 @@ app.delete('/api/playlists/:id/tracks/:trackId', requireAuth, async (req, res) =
 // --- Commentaires ---
 // Contrairement aux likes, un commentaire nécessite un compte (fan ou
 // artiste) : c'est voulu, pour la responsabilisation et limiter le spam.
-// Modération basique : l'auteur peut retirer son propre commentaire, et
-// l'artiste propriétaire du morceau peut retirer n'importe quel commentaire
-// sur ses propres morceaux.
+// Modération à deux niveaux : l'auteur peut retirer son propre commentaire,
+// et l'artiste propriétaire du morceau peut retirer n'importe quel
+// commentaire sur ses propres morceaux. Dans les deux cas, "retirer" est un
+// masquage réversible (deleted_at), jamais une suppression définitive :
+// Cindy peut ensuite consulter les commentaires masqués côté admin et
+// réactiver ceux qu'elle juge légitimes et non compromettants pour
+// l'artiste, en cas de désaccord sur une modération d'artiste.
 app.get('/api/tracks/:id/comments', async (req, res) => {
   const trackId = Number(req.params.id);
   const { data: comments, error } = await supabase
     .from('comments')
     .select('id, user_id, body, created_at')
     .eq('track_id', trackId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: true });
   if (error) return res.json({ comments: [] }); // table pas encore créée : le site continue sans les commentaires
   const authorIds = [...new Set((comments || []).map((c) => c.user_id))];
@@ -618,7 +623,56 @@ app.delete('/api/comments/:id', requireAuth, async (req, res) => {
     allowed = !!track && track.user_id === req.session.userId;
   }
   if (!allowed) return res.status(403).json({ error: 'forbidden' });
-  await supabase.from('comments').delete().eq('id', commentId);
+  // Masquage réversible, pas une suppression définitive (voir plus haut).
+  await supabase.from('comments').update({ deleted_at: Date.now(), deleted_by: req.session.userId }).eq('id', commentId);
+  res.json({ ok: true });
+});
+
+// Commentaires masqués, pour la relecture par l'administratrice. Volontairement
+// séparé du reste de l'administration (pas mélangé aux signalements de
+// morceaux, ni à "À traiter") : une liste consultable, pas une file
+// urgente, pour ne pas donner l'impression que chaque masquage réclame une
+// action immédiate.
+app.get('/api/admin/comments/removed', requireAdmin, async (req, res) => {
+  const { data: comments, error } = await supabase
+    .from('comments')
+    .select('id, track_id, user_id, body, created_at, deleted_at, deleted_by')
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false });
+  if (error) return res.json({ comments: [] });
+  const trackIds = [...new Set((comments || []).map((c) => c.track_id))];
+  const { data: tracks } = trackIds.length ? await supabase.from('tracks').select('id, title, user_id').in('id', trackIds) : { data: [] };
+  const trackById = {};
+  (tracks || []).forEach((t) => { trackById[t.id] = t; });
+  const peopleIds = [...new Set([
+    ...(comments || []).map((c) => c.user_id),
+    ...(comments || []).map((c) => c.deleted_by).filter(Boolean),
+    ...(tracks || []).map((t) => t.user_id),
+  ])];
+  const { data: people } = peopleIds.length ? await supabase.from('users').select('id, artist_name').in('id', peopleIds) : { data: [] };
+  const nameById = {};
+  (people || []).forEach((p) => { nameById[p.id] = p.artist_name; });
+  res.json({
+    comments: (comments || []).map((c) => {
+      const track = trackById[c.track_id];
+      return {
+        id: c.id,
+        trackId: c.track_id,
+        trackTitle: track ? track.title : 'Morceau supprimé',
+        artistName: track ? nameById[track.user_id] || '' : '',
+        authorName: nameById[c.user_id] || '?',
+        body: c.body,
+        createdAt: c.created_at,
+        deletedAt: c.deleted_at,
+        deletedByName: c.deleted_by ? nameById[c.deleted_by] || '?' : '',
+        deletedByArtist: !!(track && c.deleted_by === track.user_id && c.deleted_by !== c.user_id),
+      };
+    }),
+  });
+});
+
+app.post('/api/admin/comments/:id/restore', requireAdmin, async (req, res) => {
+  await supabase.from('comments').update({ deleted_at: null, deleted_by: null }).eq('id', Number(req.params.id));
   res.json({ ok: true });
 });
 

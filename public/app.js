@@ -1304,21 +1304,36 @@ function renderComments(box, comments, trackOwnerId) {
       '<button type="submit" class="mini-btn" data-i18n="comments.post">' + t('comments.post') + '</button>' +
       '</form>'
     : '<p class="field-hint">' + t('comments.loginRequired') + '</p>';
+  // Rappel visible pour l'artiste, pas seulement une infobulle au survol :
+  // ce qu'il retire d'un commentaire sur son morceau reste consultable par
+  // Risuona, qui peut le réactiver si le retrait n'était pas justifié.
+  const moderationHint = canModerate ? '<p class="field-hint comments-moderation-hint">' + t('comments.moderationHint') + '</p>' : '';
   const listHtml = comments.length
     ? comments
-        .map(
-          (c) =>
+        .map((c) => {
+          const isAuthor = currentUser && currentUser.id === c.userId;
+          const isArtistModerating = canModerate && !isAuthor;
+          const deleteBtn =
+            currentUser && (isAuthor || canModerate)
+              ? '<button type="button" class="mini-btn comment-delete-btn" data-comment-id="' +
+                c.id +
+                '"' +
+                (isArtistModerating ? ' title="' + escapeHtml(t('comments.moderationHint')) + '"' : '') +
+                '>' +
+                t('comments.delete') +
+                '</button>'
+              : '';
+          return (
             '<div class="comment-row" data-comment-id="' + c.id + '">' +
             '<div class="comment-meta"><strong>' + escapeHtml(c.authorName) + '</strong> · ' + formatDate(c.createdAt) + '</div>' +
             '<div class="comment-body">' + escapeHtml(c.body) + '</div>' +
-            (currentUser && (currentUser.id === c.userId || canModerate)
-              ? '<button type="button" class="mini-btn comment-delete-btn" data-comment-id="' + c.id + '">' + t('comments.delete') + '</button>'
-              : '') +
+            deleteBtn +
             '</div>'
-        )
+          );
+        })
         .join('')
     : '<p class="empty-state">' + t('comments.empty') + '</p>';
-  box.innerHTML = '<h3>' + t('comments.title') + ' (' + comments.length + ')</h3>' + formHtml + '<div class="comments-list">' + listHtml + '</div>';
+  box.innerHTML = '<h3>' + t('comments.title') + ' (' + comments.length + ')</h3>' + formHtml + moderationHint + '<div class="comments-list">' + listHtml + '</div>';
 }
 
 document.addEventListener('submit', async (e) => {
@@ -2144,6 +2159,40 @@ async function loadAdminReports() {
   renderAdminTodo();
 }
 
+// Commentaires retirés (par leur auteur ou par l'artiste du morceau),
+// volontairement séparés des signalements de morceaux ci-dessus : une
+// liste consultable pour relecture, pas une file "à traiter" en urgence.
+async function loadAdminCommentsRemoved() {
+  const res = await fetch('/api/admin/comments/removed');
+  if (!res.ok) return;
+  const { comments } = await res.json();
+  const list = document.getElementById('admin-comments-list');
+  if (comments.length === 0) {
+    list.innerHTML = '<p class="empty-state">' + t('admin.comments.empty') + '</p>';
+    return;
+  }
+  list.innerHTML = comments
+    .map(
+      (c) =>
+        '<div class="admin-row"><div class="who"><span>' +
+        escapeHtml(c.trackTitle) + ' ' + t('admin.reports.by') + ' ' + escapeHtml(c.artistName) +
+        '</span><span class="sub">« ' + escapeHtml(c.body) + ' » — ' + escapeHtml(c.authorName) + ' · ' + formatDate(c.createdAt) +
+        '</span><span class="sub">' +
+        (c.deletedByArtist ? t('admin.comments.removedByArtist') : t('admin.comments.removedByAuthor')).replace('{name}', escapeHtml(c.deletedByName)) +
+        ' · ' + formatDate(c.deletedAt) +
+        '</span></div><button class="mini-btn" data-restore-id="' + c.id + '">' + t('admin.comments.restore') + '</button></div>'
+    )
+    .join('');
+  list.querySelectorAll('[data-restore-id]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      await fetch('/api/admin/comments/' + btn.getAttribute('data-restore-id') + '/restore', { method: 'POST' });
+      showToast(t('admin.comments.restored'));
+      loadAdminCommentsRemoved();
+    });
+  });
+}
+
 function updateAdminUI() {
   const isAdmin = currentUser && currentUser.role === 'admin';
   document.getElementById('nav-admin').hidden = !isAdmin;
@@ -2236,6 +2285,7 @@ async function loadAdminOverview() {
   renderAdminTracks();
   loadAdminAnnouncements();
   loadAdminReports(); // met aussi à jour les chiffres et "À traiter"
+  loadAdminCommentsRemoved();
 }
 
 // --- Chiffres clés ---
