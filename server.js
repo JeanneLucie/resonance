@@ -622,6 +622,53 @@ app.delete('/api/comments/:id', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// --- Digest e-mail des nouvelles sorties (comptes fans) ---
+// Groupé, au maximum une fois par jour. Impossible de faire tourner un
+// vrai cron interne de façon fiable sur le plan gratuit Render (le
+// service s'endort) : cette route interne fait donc le travail à la
+// demande, déclenchée une fois par jour par une tâche planifiée gratuite
+// sur GitHub Actions (voir .github/workflows/digest-quotidien.yml).
+// Protégée par un secret partagé (variable d'environnement DIGEST_SECRET,
+// la même côté Render et côté secret GitHub Actions) : sans ce secret
+// configuré des deux côtés, la route refuse tout appel.
+app.post('/api/internal/send-digest', async (req, res) => {
+  const secret = req.headers['x-digest-secret'];
+  if (!process.env.DIGEST_SECRET || secret !== process.env.DIGEST_SECRET) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  const siteUrl = 'https://' + (req.headers.host || 'risuonamusic.com');
+  const { data: fans, error } = await supabase
+    .from('users')
+    .select('id, email, artist_name, following_ids, last_digest_at')
+    .eq('account_type', 'fan');
+  if (error) return res.status(500).json({ error: 'digest_failed' });
+  const now = Date.now();
+  let sent = 0;
+  for (const fan of fans || []) {
+    const followingIds = fan.following_ids || [];
+    if (!followingIds.length) continue;
+    // Premier envoi jamais fait pour ce compte : on ne remonte que sur les
+    // dernières 24h, pour ne pas déverser d'un coup tout l'historique des
+    // artistes suivis.
+    const since = fan.last_digest_at || now - DAY_MS;
+    const { data: tracks } = await supabase.from('tracks').select('id, title, user_id, created_at, release_at').in('user_id', followingIds);
+    const fresh = (tracks || []).filter((tr) => {
+      const releasedAt = tr.release_at || tr.created_at;
+      return releasedAt > since && releasedAt <= now;
+    });
+    if (!fresh.length) continue;
+    const artistIds = [...new Set(fresh.map((tr) => tr.user_id))];
+    const { data: artists } = await supabase.from('users').select('id, artist_name').in('id', artistIds);
+    const artistById = {};
+    (artists || []).forEach((a) => { artistById[a.id] = a.artist_name; });
+    const items = fresh.map((tr) => ({ trackId: tr.id, title: tr.title, artistName: artistById[tr.user_id] || '' }));
+    await resendClient.notifyNewReleasesDigest(fan.email, fan.artist_name, items, siteUrl);
+    await supabase.from('users').update({ last_digest_at: now }).eq('id', fan.id);
+    sent++;
+  }
+  res.json({ ok: true, sent });
+});
+
 // --- Albums / EP ---
 // Un album appartient à un artiste (titre + pochette). Un morceau peut en
 // faire partie (tracks.album_id) : sa propre pochette reste l'image

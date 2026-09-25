@@ -66,7 +66,7 @@ async function sendVerificationEmail(email, artistName, token, siteUrl) {
   }
 }
 
-module.exports = { isConfigured, notifyNewSignup, sendVerificationEmail, notifyExportRequest, notifyNewMessage, sendReplyToVisitor, notifySuspiciousLogin, sendPasswordResetEmail, notifyAccountDeletionRequest };
+module.exports = { isConfigured, notifyNewSignup, sendVerificationEmail, notifyExportRequest, notifyNewMessage, sendReplyToVisitor, notifySuspiciousLogin, sendPasswordResetEmail, notifyAccountDeletionRequest, notifyNewReleasesDigest };
 
 async function notifySuspiciousLogin(email) {
   if (!isConfigured()) return;
@@ -189,6 +189,35 @@ async function notifyAccountDeletionRequest(artistName, email) {
     });
   } catch (err) {
     // Silencieux.
+  }
+}
+
+// Digest groupé des nouvelles sorties des artistes suivis, envoyé au
+// maximum une fois par jour à un compte fan (voir la route
+// /api/internal/send-digest dans server.js, déclenchée une fois par jour
+// par une tâche planifiée gratuite sur GitHub Actions).
+async function notifyNewReleasesDigest(email, fanName, items, siteUrl) {
+  if (!isConfigured()) return;
+  const lines = items.map((it) => '- "' + it.title + '" par ' + it.artistName + ' : ' + siteUrl + '/#/morceau/' + it.trackId);
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: email,
+        subject: items.length === 1 ? 'Nouveau morceau chez un artiste que tu suis' : 'Nouveaux morceaux chez des artistes que tu suis',
+        text:
+          'Salut ' + (fanName || '') + ' !\n\nDes artistes que tu suis sur Risuona viennent de publier :\n\n' +
+          lines.join('\n') +
+          '\n\nBonne écoute !',
+      }),
+    });
+  } catch (err) {
+    // Silencieux, même logique que pour les autres e-mails.
   }
 }
 

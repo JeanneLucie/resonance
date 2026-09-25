@@ -1,0 +1,30 @@
+name: Digest quotidien des nouvelles sorties
+
+# Remplace un vrai cron interne, impossible à faire tourner de façon
+# fiable sur le plan gratuit Render (le service s'endort après 15 minutes
+# sans visite). Ce workflow "sonne à la porte" du site une fois par jour :
+# c'est le site lui-même (server.js, route /api/internal/send-digest) qui
+# décide s'il y a quelque chose à envoyer, et à qui.
+#
+# 7h UTC = 9h à Paris en été (CEST), 8h en hiver (CET) : un horaire du
+# matin dans les deux cas, l'heure exacte n'a pas besoin d'être précise
+# pour un digest quotidien.
+#
+# Nécessite un secret DIGEST_SECRET créé dans ce dépôt GitHub (Settings →
+# Secrets and variables → Actions → New repository secret), avec la même
+# valeur que la variable d'environnement DIGEST_SECRET créée sur Render.
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Déclencher l'envoi du digest
+        run: |
+          curl -sS -X POST "https://risuonamusic.com/api/internal/send-digest" \
+            -H "x-digest-secret: ${{ secrets.DIGEST_SECRET }}" \
+            --fail
