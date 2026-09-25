@@ -266,9 +266,14 @@ img.cover-art { object-fit: contain; background: var(--ink); }
 .tag.ai { border: none; background: none; padding: 3px 0; color: var(--text-on-ink-dim); opacity: 0.8; font-size: 0.72rem; }
 .tag.explicit { border-color: #B85450; color: #D98680; }
 .tag.new { border-color: var(--teal); color: var(--teal); font-weight: 500; }
+.tag-early { border-color: var(--teal); color: var(--teal); }
 .copyright { font-size: 0.72rem; color: var(--text-on-ink-dim); opacity: 0.75; }
-.genesis { margin-top: 8px; }
-.genesis summary { cursor: pointer; font-size: 0.8rem; color: var(--brass); }
+.genesis { margin-top: 10px; }
+.genesis summary {
+  cursor: pointer; font-size: 0.78rem; font-weight: 600; color: var(--brass);
+  display: inline-block; padding: 4px 10px; border: 1px solid var(--brass); border-radius: 20px;
+}
+.genesis summary:hover { background: rgba(217, 143, 61, 0.12); }
 .genesis p { margin: 8px 0 0; font-size: 0.85rem; color: var(--text-on-ink-dim); line-height: 1.5; white-space: pre-wrap; }
 .track .actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; justify-self: end; }
 .actions-row { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }

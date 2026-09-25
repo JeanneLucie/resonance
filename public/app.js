@@ -1570,6 +1570,9 @@ function renderTrackCard(tr) {
   if (tr.explicit) tags.push('<span class="tag explicit">' + t('tag.explicit') + '</span>');
   if (tr.exclusive) tags.push('<span class="tag tag-exclusive">' + t('exclusive.badge') + '</span>');
   if (Date.now() - (tr.releaseAt || tr.createdAt) < 7 * 24 * 60 * 60 * 1000) tags.push('<span class="tag new">' + t('tag.new') + '</span>');
+  if ((tr.plays || 0) < 10) {
+    tags.push('<span class="tag tag-early" data-tooltip="' + escapeHtml(t('tag.earlyListenTooltip')) + '">' + t('tag.earlyListen') + '</span>');
+  }
 
   const streamingLinks = [];
   if (tr.spotifyUrl) streamingLinks.push(linkPill(tr.spotifyUrl, t('link.spotify')));
