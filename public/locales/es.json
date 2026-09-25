@@ -383,7 +383,7 @@
   "covers.albumTitle": "💿 Portada del álbum o del EP",
   "covers.albumHint": "Solo si este tema forma parte de un álbum o de un EP. Aparece en pequeño, en la esquina de la portada del tema.",
   "covers.previewLabel": "Vista previa: así aparecerán tus portadas en Risuona.",
-  "covers.autoHint": "¿Sin imagen? Risuona crea una portada única para tu tema. Puedes generar otra hasta que te guste.",
+  "covers.autoHint": "Si no tienes portada, o prefieres no enviar una, Risuona crea una única para tu tema. Puedes generar otra hasta que te guste.",
   "covers.regenerate": "🎲 Generar otro visual",
   "covers.editAutoHint": "Portada creada por Risuona. Genera otra si quieres; se guarda al hacer clic en «Guardar». También puedes subir tu propia imagen justo arriba.",
   "covers.notReady": "Las portadas automáticas aún no están activadas. Vuelve a intentarlo un poco más tarde.",

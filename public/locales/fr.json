@@ -383,7 +383,7 @@
   "covers.albumTitle": "💿 Pochette de l'album ou de l'EP",
   "covers.albumHint": "Seulement si ce titre fait partie d'un album ou d'un EP. Elle s'affiche en petit, dans le coin de la pochette du titre.",
   "covers.previewLabel": "Aperçu : voilà comment tes pochettes apparaîtront sur Risuona.",
-  "covers.autoHint": "Pas d'image ? Risuona crée une pochette unique pour ton morceau. Tu peux en tirer une autre jusqu'à ce qu'elle te plaise.",
+  "covers.autoHint": "Si tu n'as pas de pochette, ou préfères ne pas en envoyer, Risuona en crée une unique pour ton morceau. Tu peux en tirer une autre jusqu'à ce qu'elle te plaise.",
   "covers.regenerate": "🎲 Générer un autre visuel",
   "covers.editAutoHint": "Pochette créée par Risuona. Tire-en une autre si tu veux, elle sera enregistrée quand tu cliques sur « Enregistrer ». Tu peux aussi envoyer ta propre image juste au-dessus.",
   "covers.notReady": "Les pochettes automatiques ne sont pas encore activées sur le site. Réessaie un peu plus tard.",
