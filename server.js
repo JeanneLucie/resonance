@@ -1307,6 +1307,24 @@ app.get('/api/me/export', requireAuth, async (req, res) => {
   res.send(JSON.stringify(exportData, null, 2));
 });
 
+// --- Suppression de compte (demande écrite) ---
+// Volontairement pas de suppression en self-service (contrairement à
+// l'export) : la demande envoie un message à l'administratrice, qui
+// traite ensuite manuellement côté admin. Bloquée si un signalement non
+// résolu concerne un des morceaux du compte.
+app.post('/api/me/request-deletion', requireAuth, async (req, res) => {
+  const { data: me } = await supabase.from('users').select('artist_name, email').eq('id', req.session.userId).maybeSingle();
+  if (!me) return res.status(404).json({ error: 'not_found' });
+  const { data: myTracks } = await supabase.from('tracks').select('id').eq('user_id', req.session.userId);
+  const trackIds = (myTracks || []).map((t) => t.id);
+  if (trackIds.length) {
+    const { data: openReports } = await supabase.from('reports').select('id').in('track_id', trackIds).eq('resolved', false);
+    if (openReports && openReports.length) return res.status(409).json({ error: 'unresolved_report' });
+  }
+  await resendClient.notifyAccountDeletionRequest(me.artist_name, me.email);
+  res.json({ ok: true });
+});
+
 // --- Messagerie discrète (un visiteur écrit à un artiste sans jamais
 // voir son adresse e-mail réelle ; l'artiste répond depuis le site,
 // jamais depuis sa messagerie personnelle, pour la même raison) ---

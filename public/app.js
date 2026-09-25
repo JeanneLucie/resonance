@@ -825,6 +825,24 @@ document.getElementById('request-export-btn').addEventListener('click', async (e
   setTimeout(() => (btn.disabled = false), 3000);
 });
 
+// --- Suppression de compte (demande écrite, pas de bouton auto-service) ---
+document.getElementById('request-deletion-link').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const link = e.target;
+  const status = document.getElementById('deletion-status');
+  if (!confirm(t('deletion.confirm'))) return;
+  link.style.pointerEvents = 'none';
+  status.textContent = '…';
+  const res = await fetch('/api/me/request-deletion', { method: 'POST' });
+  link.style.pointerEvents = '';
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    status.textContent = t('error.' + data.error) || t('error.generic');
+    return;
+  }
+  status.textContent = t('deletion.requested');
+});
+
 function applyAccountTypeUI() {
   if (!currentUser) return;
   const isFan = currentUser.accountType === 'fan';
