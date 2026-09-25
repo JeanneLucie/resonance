@@ -278,6 +278,29 @@ img.cover-art { object-fit: contain; background: var(--ink); }
 .play-track-btn.is-playing .play-icon::before { content: '⏸'; font-size: 1rem; }
 .link-pill { font-size: 0.68rem; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--line); text-decoration: none; color: var(--text-on-ink-dim); opacity: 0.75; }
 .link-pill.donate { border-color: var(--brass); color: var(--brass); opacity: 1; }
+/* Infobulle personnalisée, quasi instantanée (pas le délai natif du
+   "title" du navigateur, souvent 1 à 2 secondes) : sert sur les boutons
+   qui n'ont qu'une icône (partager, aimer, playlist, signaler…). */
+[data-tooltip] { position: relative; }
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink, #1E1A2E);
+  color: #F3EFE6;
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 4px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.06s ease;
+  z-index: 30;
+}
+[data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { opacity: 1; transition-delay: 0.05s; }
 .share-track-btn, .like-track-btn, .report-track-btn { cursor: pointer; font-family: inherit; background: none; }
 .like-track-btn.liked { border-color: var(--brass); opacity: 1; }
 .like-track-btn .like-count { font-variant-numeric: tabular-nums; }

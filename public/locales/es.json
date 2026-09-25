@@ -164,6 +164,7 @@
   "comments.empty": "Todavía no hay comentarios. Sé el primero en dejar uno.",
   "comments.delete": "Eliminar",
   "comments.deleteConfirm": "¿Quitar este comentario? Dejará de ser visible públicamente.",
+  "comments.viewOnTrack": "Ver los comentarios y dejar uno",
   "comments.moderationHint": "Un comentario que quitas sigue siendo consultable por el equipo de Risuona, que puede reactivarlo si considera que la retirada no estaba justificada.",
   "verify.notice": "Recuerda confirmar tu correo con el enlace que te hemos enviado. Ya puedes publicar hasta 3 temas sin haberlo hecho. ¿No te ha llegado el correo? Escríbenos a contact@risuonamusic.com y confirmaremos tu dirección por ti.",
   "verify.resend": "Reenviar el correo",

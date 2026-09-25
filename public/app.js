@@ -1633,8 +1633,10 @@ function renderTrackCard(tr) {
     (streamingLinks.length ? '<div class="actions-row">' + streamingLinks.join('') + '</div>' : '') +
     '<div class="actions-row">' +
     otherLinks.join('') +
-    '<button type="button" class="link-pill share-track-btn" title="' +
-    t('track.shareTooltip') +
+    '<button type="button" class="link-pill share-track-btn" aria-label="' +
+    escapeHtml(t('track.shareTooltip')) +
+    '" data-tooltip="' +
+    escapeHtml(t('track.shareTooltip')) +
     '" data-share-url="' +
     escapeHtml(window.location.origin + '/#/morceau/' + tr.id) +
     '" data-share-artist="' +
@@ -1646,22 +1648,35 @@ function renderTrackCard(tr) {
     tr.id +
     '" data-liked="' +
     (tr.liked ? 'true' : 'false') +
-    '" title="' +
-    t('track.like') +
+    '" aria-label="' +
+    escapeHtml(t('track.like')) +
+    '" data-tooltip="' +
+    escapeHtml(t('track.like')) +
     '">' +
     (tr.liked ? '❤️' : '🤍') +
     ' <span class="like-count">' +
     (tr.likeCount || 0) +
     '</span></button>' +
+    '<a class="link-pill comment-link-btn" href="#/morceau/' +
+    tr.id +
+    '" aria-label="' +
+    escapeHtml(t('comments.viewOnTrack')) +
+    '" data-tooltip="' +
+    escapeHtml(t('comments.viewOnTrack')) +
+    '">💬</a>' +
     '<button type="button" class="link-pill add-to-playlist-btn" data-track-id="' +
     tr.id +
-    '" title="' +
-    t('playlists.addToTitle') +
+    '" aria-label="' +
+    escapeHtml(t('playlists.addToTitle')) +
+    '" data-tooltip="' +
+    escapeHtml(t('playlists.addToTitle')) +
     '">➕</button>' +
     '<button type="button" class="link-pill report-track-btn" data-report-id="' +
     tr.id +
-    '" title="' +
-    t('track.report') +
+    '" aria-label="' +
+    escapeHtml(t('track.report')) +
+    '" data-tooltip="' +
+    escapeHtml(t('track.report')) +
     '">🚩</button>' +
     '</div></div></div>'
   );
