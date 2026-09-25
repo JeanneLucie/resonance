@@ -34,6 +34,7 @@
   "auth.accountType": "Tu viens pour…",
   "auth.accountType.artist": "Publier ma musique",
   "auth.accountType.fan": "Écouter, découvrir et suivre des artistes",
+  "auth.artistWelcomeHint": "Que tu composes seul, en groupe ou avec l'aide de l'IA, déjà publié ailleurs (connu ou non) ou pas encore : ta place est ici. Auteur, compositeur, parolier, interprète, ou toute autre facette de la musique, écris-nous si tu ne sais pas où te situer.",
   "auth.email": "Adresse e-mail",
   "auth.password": "Mot de passe (8 caractères minimum)",
   "auth.submitSignup": "Créer mon compte",
