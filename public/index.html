@@ -157,6 +157,18 @@
           <p class="switch-link"><a href="#" id="show-signup" data-i18n="auth.switchToSignup">Pas encore de compte ? Créer un compte (pour écouter ou pour publier)</a></p>
           <p class="switch-link"><a href="#" id="show-forgot-password" data-i18n="auth.forgotPassword">Mot de passe oublié ?</a></p>
         </div>
+        <div id="login-totp-wrap" hidden>
+          <h3 data-i18n="auth.totp.title">Code de vérification</h3>
+          <p class="form-note" data-i18n="auth.totp.help">Saisis le code à 6 chiffres généré par ton application d'authentification.</p>
+          <form id="login-totp-form">
+            <label data-i18n="auth.totp.codeLabel" for="login-totp-code">Code à 6 chiffres</label>
+            <input type="text" id="login-totp-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" required>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" data-i18n="auth.totp.submit">Valider</button>
+              <span class="form-note" id="login-totp-status" aria-live="polite"></span>
+            </div>
+          </form>
+        </div>
         <div id="forgot-password-wrap" hidden>
           <h3 data-i18n="auth.forgotPassword.title">Mot de passe oublié</h3>
           <p class="form-note" data-i18n="auth.forgotPassword.help">Indique ton adresse e-mail, on t'envoie un lien pour choisir un nouveau mot de passe (valable 1 heure).</p>
@@ -572,6 +584,27 @@
       <div class="panel" id="admin-reports-panel" style="margin-top:24px;">
         <h3 data-i18n="admin.reports.title">Signalements</h3>
         <div id="admin-reports-list"></div>
+      </div>
+
+      <div class="panel" id="admin-totp-panel" style="margin-top:24px;">
+        <h3 data-i18n="admin.totp.title">Double authentification (connexion admin)</h3>
+        <p class="field-hint" data-i18n="admin.totp.hint">Ajoute un code de vérification (application Google Authenticator ou Authy) à la connexion de ce compte administrateur.</p>
+        <p class="field-hint" id="admin-totp-status-line"></p>
+        <button type="button" class="mini-btn" id="admin-totp-setup-btn" data-i18n="admin.totp.setupBtn">Activer la double authentification</button>
+        <div id="admin-totp-setup-wrap" hidden>
+          <p class="field-hint" data-i18n="admin.totp.scanHint">Ajoute cette clé dans ton application d'authentification (saisie manuelle) :</p>
+          <p class="field-hint"><code id="admin-totp-secret"></code></p>
+          <label data-i18n="admin.totp.codeLabel" for="admin-totp-confirm-code">Code à 6 chiffres</label>
+          <input type="text" id="admin-totp-confirm-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code">
+          <button type="button" class="mini-btn" id="admin-totp-confirm-btn" data-i18n="admin.totp.confirmBtn">Confirmer et activer</button>
+          <p class="form-note" id="admin-totp-setup-status" aria-live="polite"></p>
+        </div>
+        <div id="admin-totp-disable-wrap" hidden>
+          <label data-i18n="admin.totp.codeLabel" for="admin-totp-disable-code">Code à 6 chiffres</label>
+          <input type="text" id="admin-totp-disable-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code">
+          <button type="button" class="mini-btn" id="admin-totp-disable-btn" data-i18n="admin.totp.disableBtn">Désactiver la double authentification</button>
+          <p class="form-note" id="admin-totp-disable-status" aria-live="polite"></p>
+        </div>
       </div>
 
       <div class="panel" style="margin-top:24px;">

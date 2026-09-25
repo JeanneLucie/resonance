@@ -300,7 +300,48 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     status.textContent = t('error.' + data.error) || t('error.generic');
     return;
   }
+  if (data.totpRequired) {
+    status.textContent = '';
+    document.getElementById('login-form-wrap').hidden = true;
+    document.getElementById('login-totp-wrap').hidden = false;
+    document.getElementById('login-totp-code').value = '';
+    document.getElementById('login-totp-code').focus();
+    return;
+  }
   status.textContent = '';
+  await refreshMe();
+});
+
+// --- Code de vérification (double authentification, compte admin) ---
+document.getElementById('login-totp-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = document.getElementById('login-totp-status');
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  status.textContent = '…';
+  submitBtn.disabled = true;
+  const body = {
+    code: document.getElementById('login-totp-code').value.trim(),
+    deviceId: getDeviceId(),
+  };
+  const res = await fetch('/api/login/totp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  submitBtn.disabled = false;
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get('Retry-After')) || 1800;
+    showRateLimitCountdown(status, retryAfter);
+    return;
+  }
+  const data = await res.json();
+  if (!res.ok) {
+    status.textContent = t('error.' + data.error) || t('error.generic');
+    return;
+  }
+  status.textContent = '';
+  document.getElementById('login-totp-wrap').hidden = true;
+  document.getElementById('login-form-wrap').hidden = false;
   await refreshMe();
 });
 
@@ -1800,8 +1841,83 @@ function updateAdminUI() {
   const isAdmin = currentUser && currentUser.role === 'admin';
   document.getElementById('nav-admin').hidden = !isAdmin;
   document.getElementById('admin-block').hidden = !isAdmin;
-  if (isAdmin) loadAdminOverview();
+  if (isAdmin) {
+    loadAdminOverview();
+    renderAdminTotpPanel();
+  }
 }
+
+// --- Double authentification (TOTP) du compte admin ---
+function renderAdminTotpPanel() {
+  const enabled = !!currentUser.totpEnabled;
+  document.getElementById('admin-totp-status-line').textContent = enabled ? t('admin.totp.statusOn') : t('admin.totp.statusOff');
+  document.getElementById('admin-totp-setup-btn').hidden = enabled;
+  document.getElementById('admin-totp-setup-wrap').hidden = true;
+  document.getElementById('admin-totp-disable-wrap').hidden = !enabled;
+}
+
+document.getElementById('admin-totp-setup-btn').addEventListener('click', async (e) => {
+  const btn = e.target;
+  btn.disabled = true;
+  const res = await fetch('/api/admin/totp/setup', { method: 'POST' });
+  btn.disabled = false;
+  const data = await res.json();
+  if (!res.ok) {
+    showToast(t('error.' + data.error) || t('error.generic'));
+    return;
+  }
+  document.getElementById('admin-totp-secret').textContent = data.secret;
+  document.getElementById('admin-totp-confirm-code').value = '';
+  document.getElementById('admin-totp-setup-status').textContent = '';
+  document.getElementById('admin-totp-setup-wrap').hidden = false;
+});
+
+document.getElementById('admin-totp-confirm-btn').addEventListener('click', async (e) => {
+  const status = document.getElementById('admin-totp-setup-status');
+  const btn = e.target;
+  const code = document.getElementById('admin-totp-confirm-code').value.trim();
+  btn.disabled = true;
+  status.textContent = '…';
+  const res = await fetch('/api/admin/totp/enable', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  btn.disabled = false;
+  const data = await res.json();
+  if (!res.ok) {
+    status.textContent = t('error.' + data.error) || t('error.generic');
+    return;
+  }
+  currentUser = data.user;
+  status.textContent = '';
+  showToast(t('admin.totp.enabled'));
+  renderAdminTotpPanel();
+});
+
+document.getElementById('admin-totp-disable-btn').addEventListener('click', async (e) => {
+  const status = document.getElementById('admin-totp-disable-status');
+  const btn = e.target;
+  const code = document.getElementById('admin-totp-disable-code').value.trim();
+  btn.disabled = true;
+  status.textContent = '…';
+  const res = await fetch('/api/admin/totp/disable', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  btn.disabled = false;
+  const data = await res.json();
+  if (!res.ok) {
+    status.textContent = t('error.' + data.error) || t('error.generic');
+    return;
+  }
+  currentUser = data.user;
+  document.getElementById('admin-totp-disable-code').value = '';
+  status.textContent = '';
+  showToast(t('admin.totp.disabled'));
+  renderAdminTotpPanel();
+});
 
 async function loadAdminOverview() {
   const res = await fetch('/api/admin/overview');

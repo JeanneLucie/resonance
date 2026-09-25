@@ -67,6 +67,84 @@ function escapeLikePattern(str) {
   return String(str || '').replace(/[\\%_]/g, '\\$&');
 }
 
+// --- TOTP (double authentification, compte admin) ---
+// Implémentation "maison" de RFC 6238 (Google Authenticator, Authy…) avec
+// le module crypto natif de Node, pour ne pas ajouter de dépendance
+// externe rien que pour ça. Choisi plutôt que le SMS : gratuit, pas de
+// prestataire tiers à configurer.
+function base32Encode(buffer) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = 0;
+  let value = 0;
+  let output = '';
+  for (let i = 0; i < buffer.length; i++) {
+    value = (value << 8) | buffer[i];
+    bits += 8;
+    while (bits >= 5) {
+      output += alphabet[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) output += alphabet[(value << (5 - bits)) & 31];
+  return output;
+}
+
+function base32Decode(str) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const clean = String(str || '').toUpperCase().replace(/[^A-Z2-7]/g, '');
+  let bits = 0;
+  let value = 0;
+  const bytes = [];
+  for (let i = 0; i < clean.length; i++) {
+    value = (value << 5) | alphabet.indexOf(clean[i]);
+    bits += 5;
+    if (bits >= 8) {
+      bytes.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(bytes);
+}
+
+function generateTotpSecret() {
+  return base32Encode(crypto.randomBytes(20));
+}
+
+function totpAt(secret, timeStep) {
+  const key = base32Decode(secret);
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64BE(BigInt(timeStep));
+  const hmac = crypto.createHmac('sha1', key).update(buf).digest();
+  const offset = hmac[hmac.length - 1] & 0xf;
+  const code =
+    ((hmac[offset] & 0x7f) << 24) |
+    ((hmac[offset + 1] & 0xff) << 16) |
+    ((hmac[offset + 2] & 0xff) << 8) |
+    (hmac[offset + 3] & 0xff);
+  return String(code % 1000000).padStart(6, '0');
+}
+
+// Tolère un léger décalage d'horloge entre le téléphone et le serveur en
+// acceptant aussi le pas de temps juste avant et juste après (30s chacun).
+function verifyTotp(secret, code) {
+  if (!secret || !/^\d{6}$/.test(String(code || ''))) return false;
+  const step = Math.floor(Date.now() / 1000 / 30);
+  for (let i = -1; i <= 1; i++) {
+    if (totpAt(secret, step + i) === String(code)) return true;
+  }
+  return false;
+}
+
+function totpAuthUrl(secret, email) {
+  return (
+    'otpauth://totp/' +
+    encodeURIComponent('Risuona (' + email + ')') +
+    '?secret=' + secret +
+    '&issuer=' + encodeURIComponent('Risuona') +
+    '&algorithm=SHA1&digits=6&period=30'
+  );
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024 },
@@ -236,6 +314,9 @@ function publicUser(u) {
     cguVersion: CGU_VERSION,
     cguUpToDate: isCguUpToDate(u),
     identityVerified: u.identity_verified === true,
+    // Double authentification (compte admin uniquement) : jamais le secret,
+    // juste si elle est activée, pour afficher le bon état côté interface.
+    totpEnabled: u.totp_enabled === true,
     // Nom affiché sur les pochettes créées automatiquement : 'full' (nom
     // complet) ou 'initials' (ex. « M.D. » pour Marine Dax).
     coverNameStyle: u.cover_name_style === 'initials' ? 'initials' : 'full',
@@ -591,12 +672,10 @@ app.post('/api/signup', authLimiter, async (req, res) => {
   res.json({ ok: true, user: publicUser(user) });
 });
 
-app.post('/api/login', authLimiter, loginEmailLimiter, async (req, res) => {
-  const { email, password, deviceId } = req.body;
-  const { data: user } = await supabase.from('users').select('*').ilike('email', escapeLikePattern(email || '')).maybeSingle();
-  if (!user) return res.status(401).json({ error: 'invalid_credentials' });
-  const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
+// Finalise une connexion déjà validée (mot de passe correct, et code TOTP
+// correct si le compte en a un) : ouvre la session, rattache les likes
+// faits sans compte, et journalise la connexion (IP + horodatage).
+async function completeLogin(req, user, deviceId) {
   req.session.userId = user.id;
   await mergeDeviceLikes(user.id, deviceId);
   // Log de connexion (obligation LCEN) : adresse IP + horodatage,
@@ -608,6 +687,46 @@ app.post('/api/login', authLimiter, loginEmailLimiter, async (req, res) => {
   } catch (err) {
     // Silencieux : un log de connexion qui échoue ne doit jamais bloquer la connexion.
   }
+}
+
+app.post('/api/login', authLimiter, loginEmailLimiter, async (req, res) => {
+  const { email, password, deviceId } = req.body;
+  const { data: user } = await supabase.from('users').select('*').ilike('email', escapeLikePattern(email || '')).maybeSingle();
+  if (!user) return res.status(401).json({ error: 'invalid_credentials' });
+  const ok = await bcrypt.compare(password, user.password_hash);
+  if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
+  // Compte admin avec double authentification activée : le mot de passe
+  // seul ne suffit pas, il faut ensuite un code TOTP valide (voir
+  // /api/login/totp) avant d'ouvrir vraiment la session.
+  if (user.role === 'admin' && user.totp_enabled) {
+    req.session.pendingTotpUserId = user.id;
+    req.session.pendingTotpExpires = Date.now() + 5 * 60 * 1000;
+    return res.json({ ok: true, totpRequired: true });
+  }
+  await completeLogin(req, user, deviceId);
+  res.json({ ok: true, user: publicUser(user) });
+});
+
+// Deuxième étape de la connexion admin : vérifie le code à 6 chiffres de
+// l'application d'authentification. Limité comme une tentative de
+// connexion classique (authLimiter) pour empêcher un essai en rafale des
+// 1 000 000 de codes possibles.
+app.post('/api/login/totp', authLimiter, async (req, res) => {
+  const { code, deviceId } = req.body || {};
+  const pendingId = req.session.pendingTotpUserId;
+  if (!pendingId || !req.session.pendingTotpExpires || req.session.pendingTotpExpires < Date.now()) {
+    delete req.session.pendingTotpUserId;
+    delete req.session.pendingTotpExpires;
+    return res.status(401).json({ error: 'totp_session_expired' });
+  }
+  const { data: user } = await supabase.from('users').select('*').eq('id', pendingId).maybeSingle();
+  if (!user || user.role !== 'admin' || !user.totp_enabled || !user.totp_secret) {
+    return res.status(401).json({ error: 'invalid_credentials' });
+  }
+  if (!verifyTotp(user.totp_secret, code)) return res.status(401).json({ error: 'invalid_totp_code' });
+  delete req.session.pendingTotpUserId;
+  delete req.session.pendingTotpExpires;
+  await completeLogin(req, user, deviceId);
   res.json({ ok: true, user: publicUser(user) });
 });
 
@@ -1298,6 +1417,42 @@ app.post('/api/admin/users/:id/toggle-verified', requireAdmin, async (req, res) 
   if (!user) return res.status(404).json({ error: 'not_found' });
   await supabase.from('users').update({ identity_verified: !user.identity_verified }).eq('id', req.params.id);
   res.json({ ok: true, identityVerified: !user.identity_verified });
+});
+
+// --- Double authentification (TOTP) du compte admin ---
+// En 3 temps, comme sur la plupart des sites : 1) setup génère une clé et
+// la renvoie une seule fois (pour le QR / la saisie manuelle) sans encore
+// rien activer ; 2) enable exige un vrai code généré par l'application
+// pour prouver qu'elle est bien configurée avant d'activer ; 3) disable
+// exige aussi un code valide (empêche une désactivation accidentelle ou
+// via une session volée sans le second facteur).
+app.post('/api/admin/totp/setup', requireAdmin, async (req, res) => {
+  const { data: me } = await supabase.from('users').select('id, email, totp_enabled').eq('id', req.session.userId).maybeSingle();
+  if (!me) return res.status(404).json({ error: 'not_found' });
+  if (me.totp_enabled) return res.status(409).json({ error: 'totp_already_enabled' });
+  const secret = generateTotpSecret();
+  await supabase.from('users').update({ totp_secret: secret }).eq('id', me.id);
+  res.json({ ok: true, secret, otpauthUrl: totpAuthUrl(secret, me.email) });
+});
+
+app.post('/api/admin/totp/enable', requireAdmin, authLimiter, async (req, res) => {
+  const { code } = req.body || {};
+  const { data: me } = await supabase.from('users').select('id, totp_secret').eq('id', req.session.userId).maybeSingle();
+  if (!me || !me.totp_secret) return res.status(400).json({ error: 'totp_not_set_up' });
+  if (!verifyTotp(me.totp_secret, code)) return res.status(400).json({ error: 'invalid_totp_code' });
+  await supabase.from('users').update({ totp_enabled: true }).eq('id', me.id);
+  const { data: updated } = await supabase.from('users').select('*').eq('id', me.id).single();
+  res.json({ ok: true, user: publicUser(updated) });
+});
+
+app.post('/api/admin/totp/disable', requireAdmin, authLimiter, async (req, res) => {
+  const { code } = req.body || {};
+  const { data: me } = await supabase.from('users').select('id, totp_secret, totp_enabled').eq('id', req.session.userId).maybeSingle();
+  if (!me || !me.totp_enabled) return res.json({ ok: true });
+  if (!verifyTotp(me.totp_secret, code)) return res.status(400).json({ error: 'invalid_totp_code' });
+  await supabase.from('users').update({ totp_enabled: false, totp_secret: null }).eq('id', me.id);
+  const { data: updated } = await supabase.from('users').select('*').eq('id', me.id).single();
+  res.json({ ok: true, user: publicUser(updated) });
 });
 
 app.get('/api/me/export', requireAuth, async (req, res) => {
