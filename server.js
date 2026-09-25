@@ -55,6 +55,18 @@ function audioTypeFromName(name) {
   return AUDIO_TYPES_BY_EXTENSION[path.extname(name || '').toLowerCase()] || null;
 }
 
+// Neutralise les caractères spéciaux de ILIKE (% et _, jokers SQL) avant de
+// les passer dans une recherche par e-mail. Sans ça, un e-mail contenant un
+// "%" ferait correspondre plusieurs comptes à la fois au lieu d'un seul
+// (ex. "%" seul correspond à n'importe quel e-mail) — un comportement qui
+// n'a rien à voir avec une simple recherche insensible à la casse. On garde
+// ILIKE plutôt que de passer à une comparaison stricte, car les e-mails ne
+// sont pas normalisés en minuscules à l'inscription (des comptes existants
+// ont leur casse d'origine).
+function escapeLikePattern(str) {
+  return String(str || '').replace(/[\\%_]/g, '\\$&');
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024 },
@@ -454,7 +466,7 @@ app.post('/api/signup', authLimiter, async (req, res) => {
   if (password.length < 8) return res.status(400).json({ error: 'password_too_short' });
   if (!acceptedTerms) return res.status(400).json({ error: 'terms_not_accepted' });
 
-  const { data: existing } = await supabase.from('users').select('id').ilike('email', email).maybeSingle();
+  const { data: existing } = await supabase.from('users').select('id').ilike('email', escapeLikePattern(email)).maybeSingle();
   if (existing) return res.status(409).json({ error: 'email_taken' });
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -489,7 +501,7 @@ app.post('/api/signup', authLimiter, async (req, res) => {
 
 app.post('/api/login', authLimiter, loginEmailLimiter, async (req, res) => {
   const { email, password } = req.body;
-  const { data: user } = await supabase.from('users').select('*').ilike('email', email || '').maybeSingle();
+  const { data: user } = await supabase.from('users').select('*').ilike('email', escapeLikePattern(email || '')).maybeSingle();
   if (!user) return res.status(401).json({ error: 'invalid_credentials' });
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
