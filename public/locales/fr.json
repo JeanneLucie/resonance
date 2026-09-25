@@ -225,6 +225,8 @@
   "track.playsMany": "{n} écoutes",
   "track.report": "Signaler ce morceau",
   "track.like": "J'aime ce morceau",
+  "track.likedAnnounce": "Morceau aimé",
+  "track.unlikedAnnounce": "J'aime retiré",
   "track.shareTooltip": "Partager ce morceau",
   "track.reportPrompt": "Décris brièvement le problème (contenu interdit, droits d'auteur, usurpation…) :",
   "track.reportSent": "Signalement envoyé, merci.",

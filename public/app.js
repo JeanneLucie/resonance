@@ -1648,6 +1648,8 @@ function renderTrackCard(tr) {
     tr.id +
     '" data-liked="' +
     (tr.liked ? 'true' : 'false') +
+    '" aria-pressed="' +
+    (tr.liked ? 'true' : 'false') +
     '" aria-label="' +
     escapeHtml(t('track.like')) +
     '" data-tooltip="' +
@@ -3146,6 +3148,7 @@ document.addEventListener('click', async (e) => {
     const data = await res.json();
     document.querySelectorAll('.like-track-btn[data-track-id="' + trackId + '"]').forEach((el) => {
       el.setAttribute('data-liked', data.liked ? 'true' : 'false');
+      el.setAttribute('aria-pressed', data.liked ? 'true' : 'false');
       el.classList.toggle('liked', !!data.liked);
       el.innerHTML = (data.liked ? '❤️' : '🤍') + ' <span class="like-count">' + (data.likeCount || 0) + '</span>';
     });
@@ -3153,6 +3156,11 @@ document.addEventListener('click', async (e) => {
     // pas quand on le retire, et seulement sur le bouton cliqué (pas ses
     // éventuels doublons ailleurs sur la page).
     if (data.liked) sparkleLike(btn);
+    // Confirmation silencieuse pour les lecteurs d'écran (le cœur qui change
+    // et l'étincelle ne sont pas perçus sans la vue) : n'affiche rien à
+    // l'écran, contrairement au toast général du site.
+    const announcer = document.getElementById('like-announcer');
+    if (announcer) announcer.textContent = t(data.liked ? 'track.likedAnnounce' : 'track.unlikedAnnounce');
   } finally {
     btn.disabled = false;
   }

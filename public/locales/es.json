@@ -225,6 +225,8 @@
   "track.playsMany": "{n} reproducciones",
   "track.report": "Reportar este tema",
   "track.like": "Me gusta este tema",
+  "track.likedAnnounce": "Tema marcado como me gusta",
+  "track.unlikedAnnounce": "Me gusta retirado",
   "track.shareTooltip": "Compartir este tema",
   "track.reportPrompt": "Describe brevemente el problema (contenido prohibido, derechos de autor, suplantación…):",
   "track.reportSent": "Reporte enviado, gracias.",

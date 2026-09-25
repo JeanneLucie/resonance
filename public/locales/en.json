@@ -225,6 +225,8 @@
   "track.playsMany": "{n} plays",
   "track.report": "Report this track",
   "track.like": "Like this track",
+  "track.likedAnnounce": "Track liked",
+  "track.unlikedAnnounce": "Like removed",
   "track.shareTooltip": "Share this track",
   "track.reportPrompt": "Briefly describe the issue (prohibited content, copyright, impersonation…):",
   "track.reportSent": "Report sent, thank you.",

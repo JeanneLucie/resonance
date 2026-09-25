@@ -302,24 +302,33 @@ img.cover-art { object-fit: contain; background: var(--ink); }
 }
 [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { opacity: 1; transition-delay: 0.05s; }
 
-/* Étincelle au clic sur "j'aime" : un rond qui s'étend et disparaît, entouré
-   de petits points qui s'écartent, tout en fondu. */
+/* Cache visuellement un élément tout en le laissant lisible par un lecteur
+   d'écran (utilisé pour l'annonce "j'aime"/"j'aime retiré"). */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Étincelle au clic sur "j'aime" : un anneau doré qui s'étend et disparaît,
+   entouré de petits points qui s'écartent, tout en fondu (mêmes tons que le
+   reste du site). */
 .like-track-btn { position: relative; overflow: visible; }
 .like-spark-wrap { position: absolute; left: 14px; top: 50%; width: 0; height: 0; pointer-events: none; }
 .like-spark-ring {
   position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px 0 0 -3px;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px rgba(224, 96, 122, 0.9);
+  box-shadow: 0 0 0 2px rgba(217, 143, 61, 0.9);
   animation: like-spark-ring 0.5s ease-out forwards;
 }
 .like-spark-dot {
   position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px 0 0 -3px;
-  border-radius: 50%; background: #ff7a94;
+  border-radius: 50%; background: #ffdfa6;
+  box-shadow: 0 0 5px 1px rgba(217, 143, 61, 0.8);
   animation: like-spark-dot 0.55s ease-out forwards;
 }
 @keyframes like-spark-ring {
-  from { box-shadow: 0 0 0 0 rgba(224, 96, 122, 0.9); opacity: 1; }
-  to { box-shadow: 0 0 0 20px rgba(224, 96, 122, 0); opacity: 0; }
+  from { box-shadow: 0 0 0 0 rgba(217, 143, 61, 0.9); opacity: 1; }
+  to { box-shadow: 0 0 0 20px rgba(217, 143, 61, 0); opacity: 0; }
 }
 @keyframes like-spark-dot {
   from { transform: translate(0, 0) scale(1); opacity: 1; }
