@@ -11,6 +11,10 @@
 <meta property="og:url" content="https://risuonamusic.com">
 <meta property="og:image" content="https://risuonamusic.com/icons/icon-512.png">
 <meta name="twitter:card" content="summary">
+<link rel="canonical" href="https://risuonamusic.com/">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebSite","name":"Risuona","url":"https://risuonamusic.com/","description":"Plateforme française indépendante pour artistes musicaux : hébergement des morceaux, distribution vers les plateformes de streaming, soutien direct du public sans commission."}
+</script>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#1E1A2E">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
@@ -428,6 +432,13 @@
           <div id="ai-detail-block" hidden>
             <label data-i18n="dashboard.addTrack.aiTool" for="track-aiTool">Quel(s) outil(s) ont été utilisés ?</label>
             <input type="text" id="track-aiTool" data-i18n-placeholder="dashboard.addTrack.aiToolPh" placeholder="Ex. Suno pour la voix, un autre outil pour le mastering…">
+            <div class="checkbox-row">
+              <input type="checkbox" id="track-ai-commercial-rights">
+              <div class="ctext">
+                <strong data-i18n="ai.commercialRights.label">Je détiens les droits commerciaux sur les parties générées par IA</strong><br>
+                <span data-i18n="ai.commercialRights.hint">Certains outils IA (ex. l'offre gratuite de Suno) ne donnent pas le droit d'exploiter commercialement ce qu'ils génèrent, seule une formule payante le permet. Cette case t'aide à t'en souvenir au moment de choisir un service de distribution : coche-la seulement si tu sais que tu as ce droit.</span>
+              </div>
+            </div>
           </div>
           <p class="ai-hint" data-i18n="dashboard.addTrack.aiHint">Coché ou non, ton morceau est le bienvenu ici. Cette information est affichée publiquement, en toute transparence.</p>
 
@@ -711,7 +722,7 @@
   <div class="wrap">
     <p data-i18n="footer.text">Risuona est un projet indépendant.</p>
     <p data-i18n="footer.evolving">Risuona continuera d'évoluer.</p>
-    <p><a href="/cgu.html" data-i18n="footer.terms">Conditions d'utilisation & confidentialité</a> · <a href="/roadmap.html" data-i18n="footer.roadmap">Feuille de route</a></p>
+    <p><a href="/cgu.html" data-i18n="footer.terms">Conditions d'utilisation & confidentialité</a> · <a href="/mentions-legales.html" data-i18n="footer.legal">Mentions légales</a> · <a href="/roadmap.html" data-i18n="footer.roadmap">Feuille de route</a></p>
   </div>
 </footer>
 

@@ -26,6 +26,31 @@ const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').toLowerCase();
 // jamais vraiment — ce qui casse silencieusement toutes les connexions.
 app.set('trust proxy', 1);
 
+// --- Domaine canonique ---
+// Risuona a changé de nom (Résonance → Risuona) et vit maintenant sur
+// risuonamusic.com. L'ancien domaine (risuona.fr) et l'adresse technique
+// de l'hébergeur (resonance-726l.onrender.com) peuvent rester accessibles
+// tant que le DNS pointe dessus : sans redirection, Google voit le même
+// contenu à plusieurs adresses différentes (contenu dupliqué), ce qui nuit
+// au référencement de l'adresse officielle. Cette redirection ne prend
+// effet que si la requête atteint bien ce serveur : pour risuona.fr, il
+// faut d'abord que le domaine soit routé vers Render (voir la procédure
+// séparée, hors code).
+const CANONICAL_HOST = 'risuonamusic.com';
+const HOSTS_TO_REDIRECT_TO_CANONICAL = [
+  'risuona.fr',
+  'www.risuona.fr',
+  'www.risuonamusic.com',
+  'resonance-726l.onrender.com',
+];
+app.use((req, res, next) => {
+  const host = (req.headers.host || '').toLowerCase().split(':')[0];
+  if (HOSTS_TO_REDIRECT_TO_CANONICAL.includes(host)) {
+    return res.redirect(301, 'https://' + CANONICAL_HOST + req.originalUrl);
+  }
+  next();
+});
+
 // --- Config upload (audio, pochettes, avatars, bannières) ---
 // Les fichiers sont stockés sur Supabase Storage (bucket "media"),
 // permanent — contrairement à un dossier local sur Render, qui peut être
@@ -358,6 +383,7 @@ function mapTrack(t, artistName) {
     genesis: t.genesis || '',
     explicit: !!t.explicit,
     exclusive: !!t.exclusive,
+    aiCommercialRights: !!t.ai_commercial_rights,
     spotifyUrl: t.spotify_url || '',
     appleUrl: t.apple_url || '',
     plays: t.plays || 0,
@@ -1144,7 +1170,7 @@ app.get('/api/me/tracks', requireAuth, async (req, res) => {
 });
 
 app.post('/api/tracks', requireAuth, requireCguUpToDate, upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }, { name: 'albumCover', maxCount: 1 }]), async (req, res) => {
-  const { title, genre, aiLyrics, aiMusic, aiVocals, aiTool, collaborators, genesis, explicit, exclusive, spotifyUrl, appleUrl } = req.body;
+  const { title, genre, aiLyrics, aiMusic, aiVocals, aiTool, aiCommercialRights, collaborators, genesis, explicit, exclusive, spotifyUrl, appleUrl } = req.body;
   const releaseAt = parseReleaseAt(req.body.releaseAt);
   if (releaseAt === 'too_far') return res.status(400).json({ error: 'release_too_far' });
   const audioFile = req.files && req.files.audio && req.files.audio[0];
@@ -1192,6 +1218,11 @@ app.post('/api/tracks', requireAuth, requireCguUpToDate, upload.fields([{ name: 
     ai_music: aiMusic === 'true' || aiMusic === true,
     ai_vocals: aiVocals === 'true' || aiVocals === true,
     ai_tool: aiTool || '',
+    // Déclaration de l'artiste sur les droits commerciaux des parties IA
+    // (ex. offre gratuite Suno = pas de droits commerciaux). Colonne
+    // ajoutée récemment : si elle n'existe pas encore côté Supabase, on
+    // republie sans elle plutôt que de bloquer toute la publication.
+    ai_commercial_rights: aiCommercialRights === 'true' || aiCommercialRights === true,
     audio_url: audioUrl,
     cover_url: coverUrl,
     collaborators: collaborators || '',
@@ -1222,6 +1253,12 @@ app.post('/api/tracks', requireAuth, requireCguUpToDate, upload.fields([{ name: 
     delete row.cover_generated;
     ({ data: track, error } = await supabase.from('tracks').insert(row).select().single());
   }
+  // Idem pour la colonne ai_commercial_rights tant qu'elle n'a pas été
+  // ajoutée à la table tracks dans Supabase.
+  if (error && /ai_commercial_rights/.test(error.message || '')) {
+    delete row.ai_commercial_rights;
+    ({ data: track, error } = await supabase.from('tracks').insert(row).select().single());
+  }
 
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   const advice = await releaseAdvice(req.session.userId, releaseAt, track.id);
@@ -1240,6 +1277,7 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
   if (req.body.aiMusic !== undefined) fields.ai_music = req.body.aiMusic === 'true' || req.body.aiMusic === true;
   if (req.body.aiVocals !== undefined) fields.ai_vocals = req.body.aiVocals === 'true' || req.body.aiVocals === true;
   if (req.body.aiTool !== undefined) fields.ai_tool = req.body.aiTool;
+  if (req.body.aiCommercialRights !== undefined) fields.ai_commercial_rights = req.body.aiCommercialRights === 'true' || req.body.aiCommercialRights === true;
   if (req.body.collaborators !== undefined) fields.collaborators = req.body.collaborators;
   if (req.body.genesis !== undefined) fields.genesis = req.body.genesis;
   if (req.body.explicit !== undefined) fields.explicit = req.body.explicit === 'true' || req.body.explicit === true;
@@ -1278,7 +1316,14 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
     else if (track.cover_generated) fields.cover_generated = false;
   }
 
-  const { data: updated, error } = await supabase.from('tracks').update(fields).eq('id', track.id).select().single();
+  let { data: updated, error } = await supabase.from('tracks').update(fields).eq('id', track.id).select().single();
+  // Colonne ai_commercial_rights pas encore ajoutée côté Supabase : on
+  // enregistre quand même le reste des modifications plutôt que de tout
+  // bloquer.
+  if (error && /ai_commercial_rights/.test(error.message || '')) {
+    delete fields.ai_commercial_rights;
+    ({ data: updated, error } = await supabase.from('tracks').update(fields).eq('id', track.id).select().single());
+  }
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   await attachAlbums([updated]);
   res.json({ ok: true, track: mapTrack(updated) });
@@ -1373,7 +1418,7 @@ function escapeHtmlAttr(str) {
 // fichier (une seule balise <title>, une seule meta description, etc.) :
 // si jamais l'un de ces éléments manque, la ligne correspondante est
 // simplement laissée telle quelle plutôt que de faire planter la réponse.
-function renderIndexWithMeta({ title, description, url, image }) {
+function renderIndexWithMeta({ title, description, url, image, structuredData }) {
   let html = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
   const t = escapeHtmlAttr(title);
   const d = escapeHtmlAttr(description);
@@ -1386,6 +1431,22 @@ function renderIndexWithMeta({ title, description, url, image }) {
   html = html.replace(/<meta property="og:url" content=".*?">/, '<meta property="og:url" content="' + u + '">');
   if (image) html = html.replace(/<meta property="og:image" content=".*?">/, '<meta property="og:image" content="' + i + '">');
   html = html.replace(/<meta name="twitter:card" content=".*?">/, '<meta name="twitter:card" content="summary_large_image">');
+  // Chaque page artiste/morceau a sa propre adresse canonique (celle passée
+  // ici), distincte de la balise par défaut posée dans index.html (qui
+  // pointe vers la page d'accueil). Sans ça, Google recevrait un signal
+  // contradictoire : une balise canonical qui dit "l'original c'est la
+  // page d'accueil" sur une page qui n'est pourtant pas la page d'accueil.
+  html = html.replace(/<link rel="canonical" href=".*?">/, '<link rel="canonical" href="' + u + '">');
+  // Données structurées (schema.org) propres à cette page : remplace le
+  // WebSite générique de la page d'accueil par une fiche MusicGroup ou
+  // MusicRecording, ce que Google peut afficher plus richement dans ses
+  // résultats et qui l'aide à comprendre le contenu de la page.
+  if (structuredData) {
+    html = html.replace(
+      /<script type="application\/ld\+json">[\s\S]*?<\/script>/,
+      '<script type="application/ld+json">\n' + JSON.stringify(structuredData) + '\n</script>'
+    );
+  }
   return html;
 }
 
@@ -1393,28 +1454,50 @@ app.get('/artiste/:id', async (req, res, next) => {
   const { data: artist } = await supabase.from('users').select('artist_name, bio, avatar_url').eq('id', req.params.id).maybeSingle();
   if (!artist) return next(); // pas d'artiste : page normale, app.js affichera "introuvable"
   const siteUrl = req.protocol + '://' + req.get('host');
+  const pageUrl = siteUrl + '/artiste/' + req.params.id;
+  const pageImage = artist.avatar_url || siteUrl + '/icons/icon-512.png';
   res.send(
     renderIndexWithMeta({
       title: artist.artist_name + ' | Risuona',
       description: (artist.bio && artist.bio.trim()) || 'Découvre ' + artist.artist_name + ' sur Risuona, plateforme indépendante pour artistes musicaux.',
-      url: siteUrl + '/artiste/' + req.params.id,
-      image: artist.avatar_url || siteUrl + '/icons/icon-512.png',
+      url: pageUrl,
+      image: pageImage,
+      structuredData: {
+        '@context': 'https://schema.org',
+        '@type': 'MusicGroup',
+        name: artist.artist_name,
+        url: pageUrl,
+        image: pageImage,
+        ...(artist.bio && artist.bio.trim() ? { description: artist.bio.trim() } : {}),
+      },
     })
   );
 });
 
 app.get('/morceau/:id', async (req, res, next) => {
-  const { data: track } = await supabase.from('tracks').select('title, cover_url, user_id, release_at').eq('id', req.params.id).maybeSingle();
+  const { data: track } = await supabase.from('tracks').select('title, cover_url, user_id, release_at, created_at').eq('id', req.params.id).maybeSingle();
   if (!track) return next();
   if (track.release_at && Number(track.release_at) > Date.now()) return next(); // pas encore sorti : pas d'indexation anticipée
   const { data: artist } = await supabase.from('users').select('artist_name').eq('id', track.user_id).maybeSingle();
   const siteUrl = req.protocol + '://' + req.get('host');
+  const pageUrl = siteUrl + '/morceau/' + req.params.id;
+  const pageImage = track.cover_url || siteUrl + '/icons/icon-512.png';
+  const publishedAt = Number(track.release_at) || Number(track.created_at);
   res.send(
     renderIndexWithMeta({
       title: track.title + ' · ' + (artist ? artist.artist_name : '') + ' | Risuona',
       description: 'Écoute "' + track.title + '" par ' + (artist ? artist.artist_name : 'un artiste Risuona') + ', en écoute libre sur Risuona.',
-      url: siteUrl + '/morceau/' + req.params.id,
-      image: track.cover_url || siteUrl + '/icons/icon-512.png',
+      url: pageUrl,
+      image: pageImage,
+      structuredData: {
+        '@context': 'https://schema.org',
+        '@type': 'MusicRecording',
+        name: track.title,
+        url: pageUrl,
+        image: pageImage,
+        ...(artist ? { byArtist: { '@type': 'MusicGroup', name: artist.artist_name, url: siteUrl + '/artiste/' + track.user_id } } : {}),
+        ...(publishedAt ? { datePublished: new Date(publishedAt).toISOString().slice(0, 10) } : {}),
+      },
     })
   );
 });

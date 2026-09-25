@@ -538,6 +538,7 @@ document.getElementById('track-form').addEventListener('submit', async (e) => {
   formData.append('aiMusic', document.getElementById('track-ai-music').checked);
   formData.append('aiVocals', document.getElementById('track-ai-vocals').checked);
   formData.append('aiTool', document.getElementById('track-aiTool').value.trim());
+  formData.append('aiCommercialRights', document.getElementById('track-ai-commercial-rights').checked);
   const releaseValue = document.getElementById('track-releaseAt').value;
   if (releaseValue) formData.append('releaseAt', String(new Date(releaseValue).getTime()));
   formData.append('audio', fileInput.files[0]);
@@ -1847,6 +1848,7 @@ function toggleEditPanel(trackId) {
     '</div>' +
     '<label>' + t('dashboard.addTrack.aiTool') + '</label>' +
     '<input type="text" class="edit-aitool" value="' + escapeHtml(tr.aiTool || '') + '">' +
+    '<label class="edit-explicit-row"><input type="checkbox" class="edit-ai-commercial-rights"' + (tr.aiCommercialRights ? ' checked' : '') + '> ' + t('ai.commercialRights.label') + '</label>' +
     '<label>' + t('dashboard.addTrack.cover') + '</label>' +
     '<input type="file" class="edit-cover" accept="image/*">' +
     (autoCover
@@ -1907,6 +1909,7 @@ function toggleEditPanel(trackId) {
     formData.append('aiMusic', panel.querySelector('.edit-ai-music').checked);
     formData.append('aiVocals', panel.querySelector('.edit-ai-vocals').checked);
     formData.append('aiTool', panel.querySelector('.edit-aitool').value.trim());
+    formData.append('aiCommercialRights', panel.querySelector('.edit-ai-commercial-rights').checked);
     const coverFile = panel.querySelector('.edit-cover').files[0];
     if (coverFile) formData.append('cover', coverFile);
     // Pochette automatique : nouvelle pochette si l'artiste en a tiré une
