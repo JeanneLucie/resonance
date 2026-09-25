@@ -1609,6 +1609,8 @@ function renderTrackCard(tr) {
     escapeHtml(tr.title) +
     '" data-artist="' +
     escapeHtml(tr.artistName) +
+    '" data-artist-id="' +
+    tr.userId +
     '" data-cover="' +
     escapeHtml(tr.coverUrl || '') +
     '" data-cover-fallback="' +
@@ -3206,12 +3208,12 @@ function findTrackById(id) {
 
 let playCountTimer = null;
 
-function playTrackById(id, audioUrl, title, artist, coverUrl, coverFallback, queue) {
+function playTrackById(id, audioUrl, title, artist, artistId, coverUrl, coverFallback, queue) {
   currentQueueRef = queue || currentDiscoverQueue;
   currentTrackId = id;
   globalAudio.src = audioUrl;
   globalAudio.play().catch(() => {});
-  saveRecentListen({ id, title, artistName: artist, coverUrl });
+  saveRecentListen({ id, title, artistName: artist, artistId, coverUrl });
   if (!coverUrl) coverUrl = fallbackCoverUrl(title, artist);
 
   // Une écoute ne compte qu'après 15 secondes de lecture réelle, pour
@@ -3275,6 +3277,7 @@ document.addEventListener('click', (e) => {
     btn.getAttribute('data-audio-url'),
     btn.getAttribute('data-title'),
     btn.getAttribute('data-artist'),
+    btn.getAttribute('data-artist-id'),
     btn.getAttribute('data-cover'),
     btn.getAttribute('data-cover-fallback'),
     inArtistPage ? currentArtistQueue : currentDiscoverQueue
@@ -3349,7 +3352,7 @@ function playNeighbour(offset) {
   const idx = currentQueueRef.findIndex((tr) => tr.id === currentTrackId);
   const target = idx > -1 ? currentQueueRef[idx + offset] : null;
   if (!target) return;
-  playTrackById(target.id, target.audioUrl, target.title, target.artistName, target.coverUrl, (target.title || '?').trim().charAt(0).toUpperCase(), currentQueueRef);
+  playTrackById(target.id, target.audioUrl, target.title, target.artistName, target.userId, target.coverUrl, (target.title || '?').trim().charAt(0).toUpperCase(), currentQueueRef);
 }
 
 if ('mediaSession' in navigator) {
@@ -3433,7 +3436,7 @@ globalAudio.addEventListener('ended', () => {
   const idx = currentQueueRef.findIndex((t) => t.id === currentTrackId);
   const next = idx > -1 ? currentQueueRef[idx + 1] : null;
   if (next) {
-    playTrackById(next.id, next.audioUrl, next.title, next.artistName, next.coverUrl, (next.title || '?').trim().charAt(0).toUpperCase(), currentQueueRef);
+    playTrackById(next.id, next.audioUrl, next.title, next.artistName, next.userId, next.coverUrl, (next.title || '?').trim().charAt(0).toUpperCase(), currentQueueRef);
   } else {
     refreshPlayButtons();
   }
@@ -3452,7 +3455,7 @@ function saveRecentListen(track) {
     recent = [];
   }
   recent = recent.filter((r) => r.id !== track.id);
-  recent.unshift({ id: track.id, title: track.title, artistName: track.artistName, coverUrl: track.coverUrl || '' });
+  recent.unshift({ id: track.id, title: track.title, artistName: track.artistName, artistId: track.artistId || '', coverUrl: track.coverUrl || '' });
   recent = recent.slice(0, RECENT_LISTENS_MAX);
   try {
     localStorage.setItem(RECENT_LISTENS_KEY, JSON.stringify(recent));
@@ -3479,13 +3482,17 @@ function renderRecentListens() {
   strip.innerHTML = recent
     .map(
       (r) =>
-        '<button type="button" class="recent-listen-item recent-listen-play" data-track-id="' + r.id + '">' +
+        '<div class="recent-listen-item">' +
+        '<button type="button" class="recent-listen-play" data-track-id="' + r.id + '">' +
         (r.coverUrl || fallbackCoverUrl(r.title, r.artistName)
           ? '<img class="recent-listen-cover" src="' + escapeHtml(r.coverUrl || fallbackCoverUrl(r.title, r.artistName)) + '" alt="">'
           : '<div class="recent-listen-cover-fallback">' + escapeHtml((r.title || '?').trim().charAt(0).toUpperCase()) + '</div>') +
         '<div class="recent-listen-title">' + escapeHtml(r.title) + '</div>' +
-        '<div class="recent-listen-artist">' + escapeHtml(r.artistName) + '</div>' +
-        '</button>'
+        '</button>' +
+        (r.artistId
+          ? '<a class="recent-listen-artist artist-name-link" href="#/artiste/' + r.artistId + '">' + escapeHtml(r.artistName) + '</a>'
+          : '<div class="recent-listen-artist">' + escapeHtml(r.artistName) + '</div>') +
+        '</div>'
     )
     .join('');
 }
@@ -3496,7 +3503,7 @@ document.getElementById('recent-listens-strip').addEventListener('click', (e) =>
   const id = Number(btn.getAttribute('data-track-id'));
   const track = ALL_TRACKS.find((t) => t.id === id);
   if (track) {
-    playTrackById(track.id, track.audioUrl, track.title, track.artistName, track.coverUrl, (track.title || '?').trim().charAt(0).toUpperCase(), currentDiscoverQueue);
+    playTrackById(track.id, track.audioUrl, track.title, track.artistName, track.userId, track.coverUrl, (track.title || '?').trim().charAt(0).toUpperCase(), currentDiscoverQueue);
   } else {
     // Le morceau n'est plus dans le fil actuellement chargé (site
     // rechargé) : on va chercher ses infos avant de le lancer.
@@ -3504,7 +3511,7 @@ document.getElementById('recent-listens-strip').addEventListener('click', (e) =>
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data && data.track) {
-          playTrackById(data.track.id, data.track.audioUrl, data.track.title, data.track.artistName, data.track.coverUrl, (data.track.title || '?').trim().charAt(0).toUpperCase(), [data.track]);
+          playTrackById(data.track.id, data.track.audioUrl, data.track.title, data.track.artistName, data.track.userId, data.track.coverUrl, (data.track.title || '?').trim().charAt(0).toUpperCase(), [data.track]);
         }
       });
   }
@@ -3513,13 +3520,13 @@ document.getElementById('recent-listens-strip').addEventListener('click', (e) =>
 document.getElementById('shuffle-play-btn').addEventListener('click', () => {
   if (ALL_TRACKS.length === 0) return;
   const pick = ALL_TRACKS[Math.floor(Math.random() * ALL_TRACKS.length)];
-  playTrackById(pick.id, pick.audioUrl, pick.title, pick.artistName, pick.coverUrl, (pick.title || '?').trim().charAt(0).toUpperCase(), ALL_TRACKS);
+  playTrackById(pick.id, pick.audioUrl, pick.title, pick.artistName, pick.userId, pick.coverUrl, (pick.title || '?').trim().charAt(0).toUpperCase(), ALL_TRACKS);
 });
 
 document.getElementById('artist-shuffle-play-btn').addEventListener('click', () => {
   if (currentArtistQueue.length === 0) return;
   const pick = currentArtistQueue[Math.floor(Math.random() * currentArtistQueue.length)];
-  playTrackById(pick.id, pick.audioUrl, pick.title, pick.artistName, pick.coverUrl, (pick.title || '?').trim().charAt(0).toUpperCase(), currentArtistQueue);
+  playTrackById(pick.id, pick.audioUrl, pick.title, pick.artistName, pick.userId, pick.coverUrl, (pick.title || '?').trim().charAt(0).toUpperCase(), currentArtistQueue);
 });
 
 // --- Init ---

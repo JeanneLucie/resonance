@@ -111,8 +111,9 @@ section.on-paper h2, section.on-paper h3 { color: var(--text-on-paper); }
 :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 .recent-listens-title { font-family: 'Fraunces', serif; font-size: 1.1rem; margin-bottom: 14px; color: var(--text-on-paper); }
 .recent-listens-strip { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
-.recent-listen-item {
-  flex-shrink: 0; width: 96px; cursor: pointer; background: none; border: none; text-align: left; padding: 0;
+.recent-listen-item { flex-shrink: 0; width: 96px; }
+.recent-listen-play {
+  display: block; width: 100%; cursor: pointer; background: none; border: none; text-align: left; padding: 0;
   font-family: inherit; color: inherit;
 }
 .recent-listen-cover {
@@ -125,7 +126,11 @@ section.on-paper h2, section.on-paper h3 { color: var(--text-on-paper); }
   color: rgba(255,255,255,0.92); font-size: 1.4rem;
 }
 .recent-listen-title { font-size: 0.78rem; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-on-paper); }
-.recent-listen-artist { font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-on-paper-dim); }
+.recent-listen-artist {
+  display: block; font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--text-on-paper-dim);
+}
+a.recent-listen-artist:hover, a.recent-listen-artist:focus-visible { color: var(--brass); }
 .password-wrap { position: relative; }
 .password-wrap input { padding-right: 44px; width: 100%; }
 .password-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 0.95rem; opacity: 0.6; }
