@@ -13,6 +13,7 @@ const labelgrid = require('./labelgrid');
 const stripeClient = require('./stripeClient');
 const soundcloudClient = require('./soundcloudClient');
 const resendClient = require('./resendClient');
+const { generateInvoicePdf } = require('./pdfInvoice');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-in-.env';
@@ -1453,6 +1454,26 @@ app.post('/api/admin/totp/disable', requireAdmin, authLimiter, async (req, res) 
   await supabase.from('users').update({ totp_enabled: false, totp_secret: null }).eq('id', me.id);
   const { data: updated } = await supabase.from('users').select('*').eq('id', me.id).single();
   res.json({ ok: true, user: publicUser(updated) });
+});
+
+// --- Modèles de facture PDF (squelette, pas encore branché à un vrai
+// déclencheur) ---
+// Génère un PDF d'exemple pour vérifier que le modèle fonctionne, en
+// attendant que les détails définitifs (champs légaux, déclencheur,
+// numérotation, stockage 10 ans) soient précisés — voir pdfInvoice.js.
+app.get('/api/admin/invoice-preview', requireAdmin, async (req, res) => {
+  const pdf = await generateInvoicePdf({
+    invoiceNumber: 'EXEMPLE-0001',
+    date: new Date(),
+    seller: { name: 'Risuona', extra: 'Exemple — coordonnées légales (SIRET, TVA…) à compléter' },
+    buyer: { name: 'Artiste Exemple', email: 'artiste@example.com' },
+    lines: [{ description: 'Service exemple', amount: 12.5 }],
+    total: 12.5,
+    notes: "Document d'exemple pour vérifier le modèle — pas une vraie facture.",
+  });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'inline; filename="exemple-facture.pdf"');
+  res.send(pdf);
 });
 
 app.get('/api/me/export', requireAuth, async (req, res) => {
