@@ -289,9 +289,100 @@ function mapTrack(t, artistName) {
     // Miniature d'album dans le coin : seulement si le titre a SA pochette,
     // sinon on afficherait deux fois la même image.
     albumCoverUrl: ownCover && t._album ? t._album.cover_url || '' : '',
+    likeCount: t._likeCount || 0,
+    liked: !!t._liked,
     artistName,
   };
 }
+
+// --- "J'aime" (likes) ---
+// Un visiteur sans compte peut aimer un morceau (identifiant d'appareil
+// envoyé par le client, voir getDeviceId() dans app.js) ; un compte connecté
+// utilise son id à la place, sans restriction de type de compte (fan ou
+// artiste, y compris sur ses propres morceaux). Les deux se rejoignent à la
+// connexion/inscription (voir mergeDeviceLikes) : les likes faits avant de
+// se connecter ne sont pas perdus.
+function likeIdentity(req) {
+  if (req.session.userId) return { userId: req.session.userId, deviceId: null };
+  const deviceId = String((req.body && req.body.deviceId) || req.query.deviceId || '').slice(0, 100);
+  if (!deviceId) return null;
+  return { userId: null, deviceId };
+}
+
+// Ajoute à chaque morceau son nombre de likes et si LA PERSONNE QUI REGARDE
+// (viewer, pas l'artiste) l'a aimé — en une seule requête, comme
+// attachAlbums. Le volume de likes reste faible pour l'instant : si ça
+// devient un vrai souci de performance plus tard, ce sera à revoir avec un
+// comptage fait côté base plutôt qu'en récupérant chaque ligne.
+async function attachLikes(rows, viewerUserId, viewerDeviceId) {
+  const list = (rows || []).filter(Boolean);
+  const ids = [...new Set(list.map((t) => t.id))];
+  if (!ids.length) return list;
+  const { data: likes, error } = await supabase.from('likes').select('track_id, user_id, device_id').in('track_id', ids);
+  if (error) return list; // table pas encore créée : le site continue sans les likes
+  const byTrack = {};
+  (likes || []).forEach((l) => {
+    if (!byTrack[l.track_id]) byTrack[l.track_id] = { count: 0, liked: false };
+    byTrack[l.track_id].count += 1;
+    if ((viewerUserId && l.user_id === viewerUserId) || (!viewerUserId && viewerDeviceId && l.device_id === viewerDeviceId)) {
+      byTrack[l.track_id].liked = true;
+    }
+  });
+  list.forEach((t) => {
+    const info = byTrack[t.id];
+    t._likeCount = info ? info.count : 0;
+    t._liked = info ? info.liked : false;
+  });
+  return list;
+}
+
+function viewerIdentity(req) {
+  return { userId: req.session.userId || null, deviceId: String(req.query.deviceId || '').slice(0, 100) || null };
+}
+
+// Rattache à un compte les likes faits avant la connexion/inscription sous
+// un identifiant d'appareil — sans dupliquer si le compte avait déjà aimé
+// le même morceau par ailleurs.
+async function mergeDeviceLikes(userId, deviceId) {
+  if (!deviceId) return;
+  const { data: deviceLikes } = await supabase.from('likes').select('id, track_id').eq('device_id', deviceId).is('user_id', null);
+  if (!deviceLikes || !deviceLikes.length) return;
+  const { data: userLikes } = await supabase.from('likes').select('track_id').eq('user_id', userId);
+  const already = new Set((userLikes || []).map((l) => l.track_id));
+  for (const like of deviceLikes) {
+    if (already.has(like.track_id)) {
+      await supabase.from('likes').delete().eq('id', like.id);
+    } else {
+      await supabase.from('likes').update({ user_id: userId, device_id: null }).eq('id', like.id);
+    }
+  }
+}
+
+app.post('/api/tracks/:id/like', publicActionLimiter, async (req, res) => {
+  const identity = likeIdentity(req);
+  if (!identity) return res.status(400).json({ error: 'missing_identity' });
+  const trackId = Number(req.params.id);
+  const { data: track } = await supabase.from('tracks').select('id').eq('id', trackId).maybeSingle();
+  if (!track) return res.status(404).json({ error: 'not_found' });
+  const filter = identity.userId ? { track_id: trackId, user_id: identity.userId } : { track_id: trackId, device_id: identity.deviceId };
+  const { data: existing } = await supabase.from('likes').select('id').match(filter).maybeSingle();
+  if (!existing) {
+    const { error } = await supabase.from('likes').insert({ track_id: trackId, user_id: identity.userId, device_id: identity.deviceId, created_at: Date.now() });
+    if (error) return res.status(500).json({ error: 'likes_table_missing' });
+  }
+  const { count } = await supabase.from('likes').select('id', { count: 'exact', head: true }).eq('track_id', trackId);
+  res.json({ ok: true, liked: true, likeCount: count || 0 });
+});
+
+app.post('/api/tracks/:id/unlike', publicActionLimiter, async (req, res) => {
+  const identity = likeIdentity(req);
+  if (!identity) return res.status(400).json({ error: 'missing_identity' });
+  const trackId = Number(req.params.id);
+  const filter = identity.userId ? { track_id: trackId, user_id: identity.userId } : { track_id: trackId, device_id: identity.deviceId };
+  await supabase.from('likes').delete().match(filter);
+  const { count } = await supabase.from('likes').select('id', { count: 'exact', head: true }).eq('track_id', trackId);
+  res.json({ ok: true, liked: false, likeCount: count || 0 });
+});
 
 // --- Albums / EP ---
 // Un album appartient à un artiste (titre + pochette). Un morceau peut en
@@ -461,7 +552,7 @@ async function requireCguUpToDate(req, res, next) {
 
 // --- Auth ---
 app.post('/api/signup', authLimiter, async (req, res) => {
-  const { artistName, email, password, acceptedTerms, accountType } = req.body;
+  const { artistName, email, password, acceptedTerms, accountType, deviceId } = req.body;
   if (!artistName || !email || !password) return res.status(400).json({ error: 'missing_fields' });
   if (password.length < 8) return res.status(400).json({ error: 'password_too_short' });
   if (!acceptedTerms) return res.status(400).json({ error: 'terms_not_accepted' });
@@ -491,6 +582,7 @@ app.post('/api/signup', authLimiter, async (req, res) => {
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   await recordCguAcceptance(user);
   req.session.userId = user.id;
+  await mergeDeviceLikes(user.id, deviceId);
   if (role === 'artist') {
     resendClient.notifyNewSignup(artistName, email);
     const siteUrl = req.headers.origin || 'https://' + req.headers.host;
@@ -500,12 +592,13 @@ app.post('/api/signup', authLimiter, async (req, res) => {
 });
 
 app.post('/api/login', authLimiter, loginEmailLimiter, async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, deviceId } = req.body;
   const { data: user } = await supabase.from('users').select('*').ilike('email', escapeLikePattern(email || '')).maybeSingle();
   if (!user) return res.status(401).json({ error: 'invalid_credentials' });
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
   req.session.userId = user.id;
+  await mergeDeviceLikes(user.id, deviceId);
   res.json({ ok: true, user: publicUser(user) });
 });
 
@@ -601,6 +694,8 @@ app.put(
 app.get('/api/tracks', async (req, res) => {
   const { data: tracks } = await onlyReleased(supabase.from('tracks').select('*')).order('created_at', { ascending: false }).limit(200);
   await attachAlbums(tracks);
+  const viewer = viewerIdentity(req);
+  await attachLikes(tracks, viewer.userId, viewer.deviceId);
   const userIds = [...new Set((tracks || []).map((t) => t.user_id))];
   const { data: users } = userIds.length
     ? await supabase.from('users').select('id, artist_name, donation_link, spotify_url, apple_url, soundcloud_url, instagram_url, suno_url, bandcamp_url').in('id', userIds)
@@ -629,6 +724,7 @@ app.get('/api/me/tracks', requireAuth, async (req, res) => {
     .eq('user_id', req.session.userId)
     .order('created_at', { ascending: false });
   await attachAlbums(tracks);
+  await attachLikes(tracks, req.session.userId, null);
   res.json({ tracks: (tracks || []).map((t) => mapTrack(t, me ? me.artist_name : '')) });
 });
 
@@ -933,6 +1029,8 @@ app.get('/api/tracks/:id', async (req, res) => {
   const { data: artist } = await supabase.from('users').select('*').eq('id', track.user_id).maybeSingle();
   if (!artist) return res.status(404).json({ error: 'not_found' });
   await attachAlbums([track]);
+  const viewer = viewerIdentity(req);
+  await attachLikes([track], viewer.userId, viewer.deviceId);
 
   res.json({
     track: {
@@ -956,6 +1054,8 @@ app.get('/api/artists/:id', async (req, res) => {
   if (!isOwner) tracksQuery = onlyReleased(tracksQuery);
   const { data: tracks } = await tracksQuery.order('created_at', { ascending: false });
   await attachAlbums(tracks);
+  const viewer = viewerIdentity(req);
+  await attachLikes(tracks, viewer.userId, viewer.deviceId);
 
   const { data: allUsers } = await supabase.from('users').select('id, following_ids');
   const followerCount = (allUsers || []).filter((u) => (u.following_ids || []).includes(artistId)).length;

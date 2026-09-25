@@ -161,6 +161,7 @@
   "track.playsOne": "1 écoute",
   "track.playsMany": "{n} écoutes",
   "track.report": "Signaler ce morceau",
+  "track.like": "J'aime ce morceau",
   "track.shareTooltip": "Partager ce morceau",
   "track.reportPrompt": "Décris brièvement le problème (contenu interdit, droits d'auteur, usurpation…) :",
   "track.reportSent": "Signalement envoyé, merci.",

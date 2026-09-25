@@ -258,7 +258,9 @@ img.cover-art { object-fit: contain; background: var(--ink); }
 .play-track-btn.is-playing .play-icon::before { content: '⏸'; font-size: 1rem; }
 .link-pill { font-size: 0.68rem; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--line); text-decoration: none; color: var(--text-on-ink-dim); opacity: 0.75; }
 .link-pill.donate { border-color: var(--brass); color: var(--brass); opacity: 1; }
-.share-track-btn { cursor: pointer; font-family: inherit; }
+.share-track-btn, .like-track-btn, .report-track-btn { cursor: pointer; font-family: inherit; background: none; }
+.like-track-btn.liked { border-color: var(--brass); opacity: 1; }
+.like-track-btn .like-count { font-variant-numeric: tabular-nums; }
 .empty-state { padding: 36px 0; color: var(--text-on-ink-dim); font-size: 0.92rem; }
 
 .my-track-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line-paper); }

@@ -62,6 +62,30 @@ function escapeHtml(str) {
   return (str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// --- Identifiant d'appareil (pour "j'aime" sans compte) ---
+// Un visiteur non connecté peut quand même aimer un morceau : on lui donne
+// un identifiant aléatoire conservé sur son appareil (localStorage), pour
+// reconnaître ses likes sans lui demander de créer un compte. Dès qu'il se
+// connecte ou s'inscrit, ces likes sont rattachés à son compte côté serveur
+// (voir mergeDeviceLikes dans server.js) : l'identité "appareil" et
+// l'identité "compte" finissent par se rejoindre.
+function getDeviceId() {
+  try {
+    let id = localStorage.getItem('resonance_device_id');
+    if (!id) {
+      id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2);
+      localStorage.setItem('resonance_device_id', id);
+    }
+    return id;
+  } catch (err) {
+    return '';
+  }
+}
+function deviceQS() {
+  const id = getDeviceId();
+  return id ? 'deviceId=' + encodeURIComponent(id) : '';
+}
+
 // --- État courant ---
 let currentUser = null;
 
@@ -158,6 +182,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     password: document.getElementById('signup-password').value,
     acceptedTerms: document.getElementById('signup-terms').checked,
     accountType: document.querySelector('input[name="account-type"]:checked').value,
+    deviceId: getDeviceId(),
   };
   const res = await fetch('/api/signup', {
     method: 'POST',
@@ -190,6 +215,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   const body = {
     email: document.getElementById('login-email').value.trim(),
     password: document.getElementById('login-password').value,
+    deviceId: getDeviceId(),
   };
   const res = await fetch('/api/login', {
     method: 'POST',
@@ -928,7 +954,7 @@ function openDistributionGuide() {
 
 async function loadMyTracks() {
   const distStatus = await getDistributionStatus();
-  const res = await fetch('/api/me/tracks');
+  const res = await fetch('/api/me/tracks?' + deviceQS());
   if (!res.ok) return;
   const { tracks } = await res.json();
   MY_TRACKS = tracks;
@@ -1171,6 +1197,19 @@ function renderTrackCard(tr) {
     '" data-share-artist="' +
     escapeHtml(tr.artistName) +
     '">🔗</button>' +
+    '<button type="button" class="link-pill like-track-btn' +
+    (tr.liked ? ' liked' : '') +
+    '" data-track-id="' +
+    tr.id +
+    '" data-liked="' +
+    (tr.liked ? 'true' : 'false') +
+    '" title="' +
+    t('track.like') +
+    '">' +
+    (tr.liked ? '❤️' : '🤍') +
+    ' <span class="like-count">' +
+    (tr.likeCount || 0) +
+    '</span></button>' +
     '<button type="button" class="link-pill report-track-btn" data-report-id="' +
     tr.id +
     '" title="' +
@@ -1194,7 +1233,7 @@ function linkPill(url, label, donate) {
 let ALL_TRACKS = [];
 
 async function loadFeed() {
-  const res = await fetch('/api/tracks');
+  const res = await fetch('/api/tracks?' + deviceQS());
   const { tracks } = await res.json();
   ALL_TRACKS = tracks;
   populateGenreFilter(tracks);
@@ -2069,7 +2108,7 @@ document.getElementById('contact-send-btn').addEventListener('click', async () =
 });
 
 async function loadArtistPage(artistId) {
-  const res = await fetch('/api/artists/' + artistId);
+  const res = await fetch('/api/artists/' + artistId + '?' + deviceQS());
   if (!res.ok) {
     window.location.hash = '#decouvrir';
     return;
@@ -2289,7 +2328,7 @@ async function loadTrackPage(trackId) {
   const moreContainer = document.getElementById('track-page-more');
   container.innerHTML = '';
   moreContainer.innerHTML = '';
-  const res = await fetch('/api/tracks/' + trackId);
+  const res = await fetch('/api/tracks/' + trackId + '?' + deviceQS());
   if (!res.ok) {
     container.innerHTML = '<div class="empty-state">' + t('track.notFound') + '</div>';
     return;
@@ -2304,7 +2343,7 @@ async function loadTrackPage(trackId) {
   document.title = track.title + ' · ' + track.artistName + ' | Risuona';
 
   // "Plus de cet artiste" — quelques autres morceaux, pour continuer la découverte
-  const artistRes = await fetch('/api/artists/' + track.userId);
+  const artistRes = await fetch('/api/artists/' + track.userId + '?' + deviceQS());
   if (artistRes.ok) {
     const { tracks } = await artistRes.json();
     const others = tracks.filter((tr) => tr.id !== track.id);
@@ -2484,6 +2523,38 @@ document.addEventListener('click', async (e) => {
     body: JSON.stringify({ reason: reason.trim() }),
   });
   showToast(res.ok ? t('track.reportSent') : t('error.generic'));
+});
+
+// "J'aime" : fonctionne pour un visiteur non connecté (identifiant
+// d'appareil) comme pour un compte connecté (fan ou artiste, y compris sur
+// ses propres morceaux ou ceux d'un autre artiste) — aucune restriction de
+// type de compte, contrairement à d'autres actions du site.
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.like-track-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  const trackId = btn.getAttribute('data-track-id');
+  const alreadyLiked = btn.getAttribute('data-liked') === 'true';
+  const action = alreadyLiked ? 'unlike' : 'like';
+  try {
+    const res = await fetch('/api/tracks/' + trackId + '/' + action, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: getDeviceId() }),
+    });
+    if (!res.ok) {
+      showToast(t('error.generic'));
+      return;
+    }
+    const data = await res.json();
+    document.querySelectorAll('.like-track-btn[data-track-id="' + trackId + '"]').forEach((el) => {
+      el.setAttribute('data-liked', data.liked ? 'true' : 'false');
+      el.classList.toggle('liked', !!data.liked);
+      el.innerHTML = (data.liked ? '❤️' : '🤍') + ' <span class="like-count">' + (data.likeCount || 0) + '</span>';
+    });
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 function showShareQr(url) {
