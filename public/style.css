@@ -172,6 +172,14 @@ section.on-paper h2, section.on-paper h3 { color: var(--text-on-paper); }
 .playlist-toggle { flex: 1; text-align: left; background: none; border: none; font-size: 0.92rem; color: var(--text-on-paper); cursor: pointer; padding: 0; }
 .playlist-tracks { margin-top: 10px; }
 .playlist-track-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 0.85rem; }
+.comments-block h3 { font-family: 'Fraunces', serif; font-size: 1.1rem; margin: 0 0 12px; }
+.comment-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; max-width: 520px; }
+.comment-form textarea { min-height: 70px; resize: vertical; }
+.comment-form button { align-self: flex-start; }
+.comments-list { display: flex; flex-direction: column; gap: 12px; max-width: 520px; }
+.comment-row { border-bottom: 1px solid var(--line-paper); padding-bottom: 12px; }
+.comment-meta { font-size: 0.82rem; color: var(--text-on-paper-dim); margin-bottom: 4px; }
+.comment-body { font-size: 0.9rem; white-space: pre-wrap; margin-bottom: 6px; }
 .parental-info { margin-top: 10px; font-size: 0.78rem; color: var(--text-on-paper-dim); max-width: 62ch; line-height: 1.5; }
 .parental-info + .parental-info { margin-top: 8px; font-style: italic; }
 

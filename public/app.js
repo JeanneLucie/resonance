@@ -1280,6 +1280,82 @@ document.getElementById('close-add-to-playlist-popover').addEventListener('click
   document.getElementById('add-to-playlist-popover').hidden = true;
 });
 
+// --- Commentaires ---
+// Nécessite un compte (contrairement aux likes). Affiché sous le morceau
+// sur sa page dédiée (#/morceau/:id). L'auteur d'un commentaire peut le
+// retirer, et l'artiste propriétaire du morceau peut retirer n'importe
+// quel commentaire laissé sur ses propres morceaux.
+async function loadComments(trackId, trackOwnerId) {
+  const box = document.getElementById('track-page-comments');
+  if (!box) return;
+  box.setAttribute('data-track-id', trackId);
+  box.setAttribute('data-track-owner-id', trackOwnerId);
+  box.innerHTML = '<h3>' + t('comments.title') + '</h3><p class="empty-state">…</p>';
+  const res = await fetch('/api/tracks/' + trackId + '/comments');
+  const { comments } = res.ok ? await res.json() : { comments: [] };
+  renderComments(box, comments, trackOwnerId);
+}
+
+function renderComments(box, comments, trackOwnerId) {
+  const canModerate = currentUser && currentUser.id === trackOwnerId;
+  const formHtml = currentUser
+    ? '<form id="comment-form" class="comment-form">' +
+      '<textarea id="comment-input" maxlength="1000" data-i18n-placeholder="comments.placeholder" placeholder="' + t('comments.placeholder') + '"></textarea>' +
+      '<button type="submit" class="mini-btn" data-i18n="comments.post">' + t('comments.post') + '</button>' +
+      '</form>'
+    : '<p class="field-hint">' + t('comments.loginRequired') + '</p>';
+  const listHtml = comments.length
+    ? comments
+        .map(
+          (c) =>
+            '<div class="comment-row" data-comment-id="' + c.id + '">' +
+            '<div class="comment-meta"><strong>' + escapeHtml(c.authorName) + '</strong> · ' + formatDate(c.createdAt) + '</div>' +
+            '<div class="comment-body">' + escapeHtml(c.body) + '</div>' +
+            (currentUser && (currentUser.id === c.userId || canModerate)
+              ? '<button type="button" class="mini-btn comment-delete-btn" data-comment-id="' + c.id + '">' + t('comments.delete') + '</button>'
+              : '') +
+            '</div>'
+        )
+        .join('')
+    : '<p class="empty-state">' + t('comments.empty') + '</p>';
+  box.innerHTML = '<h3>' + t('comments.title') + ' (' + comments.length + ')</h3>' + formHtml + '<div class="comments-list">' + listHtml + '</div>';
+}
+
+document.addEventListener('submit', async (e) => {
+  const form = e.target.closest('#comment-form');
+  if (!form) return;
+  e.preventDefault();
+  const box = document.getElementById('track-page-comments');
+  const input = document.getElementById('comment-input');
+  const body = input.value.trim();
+  if (!body) return;
+  const trackId = box.getAttribute('data-track-id');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  const res = await fetch('/api/tracks/' + trackId + '/comments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body }),
+  });
+  submitBtn.disabled = false;
+  if (!res.ok) {
+    showToast(t('error.generic'));
+    return;
+  }
+  input.value = '';
+  loadComments(trackId, Number(box.getAttribute('data-track-owner-id')));
+});
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.comment-delete-btn');
+  if (!btn) return;
+  if (!window.confirm(t('comments.deleteConfirm'))) return;
+  const box = document.getElementById('track-page-comments');
+  const trackId = box.getAttribute('data-track-id');
+  await fetch('/api/comments/' + btn.getAttribute('data-comment-id'), { method: 'DELETE' });
+  loadComments(trackId, Number(box.getAttribute('data-track-owner-id')));
+});
+
 // L'envoi direct vers Spotify/Apple Music est-il déjà branché ? Tant que
 // ce n'est pas le cas, on n'affiche PAS les boutons "Distribuer" et
 // "Payer" (ils ne menaient qu'à un message d'erreur) : un seul bouton
@@ -2767,6 +2843,7 @@ async function loadTrackPage(trackId) {
   }
   const { track } = await res.json();
   container.innerHTML = renderTrackCard(track);
+  loadComments(track.id, track.userId);
   // La liste de lecture de cette page doit contenir tout le catalogue
   // (pas seulement ce morceau), sinon la lecture s'arrête à la fin du
   // morceau au lieu d'enchaîner sur le suivant, et le bouton "aléatoire"

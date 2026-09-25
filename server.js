@@ -569,6 +569,59 @@ app.delete('/api/playlists/:id/tracks/:trackId', requireAuth, async (req, res) =
   res.json({ ok: true });
 });
 
+// --- Commentaires ---
+// Contrairement aux likes, un commentaire nécessite un compte (fan ou
+// artiste) : c'est voulu, pour la responsabilisation et limiter le spam.
+// Modération basique : l'auteur peut retirer son propre commentaire, et
+// l'artiste propriétaire du morceau peut retirer n'importe quel commentaire
+// sur ses propres morceaux.
+app.get('/api/tracks/:id/comments', async (req, res) => {
+  const trackId = Number(req.params.id);
+  const { data: comments, error } = await supabase
+    .from('comments')
+    .select('id, user_id, body, created_at')
+    .eq('track_id', trackId)
+    .order('created_at', { ascending: true });
+  if (error) return res.json({ comments: [] }); // table pas encore créée : le site continue sans les commentaires
+  const authorIds = [...new Set((comments || []).map((c) => c.user_id))];
+  const { data: authors } = authorIds.length ? await supabase.from('users').select('id, artist_name').in('id', authorIds) : { data: [] };
+  const authorById = {};
+  (authors || []).forEach((a) => { authorById[a.id] = a.artist_name; });
+  res.json({
+    comments: (comments || []).map((c) => ({ id: c.id, userId: c.user_id, authorName: authorById[c.user_id] || '?', body: c.body, createdAt: c.created_at })),
+  });
+});
+
+app.post('/api/tracks/:id/comments', requireAuth, requireCguUpToDate, publicActionLimiter, async (req, res) => {
+  const trackId = Number(req.params.id);
+  const body = (req.body.body || '').trim();
+  if (!body) return res.status(400).json({ error: 'body_required' });
+  const { data: track } = await supabase.from('tracks').select('id').eq('id', trackId).maybeSingle();
+  if (!track) return res.status(404).json({ error: 'not_found' });
+  const { data: me } = await supabase.from('users').select('artist_name').eq('id', req.session.userId).single();
+  const { data: comment, error } = await supabase
+    .from('comments')
+    .insert({ track_id: trackId, user_id: req.session.userId, body: body.slice(0, 1000), created_at: Date.now() })
+    .select('id, created_at')
+    .single();
+  if (error) return res.status(500).json({ error: 'comments_table_missing' });
+  res.json({ comment: { id: comment.id, userId: req.session.userId, authorName: me.artist_name, body: body.slice(0, 1000), createdAt: comment.created_at } });
+});
+
+app.delete('/api/comments/:id', requireAuth, async (req, res) => {
+  const commentId = Number(req.params.id);
+  const { data: comment } = await supabase.from('comments').select('id, user_id, track_id').eq('id', commentId).maybeSingle();
+  if (!comment) return res.status(404).json({ error: 'not_found' });
+  let allowed = comment.user_id === req.session.userId;
+  if (!allowed) {
+    const { data: track } = await supabase.from('tracks').select('user_id').eq('id', comment.track_id).maybeSingle();
+    allowed = !!track && track.user_id === req.session.userId;
+  }
+  if (!allowed) return res.status(403).json({ error: 'forbidden' });
+  await supabase.from('comments').delete().eq('id', commentId);
+  res.json({ ok: true });
+});
+
 // --- Albums / EP ---
 // Un album appartient à un artiste (titre + pochette). Un morceau peut en
 // faire partie (tracks.album_id) : sa propre pochette reste l'image
