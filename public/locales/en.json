@@ -233,7 +233,7 @@
   "track.moreFromArtist": "More from {artist}",
   "discover.title": "Discover",
   "discover.lede": "New tracks land every week. Here, your music finds its place more easily than anywhere else.",
-  "discover.shufflePlay": "🔀 Shuffle play",
+  "discover.shufflePlay": "<svg width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' style='vertical-align:-2px;margin-right:6px;'><path d='M3 8h3.5c1.4 0 2.7.7 3.4 1.9L15 18h3M3 16h3.5c1.4 0 2.7-.7 3.4-1.9L15 6h3'/><polyline points='16 4 20 4 20 8'/><polyline points='16 20 20 20 20 16'/></svg>Shuffle play",
   "discover.recentListens": "Recently played",
   "discover.empty": "No tracks published yet. Be the first!",
   "discover.noMatch": "No tracks match your search.",
