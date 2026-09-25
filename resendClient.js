@@ -66,7 +66,7 @@ async function sendVerificationEmail(email, artistName, token, siteUrl) {
   }
 }
 
-module.exports = { isConfigured, notifyNewSignup, sendVerificationEmail, notifyExportRequest, notifyNewMessage, sendReplyToVisitor, notifySuspiciousLogin };
+module.exports = { isConfigured, notifyNewSignup, sendVerificationEmail, notifyExportRequest, notifyNewMessage, sendReplyToVisitor, notifySuspiciousLogin, sendPasswordResetEmail, notifyAccountDeletionRequest };
 
 async function notifySuspiciousLogin(email) {
   if (!isConfigured()) return;
@@ -131,6 +131,60 @@ async function sendReplyToVisitor(visitorEmail, artistName, replyBody) {
         text:
           artistName + ' t\'a répondu sur Risuona :\n\n"' + replyBody + '"\n\n' +
           'Ce message t\'a été transmis par Risuona, pour préserver la vie privée de l\'artiste.',
+      }),
+    });
+  } catch (err) {
+    // Silencieux.
+  }
+}
+
+// Envoie le lien de réinitialisation de mot de passe (1h de validité).
+// Le lien renvoie vers l'ancre #espace, que le client interprète pour
+// afficher directement le formulaire de nouveau mot de passe.
+async function sendPasswordResetEmail(email, artistName, token, siteUrl) {
+  if (!isConfigured()) return;
+  const resetUrl = siteUrl + '/#espace?resetToken=' + token;
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: email,
+        subject: 'Réinitialise ton mot de passe Risuona',
+        text:
+          'Salut ' + (artistName || '') + ' !\n\nPour choisir un nouveau mot de passe, clique sur ce lien (valable 1 heure) :\n' +
+          resetUrl +
+          '\n\nSi tu n\'es pas à l\'origine de cette demande, ignore simplement ce message : ton mot de passe actuel reste valable.',
+      }),
+    });
+  } catch (err) {
+    // Silencieux, même logique que pour les autres e-mails.
+  }
+}
+
+// Transmet à l'administratrice une demande écrite de suppression de
+// compte (pas de suppression en self-service) — elle traite ensuite
+// manuellement côté admin.
+async function notifyAccountDeletionRequest(artistName, email) {
+  if (!isConfigured()) return;
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: ADMIN_EMAIL,
+        subject: 'Demande de suppression de compte sur Risuona',
+        text:
+          artistName + ' (' + email + ') a demandé la suppression de son compte Risuona.\n\n' +
+          'Va dans Administration → Artistes inscrits pour traiter cette demande.',
       }),
     });
   } catch (err) {

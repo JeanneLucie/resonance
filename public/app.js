@@ -139,6 +139,73 @@ document.getElementById('show-login').addEventListener('click', (e) => {
   document.getElementById('signup-form-wrap').hidden = true;
   document.getElementById('login-form-wrap').hidden = false;
 });
+document.getElementById('show-forgot-password').addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('login-form-wrap').hidden = true;
+  document.getElementById('forgot-password-wrap').hidden = false;
+});
+document.getElementById('show-login-from-forgot').addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('forgot-password-wrap').hidden = true;
+  document.getElementById('login-form-wrap').hidden = false;
+});
+
+// --- Mot de passe oublié ---
+document.getElementById('forgot-password-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = document.getElementById('forgot-password-status');
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  status.textContent = '…';
+  submitBtn.disabled = true;
+  const body = { email: document.getElementById('forgot-password-email').value.trim() };
+  const res = await fetch('/api/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  submitBtn.disabled = false;
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get('Retry-After')) || 1800;
+    showRateLimitCountdown(status, retryAfter);
+    return;
+  }
+  status.textContent = t('auth.forgotPassword.sent');
+});
+
+// --- Réinitialisation du mot de passe (lien reçu par e-mail) ---
+let RESET_PASSWORD_TOKEN = null;
+document.getElementById('reset-password-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = document.getElementById('reset-password-status');
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const newPassword = document.getElementById('reset-password-new').value;
+  const confirmPassword = document.getElementById('reset-password-confirm').value;
+  if (newPassword !== confirmPassword) {
+    status.textContent = t('auth.resetPassword.mismatch');
+    return;
+  }
+  status.textContent = '…';
+  submitBtn.disabled = true;
+  const res = await fetch('/api/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: RESET_PASSWORD_TOKEN, password: newPassword }),
+  });
+  submitBtn.disabled = false;
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get('Retry-After')) || 1800;
+    showRateLimitCountdown(status, retryAfter);
+    return;
+  }
+  const data = await res.json();
+  if (!res.ok) {
+    status.textContent = t('error.' + data.error) || t('error.generic');
+    return;
+  }
+  status.textContent = t('auth.resetPassword.success');
+  e.target.reset();
+  RESET_PASSWORD_TOKEN = null;
+});
 
 // --- Signup ---
 // Affiche un compte à rebours en direct dans une zone de statut,
@@ -2921,6 +2988,17 @@ document.getElementById('artist-shuffle-play-btn').addEventListener('click', () 
   const verifiedMatch = window.location.hash.match(/[?&]verified=(\d)/);
   const verifiedResult = verifiedMatch ? verifiedMatch[1] : null;
 
+  // Lien "mot de passe oublié" reçu par e-mail : revient sur
+  // #espace?resetToken=... — on affiche directement le formulaire de
+  // nouveau mot de passe, même si un ancien compte est encore connecté
+  // dans ce navigateur (updateAuthUI() masque normalement auth-block
+  // pour une personne connectée, donc on le force ici explicitement).
+  const resetTokenMatch = window.location.hash.match(/[?&]resetToken=([^&]+)/);
+  if (resetTokenMatch) {
+    RESET_PASSWORD_TOKEN = decodeURIComponent(resetTokenMatch[1]);
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+
   // Si l'adresse garde une ancienne ancre (#decouvrir, etc.) sans être une
   // vraie page artiste, on revient en haut plutôt que de suivre le saut
   // automatique du navigateur vers cette section.
@@ -2929,6 +3007,14 @@ document.getElementById('artist-shuffle-play-btn').addEventListener('click', () 
   }
   await loadLang(CURRENT_LANG);
   await refreshMe();
+  if (RESET_PASSWORD_TOKEN) {
+    document.getElementById('auth-block').hidden = false;
+    document.getElementById('dashboard-block').hidden = true;
+    document.getElementById('login-form-wrap').hidden = true;
+    document.getElementById('signup-form-wrap').hidden = true;
+    document.getElementById('forgot-password-wrap').hidden = true;
+    document.getElementById('reset-password-wrap').hidden = false;
+  }
   await loadFeed();
   renderRecentListens();
   handleRoute();

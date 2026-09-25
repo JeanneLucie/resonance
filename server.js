@@ -635,6 +635,35 @@ app.post('/api/resend-verification', requireAuth, authLimiter, async (req, res) 
   res.json({ ok: true });
 });
 
+// --- Mot de passe oublié (utilisateurs) ---
+// Toujours répondre ok:true, que l'adresse existe ou non, pour ne jamais
+// révéler à quelqu'un si un e-mail donné est inscrit sur Risuona.
+app.post('/api/forgot-password', authLimiter, loginEmailLimiter, async (req, res) => {
+  const email = (req.body && req.body.email) || '';
+  const { data: user } = await supabase.from('users').select('id, artist_name, email').ilike('email', escapeLikePattern(email)).maybeSingle();
+  if (user) {
+    const token = crypto.randomBytes(24).toString('hex');
+    const expires = Date.now() + 60 * 60 * 1000; // 1h
+    await supabase.from('users').update({ reset_token: token, reset_token_expires: expires }).eq('id', user.id);
+    const siteUrl = req.headers.origin || 'https://' + req.headers.host;
+    resendClient.sendPasswordResetEmail(user.email, user.artist_name, token, siteUrl);
+  }
+  res.json({ ok: true });
+});
+
+app.post('/api/reset-password', authLimiter, async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password) return res.status(400).json({ error: 'missing_fields' });
+  if (password.length < 8) return res.status(400).json({ error: 'password_too_short' });
+  const { data: user } = await supabase.from('users').select('id, reset_token_expires').eq('reset_token', token).maybeSingle();
+  if (!user || !user.reset_token_expires || Number(user.reset_token_expires) < Date.now()) {
+    return res.status(400).json({ error: 'invalid_or_expired_token' });
+  }
+  const passwordHash = await bcrypt.hash(password, 10);
+  await supabase.from('users').update({ password_hash: passwordHash, reset_token: null, reset_token_expires: null }).eq('id', user.id);
+  res.json({ ok: true });
+});
+
 app.get('/api/me', async (req, res) => {
   if (!req.session.userId) return res.json({ user: null });
   const { data: user } = await supabase.from('users').select('*').eq('id', req.session.userId).maybeSingle();
