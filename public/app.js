@@ -3099,6 +3099,29 @@ document.addEventListener('click', async (e) => {
   showToast(res.ok ? t('track.reportSent') : t('error.generic'));
 });
 
+// Petite étincelle (rond qui s'étend + points qui s'écartent, tout
+// disparaît en fondu) au moment où on aime un morceau. Générée en JS et
+// retirée du DOM après l'animation, pour ne pas alourdir le HTML de
+// chaque carte morceau en permanence.
+function sparkleLike(btn) {
+  const wrap = document.createElement('span');
+  wrap.className = 'like-spark-wrap';
+  const ring = document.createElement('span');
+  ring.className = 'like-spark-ring';
+  wrap.appendChild(ring);
+  const count = 6;
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count;
+    const dot = document.createElement('span');
+    dot.className = 'like-spark-dot';
+    dot.style.setProperty('--tx', Math.round(Math.cos(angle) * 19) + 'px');
+    dot.style.setProperty('--ty', Math.round(Math.sin(angle) * 19) + 'px');
+    wrap.appendChild(dot);
+  }
+  btn.appendChild(wrap);
+  setTimeout(() => wrap.remove(), 550);
+}
+
 // "J'aime" : fonctionne pour un visiteur non connecté (identifiant
 // d'appareil) comme pour un compte connecté (fan ou artiste, y compris sur
 // ses propres morceaux ou ceux d'un autre artiste) — aucune restriction de
@@ -3126,6 +3149,10 @@ document.addEventListener('click', async (e) => {
       el.classList.toggle('liked', !!data.liked);
       el.innerHTML = (data.liked ? '❤️' : '🤍') + ' <span class="like-count">' + (data.likeCount || 0) + '</span>';
     });
+    // Petit effet visuel (étincelle) uniquement quand on AJOUTE un like,
+    // pas quand on le retire, et seulement sur le bouton cliqué (pas ses
+    // éventuels doublons ailleurs sur la page).
+    if (data.liked) sparkleLike(btn);
   } finally {
     btn.disabled = false;
   }

@@ -301,6 +301,33 @@ img.cover-art { object-fit: contain; background: var(--ink); }
   z-index: 30;
 }
 [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { opacity: 1; transition-delay: 0.05s; }
+
+/* Étincelle au clic sur "j'aime" : un rond qui s'étend et disparaît, entouré
+   de petits points qui s'écartent, tout en fondu. */
+.like-track-btn { position: relative; overflow: visible; }
+.like-spark-wrap { position: absolute; left: 14px; top: 50%; width: 0; height: 0; pointer-events: none; }
+.like-spark-ring {
+  position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(224, 96, 122, 0.9);
+  animation: like-spark-ring 0.5s ease-out forwards;
+}
+.like-spark-dot {
+  position: absolute; left: 0; top: 0; width: 6px; height: 6px; margin: -3px 0 0 -3px;
+  border-radius: 50%; background: #ff7a94;
+  animation: like-spark-dot 0.55s ease-out forwards;
+}
+@keyframes like-spark-ring {
+  from { box-shadow: 0 0 0 0 rgba(224, 96, 122, 0.9); opacity: 1; }
+  to { box-shadow: 0 0 0 20px rgba(224, 96, 122, 0); opacity: 0; }
+}
+@keyframes like-spark-dot {
+  from { transform: translate(0, 0) scale(1); opacity: 1; }
+  to { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .like-spark-wrap { display: none; }
+}
 .share-track-btn, .like-track-btn, .report-track-btn { cursor: pointer; font-family: inherit; background: none; }
 .like-track-btn.liked { border-color: var(--brass); opacity: 1; }
 .like-track-btn .like-count { font-variant-numeric: tabular-nums; }
