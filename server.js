@@ -621,7 +621,7 @@ app.get('/api/verify-email', async (req, res) => {
   if (!token) return res.redirect('/#espace?verified=0');
   const { data: user } = await supabase.from('users').select('id').eq('verification_token', token).maybeSingle();
   if (!user) return res.redirect('/#espace?verified=0');
-  await supabase.from('users').update({ email_verified: true, verification_token: null }).eq('id', user.id);
+  await supabase.from('users').update({ email_verified: true, verified_via_link: true, verification_token: null }).eq('id', user.id);
   res.redirect('/#espace?verified=1');
 });
 
@@ -1269,7 +1269,15 @@ app.post('/api/admin/users/:id/enable-export', requireAdmin, async (req, res) =>
 // Resend lui-même) : permet de confirmer manuellement un artiste dont
 // on est sûre qu'il possède vraiment son adresse e-mail.
 app.post('/api/admin/users/:id/manual-verify', requireAdmin, async (req, res) => {
-  await supabase.from('users').update({ email_verified: true }).eq('id', req.params.id);
+  const { data: user } = await supabase.from('users').select('verification_token').eq('id', req.params.id).maybeSingle();
+  // On garde (ou on crée) un jeton de vérification : il servira au renvoi
+  // automatique du vrai e-mail de confirmation 3 jours après cette
+  // validation manuelle, si le compte n'a toujours pas cliqué le vrai lien.
+  const token = (user && user.verification_token) || crypto.randomBytes(24).toString('hex');
+  await supabase
+    .from('users')
+    .update({ email_verified: true, manual_verified_at: Date.now(), verification_token: token, reverify_email_sent_at: null })
+    .eq('id', req.params.id);
   res.json({ ok: true });
 });
 
@@ -1503,6 +1511,38 @@ app.use((err, req, res, next) => {
   if (err) return res.status(400).json({ error: 'upload_error', message: err.message });
   next();
 });
+
+// --- Renvoi automatique de vérification après une validation manuelle ---
+// La validation manuelle admin (manual-verify) débloque tout de suite le
+// compte, mais on veut quand même une preuve que l'adresse appartient
+// vraiment à la personne (utile en cas de litige : CGU, vol de morceau).
+// 3 jours après une validation manuelle, si le vrai lien n'a toujours pas
+// été cliqué, on renvoie le vrai e-mail de vérification — une seule fois
+// par validation manuelle (reverify_email_sent_at évite les renvois en
+// boucle à chaque passage de cette vérification périodique).
+const REVERIFY_DELAY_MS = 3 * 24 * 60 * 60 * 1000;
+const REVERIFY_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // toutes les 6h
+async function checkPendingReverifications() {
+  if (!resendClient.isConfigured()) return;
+  const threshold = Date.now() - REVERIFY_DELAY_MS;
+  const { data: users, error } = await supabase
+    .from('users')
+    .select('id, email, artist_name, verification_token')
+    .eq('verified_via_link', false)
+    .is('reverify_email_sent_at', null)
+    .not('manual_verified_at', 'is', null)
+    .lte('manual_verified_at', threshold);
+  if (error || !users || !users.length) return;
+  const siteUrl = process.env.SITE_URL || 'https://risuonamusic.com';
+  for (const user of users) {
+    const token = user.verification_token || crypto.randomBytes(24).toString('hex');
+    if (!user.verification_token) await supabase.from('users').update({ verification_token: token }).eq('id', user.id);
+    resendClient.sendVerificationEmail(user.email, user.artist_name, token, siteUrl);
+    await supabase.from('users').update({ reverify_email_sent_at: Date.now() }).eq('id', user.id);
+  }
+}
+setInterval(checkPendingReverifications, REVERIFY_CHECK_INTERVAL_MS);
+checkPendingReverifications();
 
 app.listen(PORT, () => {
   console.log(`Risuona écoute sur http://localhost:${PORT}`);
