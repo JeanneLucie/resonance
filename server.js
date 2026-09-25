@@ -1509,8 +1509,19 @@ app.get('/sitemap.xml', async (req, res) => {
   const siteUrl = req.protocol + '://' + req.get('host');
   const { data: users } = await supabase.from('users').select('id').eq('account_type', 'artist');
   const { data: tracks } = await onlyReleased(supabase.from('tracks').select('id, created_at'));
+  // Pages fixes du site (guide de distribution, CGU, mentions légales,
+  // feuille de route) : jusqu'ici absentes du plan de site, donc invisibles
+  // pour Google alors qu'elles existent et ont un intérêt (le guide de
+  // distribution en particulier répond à des recherches réelles).
+  const staticPages = [
+    { path: '/guide.html', changefreq: 'monthly', priority: '0.5' },
+    { path: '/cgu.html', changefreq: 'monthly', priority: '0.3' },
+    { path: '/mentions-legales.html', changefreq: 'yearly', priority: '0.2' },
+    { path: '/roadmap.html', changefreq: 'monthly', priority: '0.3' },
+  ];
   const urls = [
     '  <url><loc>' + siteUrl + '/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>',
+    ...(staticPages.map((p) => '  <url><loc>' + siteUrl + p.path + '</loc><changefreq>' + p.changefreq + '</changefreq><priority>' + p.priority + '</priority></url>')),
     ...((users || []).map((u) => '  <url><loc>' + siteUrl + '/artiste/' + u.id + '</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>')),
     ...((tracks || []).map((t) => '  <url><loc>' + siteUrl + '/morceau/' + t.id + '</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>')),
   ];
