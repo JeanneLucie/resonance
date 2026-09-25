@@ -599,6 +599,15 @@ app.post('/api/login', authLimiter, loginEmailLimiter, async (req, res) => {
   if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
   req.session.userId = user.id;
   await mergeDeviceLikes(user.id, deviceId);
+  // Log de connexion (obligation LCEN) : adresse IP + horodatage,
+  // conservés 1 an (voir cleanupOldLoginLogs). Ne doit jamais empêcher
+  // une connexion de réussir si l'écriture échoue (table pas encore créée,
+  // etc.) — d'où le try/catch silencieux.
+  try {
+    await supabase.from('login_logs').insert({ user_id: user.id, ip: req.ip || '', created_at: Date.now() });
+  } catch (err) {
+    // Silencieux : un log de connexion qui échoue ne doit jamais bloquer la connexion.
+  }
   res.json({ ok: true, user: publicUser(user) });
 });
 
@@ -1561,6 +1570,16 @@ async function checkPendingReverifications() {
 }
 setInterval(checkPendingReverifications, REVERIFY_CHECK_INTERVAL_MS);
 checkPendingReverifications();
+
+// --- Nettoyage des logs de connexion (rétention 1 an, obligation LCEN) ---
+const LOGIN_LOG_RETENTION_MS = 365 * 24 * 60 * 60 * 1000;
+const LOGIN_LOG_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // une fois par jour
+async function cleanupOldLoginLogs() {
+  const threshold = Date.now() - LOGIN_LOG_RETENTION_MS;
+  await supabase.from('login_logs').delete().lt('created_at', threshold);
+}
+setInterval(cleanupOldLoginLogs, LOGIN_LOG_CLEANUP_INTERVAL_MS);
+cleanupOldLoginLogs();
 
 app.listen(PORT, () => {
   console.log(`Risuona écoute sur http://localhost:${PORT}`);
