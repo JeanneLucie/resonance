@@ -466,6 +466,109 @@ app.post('/api/tracks/:id/unlike', publicActionLimiter, async (req, res) => {
   res.json({ ok: true, liked: false, likeCount: count || 0 });
 });
 
+// --- Playlists privées ---
+// Des listes personnelles, pour un compte fan ou artiste, jamais visibles
+// par quelqu'un d'autre que leur propriétaire (pas de partage public pour
+// l'instant). Chaque route vérifie que la playlist demandée appartient
+// bien à la personne connectée avant d'y toucher.
+async function ownPlaylistOr404(req, res) {
+  const playlistId = Number(req.params.id);
+  const { data: playlist } = await supabase.from('playlists').select('id, user_id, name').eq('id', playlistId).maybeSingle();
+  if (!playlist || playlist.user_id !== req.session.userId) {
+    res.status(404).json({ error: 'not_found' });
+    return null;
+  }
+  return playlist;
+}
+
+app.get('/api/me/playlists', requireAuth, async (req, res) => {
+  const { data: playlists, error } = await supabase
+    .from('playlists')
+    .select('id, name, created_at')
+    .eq('user_id', req.session.userId)
+    .order('created_at', { ascending: true });
+  if (error) return res.status(500).json({ error: 'playlists_table_missing' });
+  const ids = (playlists || []).map((p) => p.id);
+  const { data: entries } = ids.length ? await supabase.from('playlist_tracks').select('playlist_id').in('playlist_id', ids) : { data: [] };
+  const countByPlaylist = {};
+  (entries || []).forEach((e) => { countByPlaylist[e.playlist_id] = (countByPlaylist[e.playlist_id] || 0) + 1; });
+  res.json({
+    playlists: (playlists || []).map((p) => ({ id: p.id, name: p.name, createdAt: p.created_at, trackCount: countByPlaylist[p.id] || 0 })),
+  });
+});
+
+app.post('/api/me/playlists', requireAuth, async (req, res) => {
+  const name = (req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'name_required' });
+  const { data, error } = await supabase
+    .from('playlists')
+    .insert({ user_id: req.session.userId, name: name.slice(0, 80), created_at: Date.now() })
+    .select('id, name, created_at')
+    .single();
+  if (error) return res.status(500).json({ error: 'playlists_table_missing' });
+  res.json({ playlist: { id: data.id, name: data.name, createdAt: data.created_at, trackCount: 0 } });
+});
+
+app.put('/api/me/playlists/:id', requireAuth, async (req, res) => {
+  const playlist = await ownPlaylistOr404(req, res);
+  if (!playlist) return;
+  const name = (req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'name_required' });
+  await supabase.from('playlists').update({ name: name.slice(0, 80) }).eq('id', playlist.id);
+  res.json({ ok: true });
+});
+
+app.delete('/api/me/playlists/:id', requireAuth, async (req, res) => {
+  const playlist = await ownPlaylistOr404(req, res);
+  if (!playlist) return;
+  await supabase.from('playlists').delete().eq('id', playlist.id);
+  res.json({ ok: true });
+});
+
+app.get('/api/me/playlists/:id', requireAuth, async (req, res) => {
+  const playlist = await ownPlaylistOr404(req, res);
+  if (!playlist) return;
+  const { data: entries } = await supabase
+    .from('playlist_tracks')
+    .select('track_id, added_at')
+    .eq('playlist_id', playlist.id)
+    .order('added_at', { ascending: true });
+  const trackIds = (entries || []).map((e) => e.track_id);
+  const { data: tracks } = trackIds.length
+    ? await supabase.from('tracks').select('id, title, audio_url, cover_url, user_id').in('id', trackIds)
+    : { data: [] };
+  const artistIds = [...new Set((tracks || []).map((tr) => tr.user_id))];
+  const { data: artists } = artistIds.length ? await supabase.from('users').select('id, artist_name').in('id', artistIds) : { data: [] };
+  const artistById = {};
+  (artists || []).forEach((a) => { artistById[a.id] = a.artist_name; });
+  const trackById = {};
+  (tracks || []).forEach((tr) => { trackById[tr.id] = tr; });
+  const orderedTracks = trackIds
+    .map((id) => trackById[id])
+    .filter(Boolean)
+    .map((tr) => ({ id: tr.id, title: tr.title, audioUrl: tr.audio_url, coverUrl: tr.cover_url, artistName: artistById[tr.user_id] || '' }));
+  res.json({ playlist: { id: playlist.id, name: playlist.name }, tracks: orderedTracks });
+});
+
+app.post('/api/playlists/:id/tracks', requireAuth, async (req, res) => {
+  const playlist = await ownPlaylistOr404(req, res);
+  if (!playlist) return;
+  const trackId = Number(req.body.trackId);
+  if (!trackId) return res.status(400).json({ error: 'track_id_required' });
+  const { data: track } = await supabase.from('tracks').select('id').eq('id', trackId).maybeSingle();
+  if (!track) return res.status(404).json({ error: 'not_found' });
+  const { error } = await supabase.from('playlist_tracks').insert({ playlist_id: playlist.id, track_id: trackId, added_at: Date.now() });
+  if (error && error.code !== '23505') return res.status(500).json({ error: 'insert_failed' }); // 23505 = déjà présent dans la playlist, sans conséquence
+  res.json({ ok: true });
+});
+
+app.delete('/api/playlists/:id/tracks/:trackId', requireAuth, async (req, res) => {
+  const playlist = await ownPlaylistOr404(req, res);
+  if (!playlist) return;
+  await supabase.from('playlist_tracks').delete().eq('playlist_id', playlist.id).eq('track_id', Number(req.params.trackId));
+  res.json({ ok: true });
+});
+
 // --- Albums / EP ---
 // Un album appartient à un artiste (titre + pochette). Un morceau peut en
 // faire partie (tracks.album_id) : sa propre pochette reste l'image

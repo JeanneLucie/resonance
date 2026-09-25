@@ -46,6 +46,15 @@
       <p data-i18n="nav.shareQrHint">Scanne pour ouvrir cette page sur un autre téléphone.</p>
       <button type="button" id="close-qr-popover" aria-label="Fermer">✕</button>
     </div>
+    <div id="add-to-playlist-popover" class="share-qr-popover add-to-playlist-popover" hidden>
+      <p class="field-hint" data-i18n="playlists.addToTitle">Ajouter à une playlist</p>
+      <div id="add-to-playlist-list"></div>
+      <form id="add-to-playlist-new-form" class="playlist-create-form">
+        <input type="text" id="add-to-playlist-new-name" data-i18n-placeholder="playlists.namePlaceholder" placeholder="Nom de la playlist" maxlength="80" required>
+        <button type="submit" class="mini-btn" data-i18n="playlists.create">+ Créer</button>
+      </form>
+      <button type="button" id="close-add-to-playlist-popover" aria-label="Fermer">✕</button>
+    </div>
   </div>
 </nav>
 
@@ -273,6 +282,16 @@
       <div class="panel" id="messages-panel" style="margin-top:24px;">
         <h3 data-i18n="messages.title">Mes messages</h3>
         <div id="messages-list"></div>
+      </div>
+
+      <div class="panel" id="playlists-panel" style="margin-top:24px;">
+        <h3 data-i18n="playlists.title">Mes playlists</h3>
+        <p class="field-hint" data-i18n="playlists.hint">Des listes privées, pour toi seul : personne d'autre ne les voit.</p>
+        <form id="playlist-create-form" class="playlist-create-form">
+          <input type="text" id="playlist-name-input" data-i18n-placeholder="playlists.namePlaceholder" placeholder="Nom de la playlist" maxlength="80" required>
+          <button type="submit" class="mini-btn" data-i18n="playlists.create">+ Créer</button>
+        </form>
+        <div id="playlists-list"></div>
       </div>
 
       <div class="panel">

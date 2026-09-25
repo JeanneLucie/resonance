@@ -160,6 +160,18 @@ section.on-paper h2, section.on-paper h3 { color: var(--text-on-paper); }
 .share-qr-popover p { font-size: 0.8rem; color: var(--text-on-paper-dim); margin: 10px 0 0; max-width: 180px; }
 .share-qr-popover #close-qr-popover { position: absolute; top: 8px; right: 10px; background: none; border: none; color: var(--text-on-paper-dim); cursor: pointer; font-size: 0.9rem; }
 #share-qr-code { display: inline-block; line-height: 0; }
+.add-to-playlist-popover { text-align: left; min-width: 220px; max-width: 280px; }
+.add-to-playlist-popover p { max-width: none; margin: 0 0 10px; }
+#add-to-playlist-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; max-height: 220px; overflow-y: auto; }
+.playlist-pick-btn { text-align: left; }
+.playlist-pick-btn.added { opacity: 0.6; cursor: default; }
+.playlist-create-form { display: flex; gap: 8px; margin: 10px 0; }
+.playlist-create-form input { flex: 1; }
+.playlist-row { border: 1px solid var(--line-paper); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.playlist-row-head { display: flex; align-items: center; gap: 8px; }
+.playlist-toggle { flex: 1; text-align: left; background: none; border: none; font-size: 0.92rem; color: var(--text-on-paper); cursor: pointer; padding: 0; }
+.playlist-tracks { margin-top: 10px; }
+.playlist-track-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 0.85rem; }
 .parental-info { margin-top: 10px; font-size: 0.78rem; color: var(--text-on-paper-dim); max-width: 62ch; line-height: 1.5; }
 .parental-info + .parental-info { margin-top: 8px; font-style: italic; }
 

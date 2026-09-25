@@ -102,6 +102,7 @@ async function refreshMe() {
     loadMyAlbums();
     loadMyTracks();
     loadMessages();
+    loadPlaylists();
   }
 }
 
@@ -1054,6 +1055,231 @@ async function loadMessages() {
   });
 }
 
+// --- Playlists privées ---
+// Des listes personnelles (compte fan ou artiste), jamais visibles par
+// quelqu'un d'autre que leur propriétaire. Le panneau du tableau de bord
+// (playlists-panel) permet de créer/renommer/supprimer une playlist et de
+// voir/retirer ses morceaux ; le bouton ➕ sur chaque carte morceau ouvre
+// un petit popover pour l'y ajouter (voir plus bas).
+async function loadPlaylists() {
+  const panel = document.getElementById('playlists-panel');
+  if (!panel) return;
+  const res = await fetch('/api/me/playlists');
+  if (!res.ok) return;
+  const { playlists } = await res.json();
+  const list = document.getElementById('playlists-list');
+  if (!playlists.length) {
+    list.innerHTML = '<p class="empty-state">' + t('playlists.empty') + '</p>';
+    return;
+  }
+  list.innerHTML = playlists
+    .map(
+      (p) =>
+        '<div class="playlist-row">' +
+        '<div class="playlist-row-head">' +
+        '<button type="button" class="playlist-toggle" data-playlist-id="' +
+        p.id +
+        '">▶ ' +
+        escapeHtml(p.name) +
+        ' (' +
+        p.trackCount +
+        ')</button>' +
+        '<button type="button" class="mini-btn playlist-rename-btn" data-playlist-id="' +
+        p.id +
+        '" data-playlist-name="' +
+        escapeHtml(p.name) +
+        '" title="' +
+        t('playlists.rename') +
+        '">✏️</button>' +
+        '<button type="button" class="mini-btn playlist-delete-btn" data-playlist-id="' +
+        p.id +
+        '" title="' +
+        t('playlists.delete') +
+        '">🗑️</button>' +
+        '</div>' +
+        '<div class="playlist-tracks" data-playlist-id="' +
+        p.id +
+        '" hidden></div>' +
+        '</div>'
+    )
+    .join('');
+}
+
+document.getElementById('playlist-create-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('playlist-name-input');
+  const name = input.value.trim();
+  if (!name) return;
+  const res = await fetch('/api/me/playlists', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    showToast(t('error.generic'));
+    return;
+  }
+  input.value = '';
+  loadPlaylists();
+});
+
+document.addEventListener('click', async (e) => {
+  const toggle = e.target.closest('.playlist-toggle');
+  if (!toggle) return;
+  const playlistId = toggle.getAttribute('data-playlist-id');
+  const tracksBox = document.querySelector('.playlist-tracks[data-playlist-id="' + playlistId + '"]');
+  if (!tracksBox.hidden) {
+    tracksBox.hidden = true;
+    return;
+  }
+  tracksBox.innerHTML = '<p class="empty-state">…</p>';
+  tracksBox.hidden = false;
+  const res = await fetch('/api/me/playlists/' + playlistId);
+  if (!res.ok) {
+    tracksBox.innerHTML = '<p class="empty-state">' + t('error.generic') + '</p>';
+    return;
+  }
+  const { tracks } = await res.json();
+  if (!tracks.length) {
+    tracksBox.innerHTML = '<p class="empty-state">' + t('playlists.trackListEmpty') + '</p>';
+    return;
+  }
+  tracksBox.innerHTML = tracks
+    .map(
+      (tr) =>
+        '<div class="playlist-track-row">' +
+        '<span>' +
+        escapeHtml(tr.title) +
+        ' · ' +
+        escapeHtml(tr.artistName) +
+        '</span>' +
+        '<button type="button" class="mini-btn playlist-remove-track-btn" data-playlist-id="' +
+        playlistId +
+        '" data-track-id="' +
+        tr.id +
+        '">' +
+        t('playlists.removeTrack') +
+        '</button>' +
+        '</div>'
+    )
+    .join('');
+});
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.playlist-remove-track-btn');
+  if (!btn) return;
+  await fetch('/api/playlists/' + btn.getAttribute('data-playlist-id') + '/tracks/' + btn.getAttribute('data-track-id'), { method: 'DELETE' });
+  loadPlaylists();
+});
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.playlist-rename-btn');
+  if (!btn) return;
+  const current = btn.getAttribute('data-playlist-name');
+  const name = window.prompt(t('playlists.renamePrompt'), current);
+  if (!name || !name.trim() || name.trim() === current) return;
+  const res = await fetch('/api/me/playlists/' + btn.getAttribute('data-playlist-id'), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  if (!res.ok) {
+    showToast(t('error.generic'));
+    return;
+  }
+  loadPlaylists();
+});
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.playlist-delete-btn');
+  if (!btn) return;
+  if (!window.confirm(t('playlists.deleteConfirm'))) return;
+  await fetch('/api/me/playlists/' + btn.getAttribute('data-playlist-id'), { method: 'DELETE' });
+  loadPlaylists();
+});
+
+// Bouton ➕ sur une carte morceau : ouvre le popover avec la liste des
+// playlists existantes (un clic ajoute directement, pas de retrait
+// possible depuis ce popover, on passe par le panneau du tableau de bord
+// pour ça) et un petit formulaire pour en créer une nouvelle à la volée.
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.add-to-playlist-btn');
+  if (!btn) return;
+  if (!currentUser) {
+    showToast(t('playlists.loginRequired'));
+    return;
+  }
+  const trackId = btn.getAttribute('data-track-id');
+  const popover = document.getElementById('add-to-playlist-popover');
+  popover.setAttribute('data-track-id', trackId);
+  const listBox = document.getElementById('add-to-playlist-list');
+  listBox.innerHTML = '<p class="empty-state">…</p>';
+  popover.hidden = false;
+  const res = await fetch('/api/me/playlists');
+  if (!res.ok) {
+    listBox.innerHTML = '<p class="empty-state">' + t('error.generic') + '</p>';
+    return;
+  }
+  const { playlists } = await res.json();
+  if (!playlists.length) {
+    listBox.innerHTML = '<p class="empty-state">' + t('playlists.emptyShort') + '</p>';
+    return;
+  }
+  listBox.innerHTML = playlists
+    .map((p) => '<button type="button" class="mini-btn playlist-pick-btn" data-playlist-id="' + p.id + '">' + escapeHtml(p.name) + '</button>')
+    .join('');
+});
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.playlist-pick-btn');
+  if (!btn) return;
+  const popover = document.getElementById('add-to-playlist-popover');
+  const trackId = popover.getAttribute('data-track-id');
+  btn.disabled = true;
+  const res = await fetch('/api/playlists/' + btn.getAttribute('data-playlist-id') + '/tracks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trackId: Number(trackId) }),
+  });
+  if (res.ok) {
+    btn.textContent = '✓ ' + btn.textContent;
+    btn.classList.add('added');
+  } else {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('add-to-playlist-new-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('add-to-playlist-new-name');
+  const name = input.value.trim();
+  if (!name) return;
+  const popover = document.getElementById('add-to-playlist-popover');
+  const trackId = popover.getAttribute('data-track-id');
+  const createRes = await fetch('/api/me/playlists', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!createRes.ok) {
+    showToast(t('error.generic'));
+    return;
+  }
+  const { playlist } = await createRes.json();
+  await fetch('/api/playlists/' + playlist.id + '/tracks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trackId: Number(trackId) }),
+  });
+  input.value = '';
+  showToast('✓');
+  popover.hidden = true;
+});
+
+document.getElementById('close-add-to-playlist-popover').addEventListener('click', () => {
+  document.getElementById('add-to-playlist-popover').hidden = true;
+});
+
 // L'envoi direct vers Spotify/Apple Music est-il déjà branché ? Tant que
 // ce n'est pas le cas, on n'affiche PAS les boutons "Distribuer" et
 // "Payer" (ils ne menaient qu'à un message d'erreur) : un seul bouton
@@ -1336,6 +1562,11 @@ function renderTrackCard(tr) {
     ' <span class="like-count">' +
     (tr.likeCount || 0) +
     '</span></button>' +
+    '<button type="button" class="link-pill add-to-playlist-btn" data-track-id="' +
+    tr.id +
+    '" title="' +
+    t('playlists.addToTitle') +
+    '">➕</button>' +
     '<button type="button" class="link-pill report-track-btn" data-report-id="' +
     tr.id +
     '" title="' +
