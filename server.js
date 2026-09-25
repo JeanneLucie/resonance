@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const supabase = require('./supabaseClient');
 const crypto = require('crypto');
 const labelgrid = require('./labelgrid');
@@ -824,6 +825,91 @@ app.delete('/api/tracks/:id', requireAuth, async (req, res) => {
   removeFromStorage(track.audio_url);
   if (track.cover_url) removeFromStorage(track.cover_url);
   res.json({ ok: true });
+});
+
+// --- Référencement : pages artiste/morceau avec de vraies adresses ---
+// Avant ce bloc, les pages artiste/morceau n'existaient qu'en
+// "https://risuona.../#/artiste/123" : tout ce qui suit un # n'est jamais
+// envoyé au serveur, donc Google ne voyait littéralement rien à indexer à
+// cette adresse (juste la page d'accueil, toujours la même). Ici, on sert de
+// vraies adresses ("/artiste/123") avec un titre, une description et une
+// image propres à chaque artiste/morceau — lisibles par un moteur de
+// recherche sans exécuter de JavaScript — puis on renvoie exactement la même
+// page que d'habitude (index.html), qui prend le relais côté navigateur
+// (voir le repli sur window.location.pathname dans app.js) pour l'affichage
+// interactif habituel. Rien ne change pour un visiteur qui clique dans le
+// site : la navigation interne continue d'utiliser les adresses en #.
+const INDEX_HTML_PATH = path.join(__dirname, 'public', 'index.html');
+
+function escapeHtmlAttr(str) {
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Remplace title/description/og:*/twitter:card dans index.html par des
+// valeurs propres à une page donnée. Se base sur la structure exacte du
+// fichier (une seule balise <title>, une seule meta description, etc.) :
+// si jamais l'un de ces éléments manque, la ligne correspondante est
+// simplement laissée telle quelle plutôt que de faire planter la réponse.
+function renderIndexWithMeta({ title, description, url, image }) {
+  let html = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
+  const t = escapeHtmlAttr(title);
+  const d = escapeHtmlAttr(description);
+  const u = escapeHtmlAttr(url);
+  const i = escapeHtmlAttr(image);
+  html = html.replace(/<title>.*?<\/title>/, '<title>' + t + '</title>');
+  html = html.replace(/<meta name="description" content=".*?">/, '<meta name="description" content="' + d + '">');
+  html = html.replace(/<meta property="og:title" content=".*?">/, '<meta property="og:title" content="' + t + '">');
+  html = html.replace(/<meta property="og:description" content=".*?">/, '<meta property="og:description" content="' + d + '">');
+  html = html.replace(/<meta property="og:url" content=".*?">/, '<meta property="og:url" content="' + u + '">');
+  if (image) html = html.replace(/<meta property="og:image" content=".*?">/, '<meta property="og:image" content="' + i + '">');
+  html = html.replace(/<meta name="twitter:card" content=".*?">/, '<meta name="twitter:card" content="summary_large_image">');
+  return html;
+}
+
+app.get('/artiste/:id', async (req, res, next) => {
+  const { data: artist } = await supabase.from('users').select('artist_name, bio, avatar_url').eq('id', req.params.id).maybeSingle();
+  if (!artist) return next(); // pas d'artiste : page normale, app.js affichera "introuvable"
+  const siteUrl = req.protocol + '://' + req.get('host');
+  res.send(
+    renderIndexWithMeta({
+      title: artist.artist_name + ' | Risuona',
+      description: (artist.bio && artist.bio.trim()) || 'Découvre ' + artist.artist_name + ' sur Risuona, plateforme indépendante pour artistes musicaux.',
+      url: siteUrl + '/artiste/' + req.params.id,
+      image: artist.avatar_url || siteUrl + '/icons/icon-512.png',
+    })
+  );
+});
+
+app.get('/morceau/:id', async (req, res, next) => {
+  const { data: track } = await supabase.from('tracks').select('title, cover_url, user_id, release_at').eq('id', req.params.id).maybeSingle();
+  if (!track) return next();
+  if (track.release_at && Number(track.release_at) > Date.now()) return next(); // pas encore sorti : pas d'indexation anticipée
+  const { data: artist } = await supabase.from('users').select('artist_name').eq('id', track.user_id).maybeSingle();
+  const siteUrl = req.protocol + '://' + req.get('host');
+  res.send(
+    renderIndexWithMeta({
+      title: track.title + ' · ' + (artist ? artist.artist_name : '') + ' | Risuona',
+      description: 'Écoute "' + track.title + '" par ' + (artist ? artist.artist_name : 'un artiste Risuona') + ', en écoute libre sur Risuona.',
+      url: siteUrl + '/morceau/' + req.params.id,
+      image: track.cover_url || siteUrl + '/icons/icon-512.png',
+    })
+  );
+});
+
+// Plan de site généré à la volée : liste désormais chaque artiste et chaque
+// morceau déjà sorti (avant, ce fichier était fixe et ne listait que la page
+// d'accueil). Remplace le fichier statique public/sitemap.xml.
+app.get('/sitemap.xml', async (req, res) => {
+  const siteUrl = req.protocol + '://' + req.get('host');
+  const { data: users } = await supabase.from('users').select('id').eq('account_type', 'artist');
+  const { data: tracks } = await onlyReleased(supabase.from('tracks').select('id, created_at'));
+  const urls = [
+    '  <url><loc>' + siteUrl + '/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>',
+    ...((users || []).map((u) => '  <url><loc>' + siteUrl + '/artiste/' + u.id + '</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>')),
+    ...((tracks || []).map((t) => '  <url><loc>' + siteUrl + '/morceau/' + t.id + '</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>')),
+  ];
+  res.setHeader('Content-Type', 'application/xml');
+  res.send('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls.join('\n') + '\n</urlset>');
 });
 
 // --- Pages artiste publiques + suivi ---

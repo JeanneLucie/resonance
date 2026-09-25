@@ -2075,6 +2075,7 @@ async function loadArtistPage(artistId) {
     return;
   }
   const { artist, tracks, followerCount, isFollowing } = await res.json();
+  document.title = artist.artistName + ' | Risuona';
 
   document.getElementById('artist-page-name').textContent = artist.artistName;
   document.getElementById('artist-page-verified').hidden = !artist.identityVerified;
@@ -2141,9 +2142,16 @@ async function loadArtistPage(artistId) {
 const DEFAULT_TITLE = document.title;
 
 function handleRoute() {
-  const artistMatch = window.location.hash.match(/^#\/artiste\/(\d+)$/);
-  const trackMatch = window.location.hash.match(/^#\/morceau\/(\d+)$/);
-  const pageMatch = window.location.hash.match(/^#\/page\/(roadmap|cgu|guide)$/);
+  const hash = window.location.hash;
+  const path = window.location.pathname;
+  // Repli sur l'adresse "normale" (/artiste/123, /morceau/123) quand il n'y
+  // a pas de # : c'est le cas d'un chargement direct de cette adresse (lien
+  // partagé, moteur de recherche) plutôt que d'un clic dans le site, qui lui
+  // continue d'utiliser les adresses en # comme avant. Le # reste toujours
+  // prioritaire pour ne rien changer à la navigation interne existante.
+  const artistMatch = hash.match(/^#\/artiste\/(\d+)$/) || (!hash && path.match(/^\/artiste\/(\d+)$/));
+  const trackMatch = hash.match(/^#\/morceau\/(\d+)$/) || (!hash && path.match(/^\/morceau\/(\d+)$/));
+  const pageMatch = hash.match(/^#\/page\/(roadmap|cgu|guide)$/);
   const artistSection = document.getElementById('artiste');
   const trackSection = document.getElementById('morceau');
   const readerSection = document.getElementById('page-reader');
