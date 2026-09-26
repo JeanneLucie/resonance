@@ -1,0 +1,34 @@
+name: Retour automatique en auditeur des comptes artiste inactifs
+
+# Même principe que digest-quotidien.yml et
+# reverification-quotidienne.yml : un setInterval interne à server.js ne
+# se déclenche presque jamais sur le plan gratuit Render (le service
+# s'endort après 15 minutes sans visite), donc ce workflow "sonne à la
+# porte" du site une fois par jour à sa place. C'est le site lui-même
+# (server.js, route /api/internal/check-inactive-artists) qui décide
+# s'il y a des comptes à faire repasser en auditeur : uniquement ceux
+# passés de auditeur à artiste via le bouton "Je me suis trompé, je suis
+# artiste" il y a plus de 60 jours, sans avoir publié le moindre morceau
+# depuis. Un compte créé artiste dès l'inscription n'est jamais concerné.
+#
+# 11h UTC, une heure après reverification-quotidienne.yml, pour répartir
+# les trois appels dans le temps plutôt que de les faire tomber ensemble.
+#
+# Réutilise le secret DIGEST_SECRET déjà créé pour digest-quotidien.yml
+# (Settings → Secrets and variables → Actions), pas besoin d'en ajouter
+# un troisième.
+
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check-inactive-artists:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Déclencher la vérification des comptes artiste inactifs
+        run: |
+          curl -sS -X POST "https://risuonamusic.com/api/internal/check-inactive-artists" \
+            -H "x-digest-secret: ${{ secrets.DIGEST_SECRET }}" \
+            --fail

@@ -2514,6 +2514,53 @@ async function cleanupOldLoginLogs() {
 setInterval(cleanupOldLoginLogs, LOGIN_LOG_CLEANUP_INTERVAL_MS);
 cleanupOldLoginLogs();
 
+// --- Retour automatique en compte auditeur, si "je me suis trompé, je
+// suis artiste" n'a jamais été suivi d'une publication ---
+// Ne concerne que les comptes passés de auditeur à artiste via ce bouton
+// précis (voir account_type_history / migration-account-type-history.sql)
+// : un compte créé artiste dès l'inscription n'est jamais concerné, ce
+// n'était pas une "correction". Passé le délai choisi sans le moindre
+// morceau publié, le compte repasse tout seul en auditeur — l'artiste en
+// est prévenu par e-mail, et peut redevenir artiste à tout moment de la
+// même façon. Déclenché depuis l'extérieur (voir
+// .github/workflows/retour-auditeur-inactif.yml), même raison que pour
+// checkPendingReverifications et cleanupOldLoginLogs juste au-dessus.
+const ARTIST_INACTIVITY_MS = 60 * 24 * 60 * 60 * 1000; // 60 jours
+async function checkInactiveNewArtists() {
+  const { data: users } = await supabase.from('users').select('id, email, artist_name').eq('account_type', 'artist').neq('role', 'admin');
+  if (!users || !users.length) return 0;
+  const siteUrl = process.env.SITE_URL || 'https://risuonamusic.com';
+  let reverted = 0;
+  for (const user of users) {
+    const { data: lastChange } = await supabase
+      .from('account_type_history')
+      .select('from_type, to_type, changed_at')
+      .eq('user_id', user.id)
+      .order('changed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    // Pas d'historique, ou dernier changement pas de type "auditeur devenu
+    // artiste" (ex. redevenu artiste après un premier retour) : on ignore.
+    if (!lastChange || lastChange.to_type !== 'artist' || lastChange.from_type !== 'fan') continue;
+    if (Number(lastChange.changed_at) > Date.now() - ARTIST_INACTIVITY_MS) continue;
+    const { count } = await supabase.from('tracks').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
+    if (count) continue;
+    await changeAccountType(user.id, 'fan');
+    resendClient.notifyAutoRevertedToFan(user.email, user.artist_name, siteUrl);
+    reverted++;
+  }
+  return reverted;
+}
+
+app.post('/api/internal/check-inactive-artists', async (req, res) => {
+  const secret = req.headers['x-digest-secret'];
+  if (!process.env.DIGEST_SECRET || secret !== process.env.DIGEST_SECRET) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  const reverted = await checkInactiveNewArtists();
+  res.json({ ok: true, reverted });
+});
+
 app.listen(PORT, () => {
   console.log(`Risuona écoute sur http://localhost:${PORT}`);
 });
