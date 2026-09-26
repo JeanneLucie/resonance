@@ -18,6 +18,16 @@ async function loadLang(lang) {
   document.querySelectorAll('.lang-btn').forEach((b) => {
     b.classList.toggle('active', b.getAttribute('data-lang') === lang);
   });
+  // Le rafraîchissement générique ci-dessus vient d'écraser ces deux
+  // libellés avec leur texte par défaut ("Nom d'artiste") : on les
+  // réapplique aussitôt selon le type de compte, sinon un changement de
+  // langue en pleine inscription (ou sur son profil) fait perdre le
+  // libellé "Nom d'utilisateur" propre à un compte auditeur.
+  updateSignupNameLabel();
+  if (currentUser) {
+    const profileLabel = document.getElementById('profile-name-label');
+    if (profileLabel) profileLabel.textContent = currentUser.accountType === 'fan' ? t('auth.userName') : t('auth.artistName');
+  }
   document.documentElement.lang = lang;
   if (ANNOUNCEMENTS_LOADED) renderAnnouncements();
 }
@@ -231,11 +241,12 @@ function showRateLimitCountdown(statusEl, retryAfterSeconds) {
   }, 1000);
 }
 
+function updateSignupNameLabel() {
+  const checked = document.querySelector('input[name="account-type"]:checked');
+  document.getElementById('signup-name-label').textContent = checked && checked.value === 'fan' ? t('auth.userName') : t('auth.artistName');
+}
 document.querySelectorAll('input[name="account-type"]').forEach((radio) => {
-  radio.addEventListener('change', () => {
-    const label = document.getElementById('signup-name-label');
-    label.textContent = document.querySelector('input[name="account-type"]:checked').value === 'fan' ? t('auth.userName') : t('auth.artistName');
-  });
+  radio.addEventListener('change', updateSignupNameLabel);
 });
 
 document.getElementById('signup-form').addEventListener('submit', async (e) => {
@@ -359,6 +370,13 @@ document.getElementById('nav-logout').addEventListener('click', async () => {
 
 // --- Profil ---
 function fillProfileForm(user) {
+  // Même bascule de libellé qu'à l'inscription (voir plus bas,
+  // signup-name-label) : un compte auditeur n'a pas de "nom d'artiste",
+  // ce champ sert alors de simple nom d'affichage. Sans ça, la page de
+  // profil affichait toujours "Nom d'artiste" même pour un compte
+  // auditeur, ce qui n'avait pas de sens et ne laissait aucune autre
+  // case où mettre un nom d'affichage adapté.
+  document.getElementById('profile-name-label').textContent = user.accountType === 'fan' ? t('auth.userName') : t('auth.artistName');
   document.getElementById('profile-artistName').value = user.artistName || '';
   document.getElementById('profile-bio').value = user.bio || '';
   document.getElementById('profile-donationLink').value = user.donationLink || '';
