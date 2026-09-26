@@ -3036,8 +3036,8 @@ window.addEventListener('hashchange', handleRoute);
 // pouvait se retrouver dans un état bizarre au retour). On affiche donc
 // désormais le contenu de ces pages à l'intérieur du site : la musique
 // continue pendant la lecture.
-const READER_PAGES = { roadmap: '/roadmap.html', cgu: '/cgu.html', guide: '/guide.html' };
-const READER_BY_PATH = { '/roadmap.html': 'roadmap', '/cgu.html': 'cgu', '/guide.html': 'guide' };
+const READER_PAGES = { roadmap: '/roadmap.html', cgu: '/cgu.html', guide: '/guide.html', guideSacem: '/guide-sacem.html' };
+const READER_BY_PATH = { '/roadmap.html': 'roadmap', '/cgu.html': 'cgu', '/guide.html': 'guide', '/guide-sacem.html': 'guideSacem' };
 let readerReturnScroll = null;
 let readerOpenedInApp = false;
 

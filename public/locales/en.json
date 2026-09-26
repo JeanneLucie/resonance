@@ -66,6 +66,7 @@
   "dashboard.profile.bandcamp": "Bandcamp link",
   "profile.sacem.label": "I'm a member of a performance-rights society (e.g. SACEM)",
   "profile.sacem.hint": "A performance-rights society (SACEM in France) collects and pays out royalties when your music is played publicly. Joining is a personal step, independent of Risuona, and isn't done track by track. The button below opens the official site: look for \"Devenir membre\" (become a member) or \"Adhérer\" from there.",
+  "profile.sacem.guideLink": "📖 See the step-by-step guide",
   "profile.sacem.link": "Join SACEM",
   "dashboard.profile.bio": "Short bio",
   "dashboard.profile.donation": "Support / donation link",

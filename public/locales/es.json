@@ -66,6 +66,7 @@
   "dashboard.profile.bandcamp": "Enlace de Bandcamp",
   "profile.sacem.label": "Soy miembro de una sociedad de derechos de autor (ej. SACEM)",
   "profile.sacem.hint": "Una sociedad de derechos de autor (SACEM en Francia) recauda y reparte los derechos cuando tu música se difunde públicamente. Inscribirse es un trámite personal, independiente de Risuona, y no se hace canción por canción. El botón de abajo abre el sitio oficial: busca luego \"Devenir membre\" o \"Adhérer\".",
+  "profile.sacem.guideLink": "📖 Ver la guía paso a paso",
   "profile.sacem.link": "Inscribirse en la SACEM",
   "dashboard.profile.bio": "Biografía breve",
   "dashboard.profile.donation": "Enlace de apoyo / donación",

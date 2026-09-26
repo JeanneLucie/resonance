@@ -5,7 +5,7 @@
 // statiques (HTML, CSS, JS, icônes), jamais les morceaux audio ni les
 // réponses de l'API.
 
-const CACHE_NAME = 'resonance-shell-v25';
+const CACHE_NAME = 'resonance-shell-v26';
 const SHELL_FILES = [
   '/',
   '/style.css',
@@ -16,6 +16,7 @@ const SHELL_FILES = [
   '/cgu.html',
   '/roadmap.html',
   '/guide.html',
+  '/guide-sacem.html',
   '/locales/fr.json',
   '/locales/en.json',
   '/locales/es.json',
