@@ -181,6 +181,10 @@
               <span class="form-note" id="login-totp-status" aria-live="polite"></span>
             </div>
           </form>
+          <p class="switch-link">
+            <button type="button" class="btn-link" id="login-webauthn-btn" hidden data-i18n="auth.webauthn.useBtn">Utiliser Face ID / Touch ID</button>
+          </p>
+          <p class="form-note" id="login-webauthn-status" aria-live="polite"></p>
         </div>
         <div id="forgot-password-wrap" hidden>
           <h3 data-i18n="auth.forgotPassword.title">Mot de passe oublié</h3>
@@ -649,6 +653,14 @@
           <button type="button" class="mini-btn" id="admin-totp-disable-btn" data-i18n="admin.totp.disableBtn">Désactiver la double authentification</button>
           <p class="form-note" id="admin-totp-disable-status" aria-live="polite"></p>
         </div>
+      </div>
+
+      <div class="panel" id="admin-webauthn-panel" style="margin-top:24px;">
+        <h3 data-i18n="admin.webauthn.title">Face ID / Touch ID (connexion admin)</h3>
+        <p class="field-hint" data-i18n="admin.webauthn.hint">En plus du code à 6 chiffres ci-dessus : à la connexion, Face ID ou Touch ID (sur ce Mac, un iPhone, ou une autre clé d'accès) peut remplacer la saisie du code. Aucune conséquence sur le référencement du site : cela ne concerne que la connexion à ton compte, jamais les pages publiques.</p>
+        <button type="button" class="mini-btn" id="admin-webauthn-register-btn" data-i18n="admin.webauthn.registerBtn">Enregistrer cet appareil</button>
+        <p class="form-note" id="admin-webauthn-status" aria-live="polite"></p>
+        <div id="admin-webauthn-list"></div>
       </div>
 
       <div class="panel" id="admin-invoice-panel" style="margin-top:24px;">

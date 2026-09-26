@@ -319,6 +319,8 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     document.getElementById('login-totp-wrap').hidden = false;
     document.getElementById('login-totp-code').value = '';
     document.getElementById('login-totp-code').focus();
+    document.getElementById('login-webauthn-status').textContent = '';
+    document.getElementById('login-webauthn-btn').hidden = !(data.webauthnAvailable && window.PublicKeyCredential);
     return;
   }
   status.textContent = '';
@@ -356,6 +358,89 @@ document.getElementById('login-totp-form').addEventListener('submit', async (e) 
   document.getElementById('login-totp-wrap').hidden = true;
   document.getElementById('login-form-wrap').hidden = false;
   await refreshMe();
+});
+
+// --- WebAuthn (Face ID / Touch ID) : conversions communes à
+// l'enregistrement et à la connexion. Les navigateurs récents savent
+// convertir directement depuis/vers le JSON attendu par le serveur
+// (PublicKeyCredential.parseCreationOptionsFromJSON / .toJSON()) ; les
+// fonctions manuelles ci-dessous ne servent que de repli pour un
+// navigateur qui ne les aurait pas encore.
+function base64urlToBuffer(base64url) {
+  const padding = '='.repeat((4 - (base64url.length % 4)) % 4);
+  const base64 = (base64url + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const buffer = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) buffer[i] = raw.charCodeAt(i);
+  return buffer.buffer;
+}
+function bufferToBase64url(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let str = '';
+  bytes.forEach((b) => { str += String.fromCharCode(b); });
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function webauthnParseCreationOptions(options) {
+  if (window.PublicKeyCredential && PublicKeyCredential.parseCreationOptionsFromJSON) {
+    return PublicKeyCredential.parseCreationOptionsFromJSON(options);
+  }
+  const parsed = Object.assign({}, options, {
+    challenge: base64urlToBuffer(options.challenge),
+    user: Object.assign({}, options.user, { id: base64urlToBuffer(options.user.id) }),
+  });
+  if (parsed.excludeCredentials) parsed.excludeCredentials = parsed.excludeCredentials.map((c) => Object.assign({}, c, { id: base64urlToBuffer(c.id) }));
+  return parsed;
+}
+function webauthnParseRequestOptions(options) {
+  if (window.PublicKeyCredential && PublicKeyCredential.parseRequestOptionsFromJSON) {
+    return PublicKeyCredential.parseRequestOptionsFromJSON(options);
+  }
+  const parsed = Object.assign({}, options, { challenge: base64urlToBuffer(options.challenge) });
+  if (parsed.allowCredentials) parsed.allowCredentials = parsed.allowCredentials.map((c) => Object.assign({}, c, { id: base64urlToBuffer(c.id) }));
+  return parsed;
+}
+function webauthnCredentialToJSON(cred) {
+  if (typeof cred.toJSON === 'function') return cred.toJSON();
+  const response = cred.response;
+  const json = {
+    id: cred.id,
+    rawId: bufferToBase64url(cred.rawId),
+    type: cred.type,
+    clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : {},
+    response: { clientDataJSON: bufferToBase64url(response.clientDataJSON) },
+  };
+  if (response.attestationObject) json.response.attestationObject = bufferToBase64url(response.attestationObject);
+  if (response.authenticatorData) json.response.authenticatorData = bufferToBase64url(response.authenticatorData);
+  if (response.signature) json.response.signature = bufferToBase64url(response.signature);
+  if (response.userHandle) json.response.userHandle = bufferToBase64url(response.userHandle);
+  return json;
+}
+
+document.getElementById('login-webauthn-btn').addEventListener('click', async () => {
+  const status = document.getElementById('login-webauthn-status');
+  status.textContent = '…';
+  try {
+    const optRes = await fetch('/api/login/webauthn/options', { method: 'POST' });
+    const options = await optRes.json();
+    if (!optRes.ok) throw new Error(options.error || 'error');
+    const publicKey = webauthnParseRequestOptions(options);
+    const assertion = await navigator.credentials.get({ publicKey });
+    const payload = webauthnCredentialToJSON(assertion);
+    payload.deviceId = getDeviceId();
+    const verifyRes = await fetch('/api/login/webauthn/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await verifyRes.json();
+    if (!verifyRes.ok) throw new Error(data.error || 'error');
+    status.textContent = '';
+    document.getElementById('login-totp-wrap').hidden = true;
+    document.getElementById('login-form-wrap').hidden = false;
+    await refreshMe();
+  } catch (err) {
+    status.textContent = t('auth.webauthn.error');
+  }
 });
 
 // --- Logout ---
@@ -2244,6 +2329,7 @@ function updateAdminUI() {
   if (isAdmin) {
     loadAdminOverview();
     renderAdminTotpPanel();
+    loadWebauthnCredentials();
   }
 }
 
@@ -2318,6 +2404,64 @@ document.getElementById('admin-totp-disable-btn').addEventListener('click', asyn
   showToast(t('admin.totp.disabled'));
   renderAdminTotpPanel();
 });
+
+// --- Face ID / Touch ID (WebAuthn) du compte admin ---
+document.getElementById('admin-webauthn-register-btn').addEventListener('click', async () => {
+  const status = document.getElementById('admin-webauthn-status');
+  const btn = document.getElementById('admin-webauthn-register-btn');
+  if (!window.PublicKeyCredential) {
+    status.textContent = t('admin.webauthn.unsupported');
+    return;
+  }
+  btn.disabled = true;
+  status.textContent = '…';
+  try {
+    const optRes = await fetch('/api/admin/webauthn/register-options', { method: 'POST' });
+    const options = await optRes.json();
+    if (!optRes.ok) throw new Error(options.error || 'error');
+    const publicKey = webauthnParseCreationOptions(options);
+    const cred = await navigator.credentials.create({ publicKey });
+    const verifyRes = await fetch('/api/admin/webauthn/register-verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(webauthnCredentialToJSON(cred)),
+    });
+    const data = await verifyRes.json();
+    if (!verifyRes.ok) throw new Error(data.error || 'error');
+    status.textContent = t('admin.webauthn.registered');
+    loadWebauthnCredentials();
+  } catch (err) {
+    status.textContent = t('admin.webauthn.error');
+  }
+  btn.disabled = false;
+});
+
+async function loadWebauthnCredentials() {
+  const list = document.getElementById('admin-webauthn-list');
+  if (!list) return;
+  const res = await fetch('/api/admin/webauthn/credentials');
+  if (!res.ok) return;
+  const { credentials } = await res.json();
+  if (!credentials || !credentials.length) {
+    list.innerHTML = '<p class="field-hint">' + t('admin.webauthn.none') + '</p>';
+    return;
+  }
+  list.innerHTML = credentials
+    .map(
+      (c) =>
+        '<div class="admin-row"><div class="who"><span>' + escapeHtml(new Date(c.createdAt).toLocaleDateString('fr-FR')) + '</span></div>' +
+        '<button type="button" class="mini-btn" data-delete-webauthn-id="' + c.id + '">' + t('admin.webauthn.delete') + '</button>' +
+        '</div>'
+    )
+    .join('');
+  list.querySelectorAll('[data-delete-webauthn-id]').forEach((delBtn) => {
+    delBtn.addEventListener('click', async () => {
+      delBtn.disabled = true;
+      await fetch('/api/admin/webauthn/credentials/' + delBtn.getAttribute('data-delete-webauthn-id'), { method: 'DELETE' });
+      loadWebauthnCredentials();
+    });
+  });
+}
 
 async function loadAdminOverview() {
   const res = await fetch('/api/admin/overview');

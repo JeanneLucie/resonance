@@ -15,6 +15,7 @@ const soundcloudClient = require('./soundcloudClient');
 const resendClient = require('./resendClient');
 const { generateInvoicePdf } = require('./pdfInvoice');
 const webpush = require('web-push');
+const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-in-.env';
@@ -64,6 +65,14 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// --- Double authentification par clé d'appareil (WebAuthn / passkeys) ---
+// Le "RP ID" doit correspondre exactement au domaine affiché dans le
+// navigateur : comme la redirection ci-dessus force toujours
+// risuonamusic.com, on peut le fixer une fois pour toutes ici plutôt que
+// d'en refaire une variable d'environnement séparée.
+const WEBAUTHN_RP_NAME = 'Risuona';
+const WEBAUTHN_ORIGIN = 'https://' + CANONICAL_HOST;
 
 // --- Config upload (audio, pochettes, avatars, bannières) ---
 // Les fichiers sont stockés sur Supabase Storage (bucket "media"),
@@ -1006,7 +1015,11 @@ app.post('/api/login', authLimiter, loginEmailLimiter, async (req, res) => {
   if (user.role === 'admin' && user.totp_enabled) {
     req.session.pendingTotpUserId = user.id;
     req.session.pendingTotpExpires = Date.now() + 5 * 60 * 1000;
-    return res.json({ ok: true, totpRequired: true });
+    const { count: webauthnCount } = await supabase
+      .from('webauthn_credentials')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    return res.json({ ok: true, totpRequired: true, webauthnAvailable: (webauthnCount || 0) > 0 });
   }
   await completeLogin(req, user, deviceId);
   res.json({ ok: true, user: publicUser(user) });
@@ -1032,6 +1045,63 @@ app.post('/api/login/totp', authLimiter, async (req, res) => {
   delete req.session.pendingTotpUserId;
   delete req.session.pendingTotpExpires;
   await completeLogin(req, user, deviceId);
+  res.json({ ok: true, user: publicUser(user) });
+});
+
+// Alternative au code à 6 chiffres, à la même étape de connexion : Face ID
+// ou Touch ID (ou toute autre "passkey") déjà enregistrée sur cet appareil
+// (voir /api/admin/webauthn/register-*). Réutilise le même état de
+// connexion en attente (pendingTotpUserId) que le code à 6 chiffres : les
+// deux méthodes sont deux façons d'achever la même deuxième étape.
+app.post('/api/login/webauthn/options', authLimiter, async (req, res) => {
+  const pendingId = req.session.pendingTotpUserId;
+  if (!pendingId || !req.session.pendingTotpExpires || req.session.pendingTotpExpires < Date.now()) {
+    return res.status(401).json({ error: 'totp_session_expired' });
+  }
+  const { data: creds } = await supabase.from('webauthn_credentials').select('credential_id').eq('user_id', pendingId);
+  if (!creds || !creds.length) return res.status(400).json({ error: 'no_webauthn_credential' });
+  const options = await generateAuthenticationOptions({
+    rpID: CANONICAL_HOST,
+    userVerification: 'discouraged',
+    allowCredentials: creds.map((c) => ({ id: c.credential_id })),
+  });
+  req.session.webauthnChallenge = options.challenge;
+  res.json(options);
+});
+
+app.post('/api/login/webauthn/verify', authLimiter, async (req, res) => {
+  const pendingId = req.session.pendingTotpUserId;
+  const expectedChallenge = req.session.webauthnChallenge;
+  if (!pendingId || !req.session.pendingTotpExpires || req.session.pendingTotpExpires < Date.now() || !expectedChallenge) {
+    return res.status(401).json({ error: 'totp_session_expired' });
+  }
+  const { data: cred } = await supabase
+    .from('webauthn_credentials')
+    .select('*')
+    .eq('user_id', pendingId)
+    .eq('credential_id', req.body && req.body.id)
+    .maybeSingle();
+  if (!cred) return res.status(400).json({ error: 'invalid_credential' });
+  let verification;
+  try {
+    verification = await verifyAuthenticationResponse({
+      response: req.body,
+      expectedChallenge,
+      expectedOrigin: WEBAUTHN_ORIGIN,
+      expectedRPID: CANONICAL_HOST,
+      credential: { id: cred.credential_id, publicKey: Buffer.from(cred.public_key, 'base64url'), counter: Number(cred.counter) },
+    });
+  } catch (err) {
+    return res.status(400).json({ error: 'invalid_credential' });
+  }
+  if (!verification.verified) return res.status(400).json({ error: 'invalid_credential' });
+  await supabase.from('webauthn_credentials').update({ counter: verification.authenticationInfo.newCounter }).eq('id', cred.id);
+  delete req.session.pendingTotpUserId;
+  delete req.session.pendingTotpExpires;
+  delete req.session.webauthnChallenge;
+  const { data: user } = await supabase.from('users').select('*').eq('id', pendingId).maybeSingle();
+  if (!user) return res.status(401).json({ error: 'invalid_credentials' });
+  await completeLogin(req, user, req.body && req.body.deviceId);
   res.json({ ok: true, user: publicUser(user) });
 });
 
@@ -1930,6 +2000,70 @@ app.post('/api/admin/totp/disable', requireAdmin, authLimiter, async (req, res) 
   await supabase.from('users').update({ totp_enabled: false, totp_secret: null }).eq('id', me.id);
   const { data: updated } = await supabase.from('users').select('*').eq('id', me.id).single();
   res.json({ ok: true, user: publicUser(updated) });
+});
+
+// --- Double authentification par clé d'appareil (WebAuthn / passkeys) ---
+// Une méthode de plus, en parallèle du code TOTP ci-dessus (pas un
+// remplacement) : à la connexion, l'un ou l'autre suffit à valider la
+// deuxième étape. Un compte peut enregistrer plusieurs clés (un Mac, un
+// iPhone...), chacune supprimable indépendamment.
+app.post('/api/admin/webauthn/register-options', requireAdmin, async (req, res) => {
+  const { data: me } = await supabase.from('users').select('id, email, artist_name').eq('id', req.session.userId).maybeSingle();
+  if (!me) return res.status(404).json({ error: 'not_found' });
+  const { data: existing } = await supabase.from('webauthn_credentials').select('credential_id').eq('user_id', me.id);
+  const options = await generateRegistrationOptions({
+    rpName: WEBAUTHN_RP_NAME,
+    rpID: CANONICAL_HOST,
+    userName: me.email,
+    userDisplayName: me.artist_name || me.email,
+    excludeCredentials: (existing || []).map((c) => ({ id: c.credential_id })),
+  });
+  req.session.webauthnChallenge = options.challenge;
+  res.json(options);
+});
+
+app.post('/api/admin/webauthn/register-verify', requireAdmin, async (req, res) => {
+  const expectedChallenge = req.session.webauthnChallenge;
+  if (!expectedChallenge) return res.status(400).json({ error: 'no_pending_challenge' });
+  let verification;
+  try {
+    verification = await verifyRegistrationResponse({
+      response: req.body,
+      expectedChallenge,
+      expectedOrigin: WEBAUTHN_ORIGIN,
+      expectedRPID: CANONICAL_HOST,
+    });
+  } catch (err) {
+    return res.status(400).json({ error: 'invalid_registration' });
+  }
+  delete req.session.webauthnChallenge;
+  if (!verification.verified || !verification.registrationInfo) return res.status(400).json({ error: 'invalid_registration' });
+  const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+  const { error } = await supabase.from('webauthn_credentials').insert({
+    user_id: req.session.userId,
+    credential_id: credential.id,
+    public_key: Buffer.from(credential.publicKey).toString('base64url'),
+    counter: credential.counter,
+    device_type: credentialDeviceType || '',
+    backed_up: !!credentialBackedUp,
+    created_at: Date.now(),
+  });
+  if (error) return res.status(500).json({ error: 'server_error', message: error.message });
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/webauthn/credentials', requireAdmin, async (req, res) => {
+  const { data } = await supabase
+    .from('webauthn_credentials')
+    .select('id, device_type, created_at')
+    .eq('user_id', req.session.userId)
+    .order('created_at', { ascending: true });
+  res.json({ credentials: (data || []).map((c) => ({ id: c.id, deviceType: c.device_type, createdAt: Number(c.created_at) })) });
+});
+
+app.delete('/api/admin/webauthn/credentials/:id', requireAdmin, async (req, res) => {
+  await supabase.from('webauthn_credentials').delete().eq('id', req.params.id).eq('user_id', req.session.userId);
+  res.json({ ok: true });
 });
 
 // --- Modèles de facture PDF (squelette, pas encore branché à un vrai
