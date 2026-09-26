@@ -1128,12 +1128,44 @@ app.post('/api/logout', (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
 
-// Un compte "juste fan" peut décider à tout moment de devenir un
-// compte artiste complet — jamais l'inverse (pour éviter de perdre
-// l'accès à des morceaux déjà publiés par erreur).
+// Change de type de compte (fan <-> artiste), utilisé par les deux
+// routes ci-dessous. Chaque bascule est journalisée dans
+// account_type_history (voir migration-account-type-history.sql) pour
+// que l'administration garde une trace complète, pas seulement la
+// dernière bascule — utile par exemple pour un compte créé artiste par
+// erreur avant que la distinction artiste/auditeur n'existe sur Risuona.
+async function changeAccountType(userId, toType) {
+  const { data: before } = await supabase.from('users').select('account_type').eq('id', userId).single();
+  const fromType = (before && before.account_type) || 'artist';
+  await supabase.from('users').update({ account_type: toType }).eq('id', userId);
+  if (fromType !== toType) {
+    // Table pas encore créée (migration-account-type-history.sql pas
+    // encore exécutée) : le changement de type lui-même ne doit jamais en
+    // dépendre, donc on ignore silencieusement une éventuelle erreur ici.
+    try {
+      await supabase.from('account_type_history').insert({ user_id: userId, from_type: fromType, to_type: toType, changed_at: Date.now() });
+    } catch (e) {
+      // best effort
+    }
+  }
+  const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
+  return user;
+}
+
+// Un compte "juste fan" peut décider à tout moment de devenir un compte
+// artiste complet.
 app.post('/api/me/upgrade-to-artist', requireAuth, async (req, res) => {
-  await supabase.from('users').update({ account_type: 'artist' }).eq('id', req.session.userId);
-  const { data: user } = await supabase.from('users').select('*').eq('id', req.session.userId).single();
+  const user = await changeAccountType(req.session.userId, 'artist');
+  res.json({ ok: true, user: publicUser(user) });
+});
+
+// Et l'inverse : un compte artiste peut redevenir un compte auditeur (ex.
+// compte créé artiste par erreur, ou avant que la distinction n'existe).
+// Les morceaux déjà publiés ne sont ni supprimés ni dépubliés : ils restent
+// visibles publiquement, seul l'accès à l'espace de publication est
+// masqué tant que le compte reste de type auditeur.
+app.post('/api/me/downgrade-to-fan', requireAuth, async (req, res) => {
+  const user = await changeAccountType(req.session.userId, 'fan');
   res.json({ ok: true, user: publicUser(user) });
 });
 
@@ -1958,6 +1990,14 @@ app.get('/api/admin/overview', requireAdmin, async (req, res) => {
   const { data: users } = await supabase.from('users').select('*');
   const { data: tracks } = await supabase.from('tracks').select('*').order('created_at', { ascending: false });
   const byId = Object.fromEntries((users || []).map((u) => [u.id, u]));
+  // Historique des changements de type de compte (fan <-> artiste), voir
+  // migration-account-type-history.sql. Table pas encore créée : on
+  // retombe simplement sur une liste vide plutôt que de bloquer tout le
+  // panneau d'administration.
+  const { data: accountTypeHistory } = await supabase
+    .from('account_type_history')
+    .select('user_id, from_type, to_type, changed_at')
+    .order('changed_at', { ascending: true });
   res.json({
     users: (users || [])
       .map((u) => ({ ...publicUser(u), createdAt: Number(u.created_at) || null }))
@@ -1966,6 +2006,12 @@ app.get('/api/admin/overview', requireAdmin, async (req, res) => {
       const artist = byId[t.user_id];
       return { ...mapTrack(t, artist ? artist.artist_name : 'Artiste supprimé'), artistEmail: artist ? artist.email : '' };
     }),
+    accountTypeHistory: (accountTypeHistory || []).map((h) => ({
+      userId: h.user_id,
+      fromType: h.from_type,
+      toType: h.to_type,
+      changedAt: Number(h.changed_at),
+    })),
   });
 });
 

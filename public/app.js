@@ -1000,6 +1000,7 @@ function applyAccountTypeUI() {
     if (el) el.hidden = isFan;
   });
   document.getElementById('fan-notice-panel').hidden = !isFan;
+  document.getElementById('artist-notice-panel').hidden = isFan;
 }
 
 document.getElementById('upgrade-to-artist-btn').addEventListener('click', async () => {
@@ -1011,6 +1012,16 @@ document.getElementById('upgrade-to-artist-btn').addEventListener('click', async
   loadStats();
   refreshOnboarding();
   showToast('🎵');
+});
+
+document.getElementById('downgrade-to-fan-btn').addEventListener('click', async () => {
+  if (!confirm(t('artist.downgradeConfirm'))) return;
+  const res = await fetch('/api/me/downgrade-to-fan', { method: 'POST' });
+  if (!res.ok) return;
+  const data = await res.json();
+  currentUser = data.user;
+  applyAccountTypeUI();
+  showToast('✓');
 });
 
 // Nombre de morceaux publiables avant confirmation de l'e-mail
@@ -2254,11 +2265,33 @@ function fitText(ctx, text, x, y, maxWidth, baseSize, weight, family) {
 // --- Administration ---
 let ADMIN_USERS = [];
 let ADMIN_TRACKS = [];
+let ADMIN_ACCOUNT_TYPE_HISTORY = [];
 let ADMIN_REPORTS = [];
 
 function adminTypeLabel(u) {
   if (u.role === 'admin') return 'admin';
   return u.accountType === 'fan' ? t('admin.type.listener') : t('admin.type.artist');
+}
+
+function accountTypeLabelFor(type) {
+  return type === 'fan' ? t('admin.type.listener') : t('admin.type.artist');
+}
+
+// Historique complet des bascules fan <-> artiste pour un compte donné
+// (voir migration-account-type-history.sql), reconstruit en périodes
+// successives : chaque bascule marque à la fois la fin de la période
+// précédente et le début de la suivante.
+function accountTypeHistoryHtml(userId) {
+  const rows = ADMIN_ACCOUNT_TYPE_HISTORY.filter((h) => h.userId === userId).sort((a, b) => a.changedAt - b.changedAt);
+  if (rows.length === 0) return '<p class="field-hint">' + t('admin.users.historyNone') + '</p>';
+  const lines = rows.map((h, i) => {
+    const next = rows[i + 1];
+    const label = accountTypeLabelFor(h.toType);
+    return next
+      ? t('admin.users.historyPeriod').replace('{type}', label).replace('{start}', formatDate(h.changedAt)).replace('{end}', formatDate(next.changedAt))
+      : t('admin.users.historyOngoing').replace('{type}', label).replace('{start}', formatDate(h.changedAt));
+  });
+  return '<ul class="admin-history-list">' + lines.map((l) => '<li>' + l + '</li>').join('') + '</ul>';
 }
 
 async function loadAdminReports() {
@@ -2471,9 +2504,10 @@ async function loadWebauthnCredentials() {
 async function loadAdminOverview() {
   const res = await fetch('/api/admin/overview');
   if (!res.ok) return;
-  const { users, tracks } = await res.json();
+  const { users, tracks, accountTypeHistory } = await res.json();
   ADMIN_USERS = users;
   ADMIN_TRACKS = tracks;
+  ADMIN_ACCOUNT_TYPE_HISTORY = accountTypeHistory || [];
   renderAdminUsers();
   renderAdminTracks();
   loadAdminAnnouncements();
@@ -2571,11 +2605,19 @@ function renderAdminUsers() {
             (exportActive ? t('admin.exportActive') : t('admin.enableExport')) + '</button>' +
             (u.emailVerified ? '' : '<button class="mini-btn" data-manual-verify-id="' + u.id + '">' + t('admin.todo.confirm') + '</button>') +
             (u.role === 'admin' ? '' : '<button class="mini-btn" data-toggle-verified-id="' + u.id + '">' + (u.identityVerified ? t('admin.users.unverify') : t('admin.users.verify')) + '</button>') +
+            '<button class="mini-btn" data-history-toggle-id="' + u.id + '">' + t('admin.users.history') + '</button>' +
             '<button class="del-btn" data-user-id="' + u.id + '">' + t('admin.remove') + '</button>') +
-        '</div>'
+        '</div>' +
+        (u.role === 'admin' ? '' : '<div class="admin-history" data-history-panel-id="' + u.id + '" hidden>' + accountTypeHistoryHtml(u.id) + '</div>')
       );
     })
     .join('');
+  usersList.querySelectorAll('[data-history-toggle-id]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const panel = usersList.querySelector('[data-history-panel-id="' + btn.getAttribute('data-history-toggle-id') + '"]');
+      if (panel) panel.hidden = !panel.hidden;
+    });
+  });
   usersList.querySelectorAll('[data-user-id]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       if (!confirm(t('admin.confirmRemoveUser'))) return;
