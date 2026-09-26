@@ -250,7 +250,13 @@ function showRateLimitCountdown(statusEl, retryAfterSeconds) {
 
 function updateSignupNameLabel() {
   const checked = document.querySelector('input[name="account-type"]:checked');
-  document.getElementById('signup-name-label').textContent = checked && checked.value === 'fan' ? t('auth.userName') : t('auth.artistName');
+  const isFan = checked && checked.value === 'fan';
+  document.getElementById('signup-name-label').textContent = isFan ? t('auth.userName') : t('auth.artistName');
+  // Le texte d'accueil qui parle de composer, publier, IA... n'a de sens
+  // que pour un compte artiste : avant ce correctif, il restait affiché
+  // même en choisissant "Écouter, découvrir et suivre des artistes".
+  document.getElementById('signup-artist-hint').hidden = isFan;
+  document.getElementById('signup-fan-hint').hidden = !isFan;
 }
 document.querySelectorAll('input[name="account-type"]').forEach((radio) => {
   radio.addEventListener('change', updateSignupNameLabel);
@@ -1001,12 +1007,16 @@ document.getElementById('request-deletion-link').addEventListener('click', async
 function applyAccountTypeUI() {
   if (!currentUser) return;
   const isFan = currentUser.accountType === 'fan';
-  ['onboarding-panel', 'publish-panel', 'my-tracks-panel', 'stats-panel', 'messages-panel', 'distrib-guide-panel', 'sacem-field-wrap'].forEach((id) => {
+  ['onboarding-panel', 'publish-panel', 'my-tracks-panel', 'stats-panel', 'messages-panel', 'distrib-guide-panel', 'sacem-field-wrap', 'profile-coverName-wrap'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.hidden = isFan;
   });
   document.getElementById('fan-notice-panel').hidden = !isFan;
   document.getElementById('artist-notice-panel').hidden = isFan;
+  // Le nom sur un compte auditeur n'est ni un "nom d'artiste" ni destiné à
+  // une pochette : le libellé du champ le rappelle (voir fillProfileForm),
+  // et cette phrase l'explicite pour quelqu'un qui découvre le formulaire.
+  document.getElementById('profile-fan-name-hint').hidden = !isFan;
 }
 
 document.getElementById('upgrade-to-artist-btn').addEventListener('click', async () => {

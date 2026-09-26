@@ -228,7 +228,8 @@
               <label class="radio-option"><input type="radio" name="account-type" value="fan"> <span data-i18n="auth.accountType.fan">Écouter, découvrir et suivre des artistes</span></label>
             </div>
             </fieldset>
-            <p class="field-hint" data-i18n="auth.artistWelcomeHint">Que tu composes seul, en groupe ou avec l'aide de l'IA, déjà publié ailleurs (connu ou non) ou pas encore : ta place est ici. Auteur, compositeur, parolier, interprète, ou toute autre facette de la musique, écris-nous si tu ne sais pas où te situer.</p>
+            <p class="field-hint" id="signup-artist-hint" data-i18n="auth.artistWelcomeHint">Que tu composes seul, en groupe ou avec l'aide de l'IA, déjà publié ailleurs (connu ou non) ou pas encore : ta place est ici. Auteur, compositeur, parolier, interprète, ou toute autre facette de la musique, écris-nous si tu ne sais pas où te situer.</p>
+            <p class="field-hint" id="signup-fan-hint" data-i18n="auth.fanWelcomeHint" hidden>Ton compte te permet d'écouter, de découvrir et de suivre des artistes. Utilise un pseudo ou ton prénom, comme tu préfères : c'est ce que les artistes que tu suis verront.</p>
             <label data-i18n="auth.artistName" for="signup-artistName" id="signup-name-label">Nom d'artiste</label>
             <input type="text" id="signup-artistName" required>
             <label data-i18n="auth.email" for="signup-email">Adresse e-mail</label>
@@ -321,12 +322,15 @@
           <img id="profile-banner-preview" class="profile-preview banner-preview" hidden alt="">
           <label data-i18n="auth.artistName" for="profile-artistName" id="profile-name-label">Nom d'artiste</label>
           <input type="text" id="profile-artistName">
-          <label data-i18n="profile.coverName" for="profile-coverNameStyle">Nom sur les pochettes automatiques</label>
-          <select id="profile-coverNameStyle" class="admin-select album-select">
-            <option value="full" data-i18n="profile.coverName.full">Nom complet</option>
-            <option value="initials" data-i18n="profile.coverName.initials">Initiales (ex. « M.D. » pour Marine Dax)</option>
-          </select>
-          <p class="field-hint" data-i18n="profile.coverNameHint">Utilisé sur les pochettes que Risuona crée quand tu publies un morceau sans image. Un nom d'un seul mot reste toujours entier.</p>
+          <p class="field-hint" id="profile-fan-name-hint" data-i18n="auth.fanNameHint" hidden>Pseudo ou prénom, comme tu préfères : c'est ce que les artistes que tu suis verront.</p>
+          <div id="profile-coverName-wrap">
+            <label data-i18n="profile.coverName" for="profile-coverNameStyle">Nom sur les pochettes automatiques</label>
+            <select id="profile-coverNameStyle" class="admin-select album-select">
+              <option value="full" data-i18n="profile.coverName.full">Nom complet</option>
+              <option value="initials" data-i18n="profile.coverName.initials">Initiales (ex. « M.D. » pour Marine Dax)</option>
+            </select>
+            <p class="field-hint" data-i18n="profile.coverNameHint">Utilisé sur les pochettes que Risuona crée quand tu publies un morceau sans image. Un nom d'un seul mot reste toujours entier.</p>
+          </div>
           <label data-i18n="dashboard.profile.bio" for="profile-bio">Bio courte</label>
           <textarea id="profile-bio"></textarea>
           <label data-i18n="dashboard.profile.donation" for="profile-donationLink">Lien de soutien / don</label>
