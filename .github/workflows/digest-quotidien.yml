@@ -6,9 +6,11 @@ name: Digest quotidien des nouvelles sorties
 # c'est le site lui-même (server.js, route /api/internal/send-digest) qui
 # décide s'il y a quelque chose à envoyer, et à qui.
 #
-# 7h UTC = 9h à Paris en été (CEST), 8h en hiver (CET) : un horaire du
-# matin dans les deux cas, l'heure exacte n'a pas besoin d'être précise
-# pour un digest quotidien.
+# 9h UTC = 11h à Paris en été (CEST), 10h en hiver (CET). GitHub Actions
+# ne connaît que l'heure UTC (pas de fuseau horaire réglable ici) : cette
+# heure de départ glisse donc d'une heure au moment du changement
+# d'heure en France (fin octobre), ce qui reste sans conséquence pour un
+# digest quotidien.
 #
 # Nécessite un secret DIGEST_SECRET créé dans ce dépôt GitHub (Settings →
 # Secrets and variables → Actions → New repository secret), avec la même
@@ -16,7 +18,7 @@ name: Digest quotidien des nouvelles sorties
 
 on:
   schedule:
-    - cron: '0 7 * * *'
+    - cron: '0 9 * * *'
   workflow_dispatch: {}
 
 jobs:

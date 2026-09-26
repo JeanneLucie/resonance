@@ -14,10 +14,24 @@ const stripeClient = require('./stripeClient');
 const soundcloudClient = require('./soundcloudClient');
 const resendClient = require('./resendClient');
 const { generateInvoicePdf } = require('./pdfInvoice');
+const webpush = require('web-push');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-in-.env';
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').toLowerCase();
+
+// --- Notifications push (navigateur) ---
+// Dormant tant que les deux variables d'environnement ci-dessous ne sont
+// pas définies sur Render : le bouton "Activer les notifications" reste
+// alors caché côté site (voir GET /api/push/vapid-public-key), sans qu'il
+// y ait de code à changer le jour où on les ajoute.
+const PUSH_VAPID_PUBLIC_KEY = process.env.PUSH_VAPID_PUBLIC_KEY || '';
+const PUSH_VAPID_PRIVATE_KEY = process.env.PUSH_VAPID_PRIVATE_KEY || '';
+const PUSH_CONTACT_EMAIL = process.env.PUSH_CONTACT_EMAIL || 'contact@risuonamusic.com';
+const pushEnabled = !!(PUSH_VAPID_PUBLIC_KEY && PUSH_VAPID_PRIVATE_KEY);
+if (pushEnabled) {
+  webpush.setVapidDetails('mailto:' + PUSH_CONTACT_EMAIL.replace(/^mailto:/, ''), PUSH_VAPID_PUBLIC_KEY, PUSH_VAPID_PRIVATE_KEY);
+}
 
 // Indispensable derrière Render (et la plupart des hébergeurs) : le
 // HTTPS est géré par leur proxy, pas directement par notre serveur.
@@ -888,7 +902,7 @@ app.get('/api/me/release-advice', requireAuth, async (req, res) => {
 // À changer à chaque nouvelle version des CGU (texte modifié dans
 // public/cgu.html) : ça déclenche le bandeau de ré-acceptation pour tous
 // les comptes qui ont accepté une version antérieure.
-const CGU_VERSION = '2';
+const CGU_VERSION = '3';
 
 // Enregistre une acceptation des CGU : une ligne de plus dans le registre
 // (jamais écrasée, c'est la preuve juridique) + mise à jour de la recopie
@@ -1272,6 +1286,14 @@ app.post('/api/tracks', requireAuth, requireCguUpToDate, upload.fields([{ name: 
   }
 
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
+  // Notification push immédiate, seulement si le morceau est déjà public
+  // maintenant (pas une sortie programmée plus tard : celle-ci reste
+  // couverte par le digest quotidien par e-mail, qui vérifie release_at).
+  // Volontairement non "awaité" : un souci d'envoi ne doit jamais retarder
+  // ni bloquer la réponse de publication.
+  if (!releaseAt || releaseAt <= Date.now()) {
+    notifyFollowersOfNewTrack(req.session.userId, track);
+  }
   const advice = await releaseAdvice(req.session.userId, releaseAt, track.id);
   await attachAlbums([track]);
   res.json({ ok: true, track: mapTrack(track), advice });
@@ -1628,6 +1650,84 @@ app.post('/api/artists/:id/unfollow', requireAuth, async (req, res) => {
   await supabase.from('users').update({ following_ids: followingIds }).eq('id', req.session.userId);
   res.json({ ok: true });
 });
+
+// --- Notifications push (navigateur) ---
+// Complète le digest quotidien par e-mail : un message immédiat (pas
+// besoin d'attendre le lendemain) pour qui a explicitement activé les
+// notifications sur cet appareil. Tant que PUSH_VAPID_PUBLIC_KEY /
+// PUSH_VAPID_PRIVATE_KEY ne sont pas définies sur Render, tout ce bloc
+// reste inactif et invisible côté site (voir pushEnabled plus haut).
+app.get('/api/push/vapid-public-key', (req, res) => {
+  if (!pushEnabled) return res.status(404).json({ error: 'push_not_configured' });
+  res.json({ publicKey: PUSH_VAPID_PUBLIC_KEY });
+});
+
+app.post('/api/push/subscribe', requireAuth, async (req, res) => {
+  if (!pushEnabled) return res.status(404).json({ error: 'push_not_configured' });
+  const sub = req.body && req.body.subscription;
+  if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
+    return res.status(400).json({ error: 'invalid_subscription' });
+  }
+  const { error } = await supabase.from('push_subscriptions').upsert(
+    {
+      user_id: req.session.userId,
+      endpoint: sub.endpoint,
+      p256dh: sub.keys.p256dh,
+      auth: sub.keys.auth,
+      created_at: Date.now(),
+    },
+    { onConflict: 'endpoint' }
+  );
+  if (error) return res.status(500).json({ error: 'server_error' });
+  res.json({ ok: true });
+});
+
+app.post('/api/push/unsubscribe', requireAuth, async (req, res) => {
+  const endpoint = req.body && req.body.endpoint;
+  if (!endpoint) return res.status(400).json({ error: 'missing_endpoint' });
+  await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint).eq('user_id', req.session.userId);
+  res.json({ ok: true });
+});
+
+// Prévient par push tous les comptes qui suivent cet artiste et ont
+// activé les notifications sur au moins un appareil. Appelée sans
+// "await" bloquant à la publication d'un morceau : un souci d'envoi ne
+// doit jamais empêcher la publication elle-même.
+async function notifyFollowersOfNewTrack(artistId, track) {
+  if (!pushEnabled) return;
+  try {
+    const { data: artist } = await supabase.from('users').select('artist_name').eq('id', artistId).maybeSingle();
+    const artistName = (artist && artist.artist_name) || 'Un artiste que tu suis';
+    const { data: allUsers } = await supabase.from('users').select('id, following_ids');
+    const followerIds = (allUsers || [])
+      .filter((u) => (u.following_ids || []).includes(artistId))
+      .map((u) => u.id);
+    if (!followerIds.length) return;
+    const { data: subs } = await supabase.from('push_subscriptions').select('*').in('user_id', followerIds);
+    if (!subs || !subs.length) return;
+    const payload = JSON.stringify({
+      title: 'Nouveau morceau sur Risuona',
+      body: artistName + ' vient de publier "' + track.title + '"',
+      url: '/#/morceau/' + track.id,
+    });
+    await Promise.all(
+      subs.map(async (s) => {
+        try {
+          await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+        } catch (err) {
+          // Abonnement expiré ou révoqué côté navigateur : on l'efface pour
+          // ne pas réessayer indéfiniment un envoi voué à échouer.
+          if (err && (err.statusCode === 404 || err.statusCode === 410)) {
+            await supabase.from('push_subscriptions').delete().eq('id', s.id);
+          }
+        }
+      })
+    );
+  } catch (err) {
+    // Silencieux : la publication du morceau ne doit jamais dépendre de
+    // la réussite de l'envoi des notifications push.
+  }
+}
 
 // --- Distribution externe (Spotify, Apple Music…) via LabelGrid ---
 app.get('/api/distribution/status', (req, res) => {

@@ -39,6 +39,47 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Notification push reçue (nouveau morceau chez un artiste suivi) :
+// affiche une notification système, même si Risuona n'est pas ouvert dans
+// un onglet. Le corps du message est toujours envoyé en clair par le
+// serveur (voir notifyFollowersOfNewTrack dans server.js) : rien de
+// personnel n'y transite au-delà du titre du morceau et du nom d'artiste,
+// déjà publics sur le site.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (err) {
+    data = {};
+  }
+  const title = data.title || 'Risuona';
+  const options = {
+    body: data.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { url: data.url || '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Clic sur la notification : ouvre (ou ramène au premier plan) l'onglet
+// Risuona déjà ouvert, sinon en ouvre un nouveau sur le morceau concerné.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 

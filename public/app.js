@@ -113,6 +113,7 @@ async function refreshMe() {
     loadMyTracks();
     loadMessages();
     loadPlaylists();
+    initPushUI();
   }
 }
 
@@ -2997,6 +2998,98 @@ if ('serviceWorker' in navigator) {
     showUpdateBanner();
     setTimeout(() => window.location.reload(), 600);
   });
+}
+
+// --- Notifications push (nouveaux morceaux des artistes suivis) ---
+// Reste totalement invisible tant que le serveur n'a pas de clés VAPID
+// configurées (voir GET /api/push/vapid-public-key) : rien à retirer ici
+// le jour où on les ajoute, le bouton apparaît de lui-même.
+let pushUIBound = false;
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+async function initPushUI() {
+  const panel = document.getElementById('push-panel');
+  const btn = document.getElementById('push-enable-btn');
+  const status = document.getElementById('push-status');
+  if (!panel || !btn) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
+    panel.hidden = true;
+    return;
+  }
+  let publicKey;
+  try {
+    const keyRes = await fetch('/api/push/vapid-public-key');
+    if (!keyRes.ok) {
+      panel.hidden = true;
+      return;
+    }
+    ({ publicKey } = await keyRes.json());
+  } catch (err) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+
+  const registration = await navigator.serviceWorker.ready;
+  const existing = await registration.pushManager.getSubscription();
+  setPushButtonState(btn, status, !!existing);
+
+  if (pushUIBound) return;
+  pushUIBound = true;
+  btn.addEventListener('click', async () => {
+    const reg = await navigator.serviceWorker.ready;
+    if (btn.dataset.state === 'subscribed') {
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        try {
+          await fetch('/api/push/unsubscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: sub.endpoint }),
+          });
+        } catch (err) {
+          // Silencieux.
+        }
+        await sub.unsubscribe();
+      }
+      setPushButtonState(btn, status, false);
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      status.textContent = t('push.denied');
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      status.textContent = t('push.denied');
+      return;
+    }
+    try {
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub }),
+      });
+      setPushButtonState(btn, status, true);
+    } catch (err) {
+      status.textContent = t('push.error');
+    }
+  });
+}
+
+function setPushButtonState(btn, status, subscribed) {
+  btn.dataset.state = subscribed ? 'subscribed' : 'unsubscribed';
+  btn.textContent = subscribed ? t('push.disable') : t('push.enable');
+  status.textContent = subscribed ? t('push.activeHint') : '';
 }
 
 function showUpdateBanner() {
