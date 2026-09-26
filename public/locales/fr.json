@@ -65,7 +65,7 @@
   "dashboard.profile.suno": "Lien Suno (profil public)",
   "dashboard.profile.bandcamp": "Lien Bandcamp",
   "profile.sacem.label": "Je suis membre de la SACEM",
-  "profile.sacem.hint": "La SACEM collecte et reverse les droits d'auteur quand ta musique est diffusée publiquement. L'adhésion est une démarche personnelle, indépendante de Risuona, et ne se fait pas morceau par morceau.",
+  "profile.sacem.hint": "La SACEM collecte et reverse les droits d'auteur quand ta musique est diffusée publiquement. L'adhésion est une démarche personnelle, indépendante de Risuona, et ne se fait pas morceau par morceau. Le bouton ci-dessous ouvre le site officiel : cherche ensuite \"Devenir membre\" ou \"Adhérer\".",
   "profile.sacem.link": "Adhérer à la SACEM",
   "dashboard.profile.bio": "Bio courte",
   "dashboard.profile.donation": "Lien de soutien / don",
