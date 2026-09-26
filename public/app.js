@@ -2387,6 +2387,11 @@ function renderAdminUsers() {
       return (
         '<div class="admin-row"><div class="who"><span>' + escapeHtml(u.artistName) + ' · ' + adminTypeLabel(u) +
         (u.role !== 'admin' && !u.emailVerified ? ' <span class="admin-badge">' + t('admin.users.unverified') + '</span>' : '') +
+        // Confirmé manuellement depuis l'admin, mais le lien reçu par
+        // e-mail n'a lui-même jamais été cliqué : distinct d'une adresse
+        // réellement confirmée, pour laquelle rien ne s'affiche ici (déjà
+        // en règle, comme avant).
+        (u.role !== 'admin' && u.emailVerified && !u.verifiedViaLink ? ' <span class="admin-badge">' + t('admin.users.manuallyVerified') + '</span>' : '') +
         (u.identityVerified ? ' <span class="admin-badge admin-badge-verified">' + t('admin.users.identityVerified') + '</span>' : '') +
         '</span><span class="sub">' + escapeHtml(u.email) +
         (u.createdAt ? ' · ' + t('admin.users.joined').replace('{date}', formatDate(u.createdAt)) : '') +
@@ -2450,6 +2455,8 @@ function renderAdminTracks() {
       (tr) =>
         '<div class="admin-row"><div class="who"><span>' + escapeHtml(tr.title) +
         (tr.isScheduled ? ' <span class="admin-badge">' + t('release.scheduledOn').replace('{date}', formatDateTime(tr.releaseAt)) + '</span>' : '') +
+        (tr.exclusive ? ' <span class="admin-badge admin-badge-verified">' + t('exclusive.badge') + '</span>' : '') +
+        (tr.spotifyUrl || tr.appleUrl ? ' <span class="admin-badge">' + t('admin.tracks.distributed') + '</span>' : '') +
         '</span><span class="sub">' + escapeHtml(tr.artistName) + '</span></div>' +
         '<button class="del-btn" data-track-id="' + tr.id + '">' + t('admin.remove') + '</button></div>'
     )

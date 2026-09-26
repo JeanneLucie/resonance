@@ -323,6 +323,13 @@ function publicUser(u) {
     artistName: u.artist_name,
     email: u.email,
     emailVerified: u.email_verified === true || !resendClient.isConfigured(),
+    // Distingue une adresse réellement confirmée via le lien reçu par
+    // e-mail d'une adresse débloquée à la main depuis l'admin (voir
+    // migration-reverification.sql) : sans ça, les deux se ressemblent
+    // une fois emailVerified passé à true, impossible à distinguer dans
+    // l'interface d'administration.
+    verifiedViaLink: u.verified_via_link === true,
+    manualVerifiedAt: u.manual_verified_at ? Number(u.manual_verified_at) : null,
     exportExpiresAt: u.export_expires_at || null,
     bio: u.bio,
     donationLink: u.donation_link,
@@ -1230,8 +1237,12 @@ app.post('/api/tracks', requireAuth, requireCguUpToDate, upload.fields([{ name: 
     explicit: explicit === 'true' || explicit === true,
     // "Exclusivité Risuona" : l'artiste déclare que ce titre n'est publié
     // nulle part ailleurs. C'est une simple déclaration de sa part (comme
-    // pour l'IA), pas une vérification technique.
-    exclusive: exclusive === 'true' || exclusive === true,
+    // pour l'IA), pas une vérification technique — mais un lien Spotify ou
+    // Apple Music rempli en même temps contredit directement cette
+    // déclaration, donc on ne la garde pas : mieux vaut un badge qui
+    // disparaît que la mention "Exclusivité Risuona" affichée à côté d'un
+    // lien vers Spotify.
+    exclusive: (exclusive === 'true' || exclusive === true) && !spotifyUrl && !appleUrl,
     spotify_url: spotifyUrl || '',
     apple_url: appleUrl || '',
     release_at: releaseAt,
@@ -1284,6 +1295,12 @@ app.put('/api/tracks/:id', requireAuth, upload.fields([{ name: 'cover', maxCount
   if (req.body.exclusive !== undefined) fields.exclusive = req.body.exclusive === 'true' || req.body.exclusive === true;
   if (req.body.spotifyUrl !== undefined) fields.spotify_url = req.body.spotifyUrl;
   if (req.body.appleUrl !== undefined) fields.apple_url = req.body.appleUrl;
+  // Un lien Spotify ou Apple Music (nouveau ou déjà présent) contredit la
+  // déclaration "Exclusivité Risuona" : on l'efface plutôt que de laisser
+  // les deux affichés en même temps sur la page publique.
+  const resolvedSpotify = req.body.spotifyUrl !== undefined ? req.body.spotifyUrl : track.spotify_url;
+  const resolvedApple = req.body.appleUrl !== undefined ? req.body.appleUrl : track.apple_url;
+  if (resolvedSpotify || resolvedApple) fields.exclusive = false;
   if (req.body.releaseAt !== undefined) {
     // Vide = "publier maintenant". Un titre déjà sorti ne peut pas être
     // "re-caché" en le reprogrammant (ses écoutes et liens partagés restent).
@@ -1451,8 +1468,12 @@ function renderIndexWithMeta({ title, description, url, image, structuredData })
 }
 
 app.get('/artiste/:id', async (req, res, next) => {
-  const { data: artist } = await supabase.from('users').select('artist_name, bio, avatar_url').eq('id', req.params.id).maybeSingle();
-  if (!artist) return next(); // pas d'artiste : page normale, app.js affichera "introuvable"
+  const { data: artist } = await supabase.from('users').select('artist_name, bio, avatar_url, role').eq('id', req.params.id).maybeSingle();
+  // Le compte admin n'est pas un artiste public, même quand son type de
+  // compte est resté "artist" depuis sa création (héritage de l'inscription
+  // initiale) : sans cette exclusion, la page d'administration se
+  // retrouvait indexable comme un profil d'artiste ordinaire.
+  if (!artist || artist.role === 'admin') return next(); // pas d'artiste : page normale, app.js affichera "introuvable"
   const siteUrl = req.protocol + '://' + req.get('host');
   const pageUrl = siteUrl + '/artiste/' + req.params.id;
   const pageImage = artist.avatar_url || siteUrl + '/icons/icon-512.png';
@@ -1507,7 +1528,9 @@ app.get('/morceau/:id', async (req, res, next) => {
 // d'accueil). Remplace le fichier statique public/sitemap.xml.
 app.get('/sitemap.xml', async (req, res) => {
   const siteUrl = req.protocol + '://' + req.get('host');
-  const { data: users } = await supabase.from('users').select('id').eq('account_type', 'artist');
+  // Le compte admin est exclu même si son type de compte est resté
+  // "artist" : ce n'est pas un profil public à faire connaître à Google.
+  const { data: users } = await supabase.from('users').select('id').eq('account_type', 'artist').neq('role', 'admin');
   const { data: tracks } = await onlyReleased(supabase.from('tracks').select('id, created_at'));
   // Pages fixes du site (guide de distribution, CGU, mentions légales,
   // feuille de route) : jusqu'ici absentes du plan de site, donc invisibles
@@ -1556,7 +1579,9 @@ app.get('/api/tracks/:id', async (req, res) => {
 app.get('/api/artists/:id', async (req, res) => {
   const artistId = Number(req.params.id);
   const { data: artist } = await supabase.from('users').select('*').eq('id', artistId).maybeSingle();
-  if (!artist) return res.status(404).json({ error: 'not_found' });
+  // Même exclusion que sur /artiste/:id : le compte admin n'est pas un
+  // profil public, quel que soit son type de compte enregistré.
+  if (!artist || artist.role === 'admin') return res.status(404).json({ error: 'not_found' });
 
   const isOwner = req.session.userId === artistId;
   let tracksQuery = supabase.from('tracks').select('*').eq('user_id', artistId);
