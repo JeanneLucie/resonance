@@ -127,7 +127,7 @@
   "artist.downgradeNotice": "Tu peux à tout moment repasser en compte auditeur si tu ne souhaites plus publier de musique. Tes morceaux déjà publiés restent en ligne tels quels, mais ton espace de publication (statistiques, morceaux, publication) redevient inaccessible tant que tu restes en compte auditeur.",
   "artist.downgrade": "Je me suis trompé, je ne suis pas artiste",
   "artist.downgradeConfirm": "Repasser en compte auditeur ? Tes morceaux déjà publiés resteront en ligne, mais tu n'auras plus accès à ton espace de publication tant que tu ne redeviens pas artiste.",
-  "fan.cannotPublish": "Ton compte est un compte d'écoute. Clique sur \"Je veux aussi publier ma musique\" dans ton espace pour débloquer la publication.",
+  "fan.cannotPublish": "Ton compte est un compte d'écoute. Clique sur \"Je me suis trompé, je suis artiste\" dans ton espace pour débloquer la publication.",
   "push.title": "Notifications",
   "push.hint": "Reçois une notification sur cet appareil dès qu'un artiste que tu suis publie un nouveau morceau.",
   "push.enable": "Activer les notifications",

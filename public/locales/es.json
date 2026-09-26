@@ -127,7 +127,7 @@
   "artist.downgradeNotice": "Puedes volver a una cuenta de oyente en cualquier momento si ya no quieres publicar música. Tus canciones ya publicadas siguen en línea tal cual, pero tu espacio de publicación (estadísticas, canciones, publicar) vuelve a estar inaccesible mientras tu cuenta sea de oyente.",
   "artist.downgrade": "Me equivoqué, no soy artista",
   "artist.downgradeConfirm": "¿Volver a una cuenta de oyente? Tus canciones ya publicadas seguirán en línea, pero perderás el acceso a tu espacio de publicación hasta que vuelvas a ser artista.",
-  "fan.cannotPublish": "Tu cuenta es una cuenta de escucha. Haz clic en \"También quiero publicar mi música\" en tu espacio para desbloquear la publicación.",
+  "fan.cannotPublish": "Tu cuenta es una cuenta de escucha. Haz clic en \"Me equivoqué, soy artista\" en tu espacio para desbloquear la publicación.",
   "push.title": "Notificaciones",
   "push.hint": "Recibe una notificación en este dispositivo en cuanto un artista que sigues publique un nuevo tema.",
   "push.enable": "Activar las notificaciones",

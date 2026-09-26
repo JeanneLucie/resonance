@@ -127,7 +127,7 @@
   "artist.downgradeNotice": "You can switch back to a listener account at any time if you no longer want to publish music. Your already-published tracks stay online as they are, but your publishing space (stats, tracks, publish) becomes inaccessible again while your account stays a listener account.",
   "artist.downgrade": "That was a mistake, I'm not an artist",
   "artist.downgradeConfirm": "Switch back to a listener account? Your already-published tracks will stay online, but you'll lose access to your publishing space until you become an artist again.",
-  "fan.cannotPublish": "Your account is a listening account. Click \"I also want to publish my music\" in your space to unlock publishing.",
+  "fan.cannotPublish": "Your account is a listening account. Click \"That was a mistake, I am an artist\" in your space to unlock publishing.",
   "push.title": "Notifications",
   "push.hint": "Get a notification on this device as soon as an artist you follow publishes a new track.",
   "push.enable": "Enable notifications",
