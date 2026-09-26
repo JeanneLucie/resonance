@@ -666,7 +666,13 @@
       <div class="panel" id="admin-invoice-panel" style="margin-top:24px;">
         <h3 data-i18n="admin.invoice.title">Facturation (modèle en préparation)</h3>
         <p class="field-hint" data-i18n="admin.invoice.hint">Squelette de facture PDF, pas encore relié à un vrai déclencheur (en attente des détails : champs légaux, numérotation, stockage).</p>
-        <a href="/api/admin/invoice-preview" target="_blank" rel="noopener" class="mini-btn" data-i18n="admin.invoice.previewLink">📄 Voir un exemple de PDF</a>
+        <form id="admin-invoice-test-form" target="_blank" action="/api/admin/invoice-preview" method="get">
+          <label data-i18n="admin.invoice.sellerNameLabel" for="admin-invoice-seller-name">Nom / raison sociale à tester</label>
+          <input type="text" id="admin-invoice-seller-name" name="sellerName" placeholder="Risuona">
+          <label data-i18n="admin.invoice.sellerExtraLabel" for="admin-invoice-seller-extra">Adresse, SIRET, TVA… à tester</label>
+          <textarea id="admin-invoice-seller-extra" name="sellerExtra" rows="3" placeholder="Exemple — coordonnées légales (SIRET, TVA…) à compléter"></textarea>
+          <button type="submit" class="mini-btn" data-i18n="admin.invoice.previewLink">📄 Générer un PDF de test</button>
+        </form>
       </div>
 
       <div class="panel" style="margin-top:24px;">

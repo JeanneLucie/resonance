@@ -1124,7 +1124,17 @@ app.get('/api/verify-email', async (req, res) => {
   if (!token) return res.redirect('/#espace?verified=0');
   const { data: user } = await supabase.from('users').select('id').eq('verification_token', token).maybeSingle();
   if (!user) return res.redirect('/#espace?verified=0');
-  await supabase.from('users').update({ email_verified: true, verified_via_link: true, verification_token: null }).eq('id', user.id);
+  let { error } = await supabase
+    .from('users')
+    .update({ email_verified: true, verified_via_link: true, verification_token: null })
+    .eq('id', user.id);
+  // Colonne pas encore ajoutée (migration-reverification.sql pas encore
+  // exécutée côté Supabase) : la confirmation d'e-mail elle-même ne doit
+  // jamais en dépendre, donc on republie sans elle plutôt que d'échouer
+  // silencieusement toute la mise à jour (email_verified inclus).
+  if (error && /verified_via_link/.test(error.message || '')) {
+    ({ error } = await supabase.from('users').update({ email_verified: true, verification_token: null }).eq('id', user.id));
+  }
   res.redirect('/#espace?verified=1');
 });
 
@@ -1949,10 +1959,18 @@ app.post('/api/admin/users/:id/manual-verify', requireAdmin, async (req, res) =>
   // automatique du vrai e-mail de confirmation 3 jours après cette
   // validation manuelle, si le compte n'a toujours pas cliqué le vrai lien.
   const token = (user && user.verification_token) || crypto.randomBytes(24).toString('hex');
-  await supabase
+  let { error } = await supabase
     .from('users')
     .update({ email_verified: true, manual_verified_at: Date.now(), verification_token: token, reverify_email_sent_at: null })
     .eq('id', req.params.id);
+  // Colonnes pas encore ajoutées (migration-reverification.sql pas encore
+  // exécutée) : la validation manuelle elle-même (email_verified) ne doit
+  // jamais échouer à cause d'elles, donc on republie sans elles plutôt que
+  // de laisser toute la mise à jour échouer sans le moindre effet visible.
+  if (error && /(manual_verified_at|reverify_email_sent_at)/.test(error.message || '')) {
+    ({ error } = await supabase.from('users').update({ email_verified: true, verification_token: token }).eq('id', req.params.id));
+  }
+  if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   res.json({ ok: true });
 });
 
@@ -2068,21 +2086,28 @@ app.delete('/api/admin/webauthn/credentials/:id', requireAdmin, async (req, res)
 
 // --- Modèles de facture PDF (squelette, pas encore branché à un vrai
 // déclencheur) ---
-// Génère un PDF d'exemple pour vérifier que le modèle fonctionne, en
-// attendant que les détails définitifs (champs légaux, déclencheur,
-// numérotation, stockage 10 ans) soient précisés — voir pdfInvoice.js.
+// Génère un PDF de test pour vérifier la mise en page, y compris avec de
+// vraies coordonnées légales (nom, adresse, SIRET) une fois qu'elles
+// existent : un moyen de tester le rendu avant de les considérer comme
+// définitives, sans que ce soit relié à un vrai compte ni à un vrai
+// déclencheur. Le numéro "TEST-0001" et la mention dans les notes
+// empêchent que ce PDF soit jamais pris pour une vraie facture.
 app.get('/api/admin/invoice-preview', requireAdmin, async (req, res) => {
+  const sellerName = (req.query.sellerName && String(req.query.sellerName).trim()) || 'Risuona';
+  const sellerExtra =
+    (req.query.sellerExtra && String(req.query.sellerExtra).trim()) ||
+    'Exemple — coordonnées légales (SIRET, TVA…) à compléter';
   const pdf = await generateInvoicePdf({
-    invoiceNumber: 'EXEMPLE-0001',
+    invoiceNumber: 'TEST-0001',
     date: new Date(),
-    seller: { name: 'Risuona', extra: 'Exemple — coordonnées légales (SIRET, TVA…) à compléter' },
+    seller: { name: sellerName, extra: sellerExtra },
     buyer: { name: 'Artiste Exemple', email: 'artiste@example.com' },
     lines: [{ description: 'Service exemple', amount: 12.5 }],
     total: 12.5,
-    notes: "Document d'exemple pour vérifier le modèle — pas une vraie facture.",
+    notes: "Document de test pour vérifier la mise en page — pas une vraie facture, jamais envoyé ni enregistré nulle part.",
   });
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', 'inline; filename="exemple-facture.pdf"');
+  res.setHeader('Content-Disposition', 'inline; filename="test-facture.pdf"');
   res.send(pdf);
 });
 
@@ -2333,10 +2358,16 @@ app.use((err, req, res, next) => {
 // été cliqué, on renvoie le vrai e-mail de vérification — une seule fois
 // par validation manuelle (reverify_email_sent_at évite les renvois en
 // boucle à chaque passage de cette vérification périodique).
+//
+// Déclenché de l'extérieur (voir .github/workflows/reverification-quotidienne.yml)
+// plutôt que par un setInterval interne : sur le plan gratuit Render, le
+// service s'endort après 15 minutes sans visite, donc un intervalle
+// interne de plusieurs heures ne se déclenche presque jamais en
+// pratique — exactement le même problème, et la même solution, que pour
+// le digest quotidien (voir /api/internal/send-digest un peu plus haut).
 const REVERIFY_DELAY_MS = 3 * 24 * 60 * 60 * 1000;
-const REVERIFY_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // toutes les 6h
 async function checkPendingReverifications() {
-  if (!resendClient.isConfigured()) return;
+  if (!resendClient.isConfigured()) return 0;
   const threshold = Date.now() - REVERIFY_DELAY_MS;
   const { data: users, error } = await supabase
     .from('users')
@@ -2345,17 +2376,30 @@ async function checkPendingReverifications() {
     .is('reverify_email_sent_at', null)
     .not('manual_verified_at', 'is', null)
     .lte('manual_verified_at', threshold);
-  if (error || !users || !users.length) return;
+  if (error || !users || !users.length) return 0;
   const siteUrl = process.env.SITE_URL || 'https://risuonamusic.com';
+  let sent = 0;
   for (const user of users) {
     const token = user.verification_token || crypto.randomBytes(24).toString('hex');
     if (!user.verification_token) await supabase.from('users').update({ verification_token: token }).eq('id', user.id);
     resendClient.sendVerificationEmail(user.email, user.artist_name, token, siteUrl);
     await supabase.from('users').update({ reverify_email_sent_at: Date.now() }).eq('id', user.id);
+    sent++;
   }
+  return sent;
 }
-setInterval(checkPendingReverifications, REVERIFY_CHECK_INTERVAL_MS);
-checkPendingReverifications();
+
+// Même secret partagé que le digest (DIGEST_SECRET, déjà configuré côté
+// Render et GitHub) : pas besoin d'un deuxième secret pour une deuxième
+// tâche du même genre.
+app.post('/api/internal/check-reverifications', async (req, res) => {
+  const secret = req.headers['x-digest-secret'];
+  if (!process.env.DIGEST_SECRET || secret !== process.env.DIGEST_SECRET) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  const sent = await checkPendingReverifications();
+  res.json({ ok: true, sent });
+});
 
 // --- Nettoyage des logs de connexion (rétention 1 an, obligation LCEN) ---
 const LOGIN_LOG_RETENTION_MS = 365 * 24 * 60 * 60 * 1000;

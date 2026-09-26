@@ -1,0 +1,32 @@
+name: Renvoi quotidien des demandes de confirmation d'e-mail
+
+# Même principe que digest-quotidien.yml : un setInterval interne à
+# server.js ne se déclenche presque jamais sur le plan gratuit Render (le
+# service s'endort après 15 minutes sans visite), donc ce workflow
+# "sonne à la porte" du site une fois par jour à sa place. C'est le site
+# lui-même (server.js, route /api/internal/check-reverifications) qui
+# décide s'il y a des comptes à relancer : ceux validés à la main depuis
+# Administration il y a plus de 3 jours, dont le vrai lien reçu par
+# e-mail n'a toujours pas été cliqué.
+#
+# 10h UTC, une heure après le digest quotidien, pour répartir les deux
+# appels dans le temps plutôt que de les faire tomber pile ensemble.
+#
+# Réutilise le secret DIGEST_SECRET déjà créé pour digest-quotidien.yml
+# (Settings → Secrets and variables → Actions), pas besoin d'en ajouter
+# un deuxième.
+
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check-reverifications:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Déclencher la vérification des comptes en attente
+        run: |
+          curl -sS -X POST "https://risuonamusic.com/api/internal/check-reverifications" \
+            -H "x-digest-secret: ${{ secrets.DIGEST_SECRET }}" \
+            --fail
