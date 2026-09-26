@@ -114,6 +114,12 @@ async function refreshMe() {
     loadMessages();
     loadPlaylists();
     initPushUI();
+    // Sans cet appel, les panneaux qui dépendent du type de compte (avis
+    // "compte auditeur", bouton pour redevenir auditeur, case SACEM...)
+    // restaient sur leur état "hidden" par défaut du HTML tant qu'aucune
+    // autre action (connexion, sauvegarde du profil...) n'avait eu lieu
+    // dans la même session : un simple rechargement de page les cachait.
+    refreshOnboarding();
   }
 }
 
