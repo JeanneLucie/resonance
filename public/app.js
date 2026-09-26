@@ -2447,12 +2447,15 @@ async function loadWebauthnCredentials() {
     return;
   }
   list.innerHTML = credentials
-    .map(
-      (c) =>
-        '<div class="admin-row"><div class="who"><span>' + escapeHtml(new Date(c.createdAt).toLocaleDateString('fr-FR')) + '</span></div>' +
+    .map((c) => {
+      const label = c.deviceLabel || t('admin.webauthn.deviceGeneric');
+      const dateStr = escapeHtml(new Date(c.createdAt).toLocaleDateString('fr-FR'));
+      return (
+        '<div class="admin-row"><div class="who"><span>' + escapeHtml(label) + '</span><span class="sub">' + dateStr + '</span></div>' +
         '<button type="button" class="mini-btn" data-delete-webauthn-id="' + c.id + '">' + t('admin.webauthn.delete') + '</button>' +
         '</div>'
-    )
+      );
+    })
     .join('');
   list.querySelectorAll('[data-delete-webauthn-id]').forEach((delBtn) => {
     delBtn.addEventListener('click', async () => {

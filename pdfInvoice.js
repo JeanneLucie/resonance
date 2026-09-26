@@ -25,6 +25,14 @@
 // simple et lisible.
 
 const PDFDocument = require('pdfkit');
+const path = require('path');
+const fs = require('fs');
+
+// Seul visuel existant pour l'instant (l'icône de l'application) : pas un
+// vrai logo pensé pour un document (fond carré sombre), mais mieux que
+// rien tant qu'aucun logo dédié n'a été fourni. À remplacer facilement si
+// un logo au format paysage ou à fond transparent est créé plus tard.
+const LOGO_PATH = path.join(__dirname, 'public', 'icons', 'icon-512.png');
 
 /**
  * @param {Object} invoice
@@ -47,6 +55,13 @@ function generateInvoicePdf(invoice) {
       doc.on('error', reject);
 
       const dateStr = invoice.date instanceof Date ? invoice.date.toLocaleDateString('fr-FR') : String(invoice.date || '');
+
+      try {
+        if (fs.existsSync(LOGO_PATH)) doc.image(LOGO_PATH, 50, 45, { width: 40 });
+      } catch (e) {
+        // Le logo est purement décoratif : une erreur ici ne doit jamais
+        // empêcher la génération du PDF.
+      }
 
       doc.fontSize(20).text('Facture', { align: 'right' });
       doc.fontSize(10).fillColor('#666').text('N° ' + (invoice.invoiceNumber || ''), { align: 'right' });

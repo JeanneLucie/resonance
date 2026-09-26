@@ -671,6 +671,11 @@
           <input type="text" id="admin-invoice-seller-name" name="sellerName" placeholder="Risuona">
           <label data-i18n="admin.invoice.sellerExtraLabel" for="admin-invoice-seller-extra">Adresse, SIRET, TVA… à tester</label>
           <textarea id="admin-invoice-seller-extra" name="sellerExtra" rows="3" placeholder="Exemple — coordonnées légales (SIRET, TVA…) à compléter"></textarea>
+          <label data-i18n="admin.invoice.buyerNameLabel" for="admin-invoice-buyer-name">Nom du client à tester</label>
+          <input type="text" id="admin-invoice-buyer-name" name="buyerName" placeholder="Artiste Exemple">
+          <label data-i18n="admin.invoice.buyerEmailLabel" for="admin-invoice-buyer-email">E-mail du client à tester</label>
+          <input type="text" id="admin-invoice-buyer-email" name="buyerEmail" placeholder="artiste@example.com">
+          <p class="field-hint" data-i18n="admin.invoice.buyerHint">Ces deux champs servent uniquement à voir comment le nom du client s'affiche sur la facture. Aucun compte réel n'est contacté ni sélectionné : le vrai choix du client se fera quand le déclencheur de facturation sera décidé.</p>
           <button type="submit" class="mini-btn" data-i18n="admin.invoice.previewLink">📄 Générer un PDF de test</button>
         </form>
       </div>

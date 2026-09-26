@@ -74,6 +74,21 @@ app.use((req, res, next) => {
 const WEBAUTHN_RP_NAME = 'Risuona';
 const WEBAUTHN_ORIGIN = 'https://' + CANONICAL_HOST;
 
+// Étiquette lisible du type d'appareil (Mac, iPhone...), déduite du
+// User-Agent envoyé au moment de l'enregistrement Face ID / Touch ID.
+// Purement informatif pour t'aider à distinguer tes appareils dans la
+// liste ; aucune conséquence si la déduction est approximative.
+function deviceLabelFromUserAgent(ua) {
+  const s = String(ua || '');
+  if (/iPhone/i.test(s)) return 'iPhone';
+  if (/iPad/i.test(s)) return 'iPad';
+  if (/Macintosh|Mac OS X/i.test(s)) return 'Mac';
+  if (/Android/i.test(s)) return 'Android';
+  if (/Windows/i.test(s)) return 'Windows';
+  if (/Linux/i.test(s)) return 'Linux';
+  return '';
+}
+
 // --- Config upload (audio, pochettes, avatars, bannières) ---
 // Les fichiers sont stockés sur Supabase Storage (bucket "media"),
 // permanent — contrairement à un dossier local sur Render, qui peut être
@@ -2057,26 +2072,41 @@ app.post('/api/admin/webauthn/register-verify', requireAdmin, async (req, res) =
   delete req.session.webauthnChallenge;
   if (!verification.verified || !verification.registrationInfo) return res.status(400).json({ error: 'invalid_registration' });
   const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
-  const { error } = await supabase.from('webauthn_credentials').insert({
+  const newRow = {
     user_id: req.session.userId,
     credential_id: credential.id,
     public_key: Buffer.from(credential.publicKey).toString('base64url'),
     counter: credential.counter,
     device_type: credentialDeviceType || '',
+    device_label: deviceLabelFromUserAgent(req.headers['user-agent']),
     backed_up: !!credentialBackedUp,
     created_at: Date.now(),
-  });
+  };
+  let { error } = await supabase.from('webauthn_credentials').insert(newRow);
+  if (error && /device_label/.test(error.message || '')) {
+    // Migration de la colonne device_label pas encore exécutée : on
+    // enregistre quand même l'appareil, simplement sans l'étiquette.
+    delete newRow.device_label;
+    ({ error } = await supabase.from('webauthn_credentials').insert(newRow));
+  }
   if (error) return res.status(500).json({ error: 'server_error', message: error.message });
   res.json({ ok: true });
 });
 
 app.get('/api/admin/webauthn/credentials', requireAdmin, async (req, res) => {
-  const { data } = await supabase
+  let { data, error } = await supabase
     .from('webauthn_credentials')
-    .select('id, device_type, created_at')
+    .select('id, device_type, device_label, created_at')
     .eq('user_id', req.session.userId)
     .order('created_at', { ascending: true });
-  res.json({ credentials: (data || []).map((c) => ({ id: c.id, deviceType: c.device_type, createdAt: Number(c.created_at) })) });
+  if (error && /device_label/.test(error.message || '')) {
+    ({ data } = await supabase
+      .from('webauthn_credentials')
+      .select('id, device_type, created_at')
+      .eq('user_id', req.session.userId)
+      .order('created_at', { ascending: true }));
+  }
+  res.json({ credentials: (data || []).map((c) => ({ id: c.id, deviceType: c.device_type, deviceLabel: c.device_label || '', createdAt: Number(c.created_at) })) });
 });
 
 app.delete('/api/admin/webauthn/credentials/:id', requireAdmin, async (req, res) => {
@@ -2097,11 +2127,13 @@ app.get('/api/admin/invoice-preview', requireAdmin, async (req, res) => {
   const sellerExtra =
     (req.query.sellerExtra && String(req.query.sellerExtra).trim()) ||
     'Exemple — coordonnées légales (SIRET, TVA…) à compléter';
+  const buyerName = (req.query.buyerName && String(req.query.buyerName).trim()) || 'Artiste Exemple';
+  const buyerEmail = (req.query.buyerEmail && String(req.query.buyerEmail).trim()) || 'artiste@example.com';
   const pdf = await generateInvoicePdf({
     invoiceNumber: 'TEST-0001',
     date: new Date(),
     seller: { name: sellerName, extra: sellerExtra },
-    buyer: { name: 'Artiste Exemple', email: 'artiste@example.com' },
+    buyer: { name: buyerName, email: buyerEmail },
     lines: [{ description: 'Service exemple', amount: 12.5 }],
     total: 12.5,
     notes: "Document de test pour vérifier la mise en page — pas une vraie facture, jamais envoyé ni enregistré nulle part.",
