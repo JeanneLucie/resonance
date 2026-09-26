@@ -391,6 +391,10 @@ function publicUser(u) {
     // Nom affiché sur les pochettes créées automatiquement : 'full' (nom
     // complet) ou 'initials' (ex. « M.D. » pour Marine Dax).
     coverNameStyle: u.cover_name_style === 'initials' ? 'initials' : 'full',
+    // Déclaration volontaire d'adhésion SACEM (voir migration-sacem-membership.sql).
+    // Globale à l'artiste, pas par morceau : la SACEM ne fonctionne pas ainsi.
+    sacemMember: u.sacem_member === true,
+    sacemMemberSince: u.sacem_member_since ? Number(u.sacem_member_since) : null,
   };
 }
 
@@ -1212,7 +1216,11 @@ app.put(
   requireAuth,
   upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'banner', maxCount: 1 }]),
   async (req, res) => {
-    const { data: current } = await supabase.from('users').select('avatar_url, banner_url').eq('id', req.session.userId).single();
+    const { data: current } = await supabase
+      .from('users')
+      .select('avatar_url, banner_url, sacem_member')
+      .eq('id', req.session.userId)
+      .single();
 
     const fields = {
       artist_name: req.body.artistName,
@@ -1228,6 +1236,15 @@ app.put(
     if (req.body.coverNameStyle === 'full' || req.body.coverNameStyle === 'initials') {
       fields.cover_name_style = req.body.coverNameStyle;
     }
+    // Déclaration SACEM (voir migration-sacem-membership.sql) : simple
+    // booléen, global à l'artiste (pas par morceau). On ne pose la date
+    // que lors du passage non-membre → membre, jamais retouchée ensuite,
+    // pour que l'admin voie depuis quand c'est le cas.
+    if (req.body.sacemMember === 'true' || req.body.sacemMember === 'false') {
+      const wasMember = current && current.sacem_member === true;
+      fields.sacem_member = req.body.sacemMember === 'true';
+      if (fields.sacem_member && !wasMember) fields.sacem_member_since = Date.now();
+    }
     Object.keys(fields).forEach((k) => fields[k] === undefined && delete fields[k]);
 
     const avatarFile = req.files && req.files.avatar && req.files.avatar[0];
@@ -1241,7 +1258,15 @@ app.put(
       if (current && current.banner_url) removeFromStorage(current.banner_url);
     }
 
-    const { data: user, error } = await supabase.from('users').update(fields).eq('id', req.session.userId).select().single();
+    let { data: user, error } = await supabase.from('users').update(fields).eq('id', req.session.userId).select().single();
+    // Colonnes sacem_member / sacem_member_since pas encore ajoutées côté
+    // Supabase (migration-sacem-membership.sql pas encore exécutée) : on
+    // enregistre quand même le reste du profil plutôt que de tout bloquer.
+    if (error && /sacem_member/.test(error.message || '')) {
+      delete fields.sacem_member;
+      delete fields.sacem_member_since;
+      ({ data: user, error } = await supabase.from('users').update(fields).eq('id', req.session.userId).select().single());
+    }
     if (error) return res.status(500).json({ error: 'server_error', message: error.message });
     res.json({ ok: true, user: publicUser(user) });
   }

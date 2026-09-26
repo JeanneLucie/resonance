@@ -349,6 +349,16 @@
           <input type="url" id="profile-sunoUrl" placeholder="https://suno.com/@…">
           <label data-i18n="dashboard.profile.bandcamp" for="profile-bandcampUrl">Lien Bandcamp</label>
           <input type="url" id="profile-bandcampUrl" placeholder="https://tonpseudo.bandcamp.com">
+          <div id="sacem-field-wrap" style="margin-top:10px;">
+            <div class="checkbox-row">
+              <input type="checkbox" id="profile-sacemMember">
+              <div class="ctext">
+                <strong data-i18n="profile.sacem.label">Je suis membre de la SACEM</strong><br>
+                <span data-i18n="profile.sacem.hint">La SACEM collecte et reverse les droits d'auteur quand ta musique est diffusée publiquement. L'adhésion est une démarche personnelle, indépendante de Risuona, et ne se fait pas morceau par morceau.</span>
+              </div>
+            </div>
+            <a href="https://createurs.sacem.fr/" target="_blank" rel="noopener" class="mini-btn" data-i18n="profile.sacem.link" style="margin-top:6px; display:inline-block;">Adhérer à la SACEM</a>
+          </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" data-i18n="dashboard.profile.save">Enregistrer le profil</button>
             <span class="form-note" id="profile-status" aria-live="polite"></span>

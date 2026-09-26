@@ -471,6 +471,7 @@ function fillProfileForm(user) {
   document.getElementById('profile-sunoUrl').value = user.sunoUrl || '';
   document.getElementById('profile-bandcampUrl').value = user.bandcampUrl || '';
   document.getElementById('profile-coverNameStyle').value = user.coverNameStyle === 'initials' ? 'initials' : 'full';
+  document.getElementById('profile-sacemMember').checked = user.sacemMember === true;
 
   const avatarPreview = document.getElementById('profile-avatar-preview');
   if (user.avatarUrl) { avatarPreview.src = user.avatarUrl; avatarPreview.hidden = false; } else { avatarPreview.hidden = true; avatarPreview.src = ''; }
@@ -489,6 +490,7 @@ document.getElementById('profile-form').addEventListener('submit', async (e) => 
   formData.append('instagramUrl', document.getElementById('profile-instagramUrl').value.trim());
   formData.append('sunoUrl', document.getElementById('profile-sunoUrl').value.trim());
   formData.append('bandcampUrl', document.getElementById('profile-bandcampUrl').value.trim());
+  formData.append('sacemMember', document.getElementById('profile-sacemMember').checked ? 'true' : 'false');
   // Envoyé seulement s'il change (tant que l'étape Supabase n'est pas faite,
   // le profil s'enregistre donc normalement).
   const coverNameStyle = document.getElementById('profile-coverNameStyle').value;
@@ -993,7 +995,7 @@ document.getElementById('request-deletion-link').addEventListener('click', async
 function applyAccountTypeUI() {
   if (!currentUser) return;
   const isFan = currentUser.accountType === 'fan';
-  ['onboarding-panel', 'publish-panel', 'my-tracks-panel', 'stats-panel', 'messages-panel', 'distrib-guide-panel'].forEach((id) => {
+  ['onboarding-panel', 'publish-panel', 'my-tracks-panel', 'stats-panel', 'messages-panel', 'distrib-guide-panel', 'sacem-field-wrap'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.hidden = isFan;
   });
@@ -2559,6 +2561,7 @@ function renderAdminUsers() {
         // en règle, comme avant).
         (u.role !== 'admin' && u.emailVerified && !u.verifiedViaLink ? ' <span class="admin-badge">' + t('admin.users.manuallyVerified') + '</span>' : '') +
         (u.identityVerified ? ' <span class="admin-badge admin-badge-verified">' + t('admin.users.identityVerified') + '</span>' : '') +
+        (u.sacemMember ? ' <span class="admin-badge admin-badge-verified">' + t('admin.users.sacem').replace('{date}', u.sacemMemberSince ? formatDate(u.sacemMemberSince) : '?') + '</span>' : '') +
         '</span><span class="sub">' + escapeHtml(u.email) +
         (u.createdAt ? ' · ' + t('admin.users.joined').replace('{date}', formatDate(u.createdAt)) : '') +
         '</span></div>' +
